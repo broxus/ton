@@ -522,6 +522,18 @@ class AccountState {
         initial_account_state,
         td::overloaded(
             [](auto& x) {},
+            [&](tonlib_api::wallet_v3_initialAccountState& wallet_v3) {
+              wallet_id_ = static_cast<uint32_t>(wallet_v3.wallet_id_);
+            },
+            [&](tonlib_api::wallet_highload_v1_initialAccountState& wallet_highload_v1) {
+              wallet_id_ = static_cast<uint32_t>(wallet_highload_v1.wallet_id_);
+            },
+            [&](tonlib_api::wallet_highload_v2_initialAccountState& wallet_highload_v2) {
+              wallet_id_ = static_cast<uint32_t>(wallet_highload_v2.wallet_id_);
+            },
+            [&](tonlib_api::dns_initialAccountState& dns) {
+              wallet_id_ = static_cast<uint32_t>(dns.wallet_id_);
+            },
             [&](tonlib_api::rwallet_initialAccountState& rwallet) {
               for (auto revision : ton::SmartContractCode::get_revisions(ton::SmartContractCode::RestrictedWallet)) {
                 auto r_init_data = to_init_data(rwallet);
@@ -532,8 +544,11 @@ class AccountState {
                 if (!(wallet->get_address() == address_)) {
                   continue;
                 }
+
                 wallet_type_ = WalletType::RestrictedWallet;
                 wallet_revision_ = revision;
+                wallet_id_ = static_cast<uint32_t>(rwallet.wallet_id_);
+
                 set_new_state(wallet->get_state());
                 break;
               }
