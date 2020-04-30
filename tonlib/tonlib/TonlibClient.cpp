@@ -585,35 +585,35 @@ class AccountState {
     if (wallet_type_ != WalletType::Empty) {
       return wallet_type_;
     }
-    auto wallet_id = address_.workchain + wallet_id_;
-    auto o_revision = ton::WalletV3::guess_revision(address_, key, wallet_id);
+
+    auto o_revision = ton::WalletV3::guess_revision(address_, key, wallet_id_);
     if (o_revision) {
       wallet_type_ = WalletType::WalletV3;
       wallet_revision_ = o_revision.value();
-      set_new_state({ton::WalletV3::get_init_code(wallet_revision_), ton::WalletV3::get_init_data(key, wallet_id)});
+      set_new_state({ton::WalletV3::get_init_code(wallet_revision_), ton::WalletV3::get_init_data(key, wallet_id_)});
       return wallet_type_;
     }
-    o_revision = ton::HighloadWalletV2::guess_revision(address_, key, wallet_id + address_.workchain);
+    o_revision = ton::HighloadWalletV2::guess_revision(address_, key, wallet_id_);
     if (o_revision) {
       wallet_type_ = WalletType::HighloadWalletV2;
       wallet_revision_ = o_revision.value();
       set_new_state({ton::HighloadWalletV2::get_init_code(wallet_revision_),
-                     ton::HighloadWalletV2::get_init_data(key, wallet_id + address_.workchain)});
+                     ton::HighloadWalletV2::get_init_data(key, wallet_id_)});
       return wallet_type_;
     }
-    o_revision = ton::HighloadWallet::guess_revision(address_, key, wallet_id);
+    o_revision = ton::HighloadWallet::guess_revision(address_, key, wallet_id_);
     if (o_revision) {
       wallet_type_ = WalletType::HighloadWalletV1;
       wallet_revision_ = o_revision.value();
       set_new_state(
-          {ton::HighloadWallet::get_init_code(wallet_revision_), ton::HighloadWallet::get_init_data(key, wallet_id)});
+          {ton::HighloadWallet::get_init_code(wallet_revision_), ton::HighloadWallet::get_init_data(key, wallet_id_)});
       return wallet_type_;
     }
-    o_revision = ton::ManualDns::guess_revision(address_, key, wallet_id);
+    o_revision = ton::ManualDns::guess_revision(address_, key, wallet_id_);
     if (o_revision) {
       wallet_type_ = WalletType::ManualDns;
       wallet_revision_ = o_revision.value();
-      auto dns = ton::ManualDns::create(key, wallet_id, wallet_revision_);
+      auto dns = ton::ManualDns::create(key, wallet_id_, wallet_revision_);
       set_new_state(dns->get_state());
       return wallet_type_;
     }
