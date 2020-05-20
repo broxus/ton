@@ -2024,13 +2024,12 @@ const MasterConfig& get_default_master_config() {
   "validator": {
     "@type": "validator.config.global",
     "zero_state": {
-      "workchain": -1,
+    "workchain": -1,
       "shard": -9223372036854775808,
       "seqno": 0,
-      "root_hash": "F6OpKZKqvqeFp6CQmFomXNMfMj2EnaUSOXN+Mh+wVWk=",
-      "file_hash": "XplPz01CXAps5qeSWUtxcyBfdAo5zVb1N979KLSKD24="
-    },
-    "init_block": {"workchain":-1,"shard":-9223372036854775808,"seqno":2908451,"root_hash":"5+7X1QHVUBFLFMwa/yd/2fGzt2KeQtwr+o6UUFOQ7Qc=","file_hash":"gmiUgrtAbvEJZYDEkcbeNOhGPS3g+qCepSOEBFLZFzk="}
+      "root_hash": "WP/KGheNr/cF3lQhblQzyb0ufYUAcNM004mXhHq56EU=",
+      "file_hash": "0nC4eylStbp9qnCq8KjDYb789NjS25L5ZA1UQwcIOOQ="
+    }
   }
 })abc");
     return res;
