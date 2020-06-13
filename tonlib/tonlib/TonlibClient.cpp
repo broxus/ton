@@ -2034,6 +2034,20 @@ const MasterConfig& get_default_master_config() {
 {"workchain":-1,"shard":-9223372036854775808,"seqno":2908451,"root_hash":"5+7X1QHVUBFLFMwa/yd/2fGzt2KeQtwr+o6UUFOQ7Qc=","file_hash":"gmiUgrtAbvEJZYDEkcbeNOhGPS3g+qCepSOEBFLZFzk="}
   }
 })abc");
+    res.add_config("net.ton.dev", R"abc({
+  "liteservers": [
+  ],
+  "validator": {
+    "@type": "validator.config.global",
+    "zero_state": {
+      "workchain": -1,
+      "shard": -9223372036854775808,
+      "seqno": 0,
+      "root_hash": "NMi7OrpZoP9NsAPJ4FGSJoNW96NfNsE8Bpb8+TecVco=",
+      "file_hash": "ertwh9fOaAGNln4GyAjl99ex6RvitLP/+GFQJabkZQM="
+    }
+  }
+})abc");
     res.add_config("mainnet", R"abc({
   "liteservers": [
   ],
