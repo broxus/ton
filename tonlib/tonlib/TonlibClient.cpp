@@ -543,27 +543,26 @@ class AccountState {
       return wallet_type_;
     }
 
-    auto o_revision = ton::WalletV3::guess_revision(address_, key, wallet_id_);
+    ton::WalletV3::InitData init_data{key.as_octet_string(), wallet_id_};
+    auto o_revision = ton::WalletV3::guess_revision(address_,  init_data);
     if (o_revision) {
       wallet_type_ = WalletType::WalletV3;
       wallet_revision_ = o_revision.value();
-      set_new_state({ton::WalletV3::get_init_code(wallet_revision_), ton::WalletV3::get_init_data(key, wallet_id_)});
+      set_new_state(ton::WalletV3::get_init_state(wallet_revision_, init_data));
       return wallet_type_;
     }
-    o_revision = ton::HighloadWalletV2::guess_revision(address_, key, wallet_id_);
+    o_revision = ton::HighloadWalletV2::guess_revision(address_, init_data);
     if (o_revision) {
       wallet_type_ = WalletType::HighloadWalletV2;
       wallet_revision_ = o_revision.value();
-      set_new_state({ton::HighloadWalletV2::get_init_code(wallet_revision_),
-                     ton::HighloadWalletV2::get_init_data(key, wallet_id_)});
+      set_new_state(ton::HighloadWalletV2::get_init_state(wallet_revision_, init_data));
       return wallet_type_;
     }
-    o_revision = ton::HighloadWallet::guess_revision(address_, key, wallet_id_);
+    o_revision = ton::HighloadWallet::guess_revision(address_, init_data);
     if (o_revision) {
       wallet_type_ = WalletType::HighloadWalletV1;
       wallet_revision_ = o_revision.value();
-      set_new_state(
-          {ton::HighloadWallet::get_init_code(wallet_revision_), ton::HighloadWallet::get_init_data(key, wallet_id_)});
+      set_new_state(ton::HighloadWallet::get_init_state(wallet_revision_, init_data));
       return wallet_type_;
     }
     o_revision = ton::ManualDns::guess_revision(address_, key, wallet_id_);
