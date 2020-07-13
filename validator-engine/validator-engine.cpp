@@ -3136,7 +3136,7 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_createCom
       .release();
 }
 
-void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_downloadBlock &query, ton::BlockIdExt id,
+void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_downloadBlock &query, td::BufferSlice data,
                                         ton::PublicKeyHash src, td::uint32 perm, td::Promise<td::BufferSlice> promise) {
   if (!(perm & ValidatorEnginePermissions::vep_modify)) {
     promise.set_value(create_control_query_error(td::Status::Error(ton::ErrorCode::error, "not authorized")));
@@ -3146,6 +3146,8 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_downloadB
     promise.set_value(create_control_query_error(td::Status::Error(ton::ErrorCode::notready, "not started")));
     return;
   }
+
+  auto id = create_block_id(query.block_);
 
   td::actor::send_closure(full_node_, &ton::validator::fullnode::FullNode::download_block, id, 1,
                           td::Timestamp::in(10.0), [promise = std::move(promise)](ton::ReceivedBlock block) mutable {
