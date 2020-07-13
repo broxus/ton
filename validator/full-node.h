@@ -55,6 +55,8 @@ class FullNode : public td::actor::Actor {
 
   virtual void update_adnl_id(adnl::AdnlNodeIdShort adnl_id, td::Promise<td::Unit> promise) = 0;
 
+  virtual void download_block(BlockIdExt id, td::uint32 priority, td::Timestamp timeout, td::Promise<ReceivedBlock> promise) = 0;
+
   static constexpr td::uint32 max_block_size() {
     return 4 << 20;
   }

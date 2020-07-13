@@ -653,11 +653,13 @@ engine.validator.setVerbosity verbosity:int = engine.validator.Success;
 
 engine.validator.createElectionBid election_date:int election_addr:string wallet:string = engine.validator.ElectionBid;
 engine.validator.createProposalVote vote:bytes = engine.validator.ProposalVote; 
-engine.validator.createComplaintVote election_id:int vote:bytes = engine.validator.ProposalVote; 
+engine.validator.createComplaintVote election_id:int vote:bytes = engine.validator.ProposalVote;
 
 engine.validator.checkDhtServers id:int256 = engine.validator.DhtServersStatus;
 
 engine.validator.controlQuery data:bytes = Object;
+
+engine.validator.downloadBlock block:tonNode.blockIdExt = engine.validator.Success;
 
 ---types---
 

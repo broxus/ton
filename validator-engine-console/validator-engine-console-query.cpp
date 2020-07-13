@@ -29,6 +29,7 @@
 #include "validator-engine-console.h"
 #include "terminal/terminal.h"
 #include "td/utils/filesystem.h"
+#include "ton/ton-tl.hpp"
 
 #include <cctype>
 
@@ -718,5 +719,36 @@ td::Status CheckDhtServersQuery::receive(td::BufferSlice data) {
   for (auto &s : f->servers_) {
     td::TerminalIO::out() << "id=" << s->id_ << " status=" << (s->status_ ? "SUCCESS" : "FAIL") << "\n";
   }
+  return td::Status::OK();
+}
+
+td::Status DownloadBlockQuery::run() {
+  ton::WorkchainId workchain;
+  ton::ShardId shard;
+  ton::BlockSeqno seqno;
+  ton::RootHash root_hash;
+  ton::FileHash file_hash;
+  TRY_RESULT_ASSIGN(workchain, tokenizer_.get_token<ton::WorkchainId>());
+  TRY_RESULT_ASSIGN(shard, tokenizer_.get_token<ton::ShardId>());
+  TRY_RESULT_ASSIGN(seqno, tokenizer_.get_token<ton::BlockSeqno>());
+  TRY_RESULT_ASSIGN(root_hash, tokenizer_.get_token<ton::RootHash>());
+  TRY_RESULT_ASSIGN(file_hash, tokenizer_.get_token<ton::FileHash>());
+  TRY_STATUS(tokenizer_.check_endl());
+
+  block_ = ton::BlockIdExt(workchain, shard, seqno, root_hash, file_hash);
+
+  return td::Status::OK();
+}
+
+td::Status DownloadBlockQuery::send() {
+  auto b = ton::create_serialize_tl_object<ton::ton_api::engine_validator_downloadBlock>(create_tl_block_id(block_));
+  td::actor::send_closure(console_, &ValidatorEngineConsole::envelope_send_query, std::move(b), create_promise());
+  return td::Status::OK();
+}
+
+td::Status DownloadBlockQuery::receive(td::BufferSlice data) {
+  TRY_RESULT_PREFIX(f, ton::fetch_tl_object<ton::ton_api::engine_validator_downloadBlock>(data.as_slice(), true),
+                    "received incorrect answer: ");
+  td::TerminalIO::out() << "block_id=" << block_.to_str() << "\n";
   return td::Status::OK();
 }
