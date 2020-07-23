@@ -918,8 +918,8 @@ bool TestNode::show_help(std::string command) {
          "remote-version\tShows server time, version and capabilities\n"
          "last\tGet last block and state info from server\n"
          "sendfile <filename>\tLoad a serialized message from <filename> and send it to server\n"
-         "checkhasmessage <addr> <message-id>\tCheck whether specified account has this message in transaction "
-         "history\n"
+         "findtransaction <addr> <message-id> <after-utime> <before-utime>\tCheck whether specified account has this "
+         "message in transaction history\n"
          "status\tShow connection and local database status\n"
          "getaccount <addr> [<block-id-ext>]\tLoads the most recent state of specified account; <addr> is in "
          "[<workchain>:]<hex-or-base64-addr> format\n"
@@ -1005,9 +1005,10 @@ bool TestNode::do_parse_line() {
     return eoln() && get_server_mc_block_id();
   } else if (word == "sendfile") {
     return !eoln() && set_error(send_ext_msg_from_filename(get_line_tail()));
-  } else if (word == "checkhasmessage") {
-    return parse_account_addr(workchain, addr) && parse_hash(hash) && seekeoln() &&
-           check_has_message(workchain, addr, hash);
+  } else if (word == "findtransaction") {
+    ton::UnixTime after, before;
+    return parse_account_addr(workchain, addr) && parse_hash(hash) && parse_uint32(after) && parse_uint32(before) &&
+           seekeoln() && find_transaction(workchain, addr, hash, after, before);
   } else if (word == "getaccount") {
     return parse_account_addr_ext(workchain, addr, addr_ext) &&
            (seekeoln()
@@ -1173,10 +1174,11 @@ td::Status TestNode::send_ext_msg_from_filename(std::string filename) {
   }
 }
 
-bool TestNode::check_has_message(ton::WorkchainId workchain, ton::StdSmcAddress addr, ton::Bits256 message_id) {
+bool TestNode::find_transaction(ton::WorkchainId workchain, ton::StdSmcAddress addr, ton::Bits256 message_id,
+                                ton::UnixTime after, ton::UnixTime before) {
   auto a = ton::create_tl_object<ton::lite_api::liteServer_accountId>(workchain, addr);
   auto b = ton::serialize_tl_object(
-      ton::create_tl_object<ton::lite_api::liteServer_checkHasMessage>(std::move(a), message_id), true);
+      ton::create_tl_object<ton::lite_api::liteServer_findTransaction>(std::move(a), message_id, after, before), true);
   LOG(INFO) << "requesting whether account " << workchain << ":" << addr.to_hex() << " has message with id "
             << message_id;
   return envelope_send_query(std::move(b), [Self = actor_id(this)](td::Result<td::BufferSlice> R) {

@@ -145,8 +145,8 @@ void LiteQuery::start_up() {
                                           static_cast<LogicalTime>(q.lt_), q.hash_, static_cast<unsigned>(q.count_));
           },
           [&](lite_api::liteServer_sendMessage& q) { this->perform_sendMessage(std::move(q.body_)); },
-          [&](lite_api::liteServer_checkHasMessage& q) {
-            this->perform_checkHasMessage(q.account_->workchain_, q.account_->id_, q.message_id_);
+          [&](lite_api::liteServer_findTransaction& q) {
+            this->perform_findTransaction(q.account_->workchain_, q.account_->id_, q.message_id_, q.after_, q.before_);
           },
           [&](lite_api::liteServer_getShardInfo& q) {
             this->perform_getShardInfo(ton::create_block_id(q.id_),
@@ -445,12 +445,16 @@ void LiteQuery::perform_sendMessage(td::BufferSlice data) {
   finish_query(std::move(b));
 }
 
-void LiteQuery::perform_checkHasMessage(WorkchainId workchain, StdSmcAddress addr, ton::Bits256 message_id) {
-  LOG(INFO) << "started a checkHasMessage(" << message_id.to_hex() << ")";
+void LiteQuery::perform_findTransaction(WorkchainId workchain, StdSmcAddress addr, ton::Bits256 message_id,
+                                        td::int64 after, td::int64 before) {
+  LOG(INFO) << "started a findTransaction(" << workchain << ":" << addr.to_hex() << ", " << message_id.to_hex() << ", "
+            << after << ", " << before << ")";
 
   acc_workchain_ = workchain;
   acc_addr_ = addr;
-  message_id_ = message_id;
+  message_id_ = vm::CellHash::from_slice(message_id.as_slice());
+  after_ = static_cast<unsigned>(after);
+  before_ = static_cast<unsigned>(before);
 
   td::actor::send_closure_later(
       manager_, &ton::validator::ValidatorManager::get_top_masterchain_state_block,
@@ -459,29 +463,30 @@ void LiteQuery::perform_checkHasMessage(WorkchainId workchain, StdSmcAddress add
           td::actor::send_closure(Self, &LiteQuery::abort_query, res.move_as_error());
         } else {
           auto pair = res.move_as_ok();
-          td::actor::send_closure_later(Self, &LiteQuery::continue_checkHasMessage_0, std::move(pair.first),
-                                        pair.second);
+          td::actor::send_closure_later(Self, &LiteQuery::continue_findTransaction_get_masterchain_blk_data,
+                                        std::move(pair.first), pair.second);
         }
       });
 }
 
-void LiteQuery::continue_checkHasMessage_0(td::Ref<MasterchainState> mc_state, BlockIdExt blkid) {
+void LiteQuery::continue_findTransaction_get_masterchain_blk_data(td::Ref<MasterchainState> mc_state,
+                                                                  BlockIdExt blkid) {
   LOG(INFO) << "obtained last masterchain block = " << blkid.to_str();
   base_blk_id_ = blkid;
   CHECK(mc_state.not_null())
   mc_state_ = Ref<MasterchainStateQ>(std::move(mc_state));
   CHECK(mc_state_.not_null())
-  set_continuation([&]() -> void { continue_checkHasMessage_1(); });
+  set_continuation([&]() -> void { continue_findTransaction_get_account_info(); });
   request_mc_block_data(blkid);
 }
 
-void LiteQuery::continue_checkHasMessage_1() {
+void LiteQuery::continue_findTransaction_get_account_info() {
   LOG(INFO) << "continue checkHasMessage() query";
   if (acc_workchain_ == masterchainId) {
     blk_id_ = base_blk_id_;
     block_ = mc_block_;
     state_ = mc_state_;
-    continue_checkHasMessage_2({});
+    continue_findTransaction_got_account_info({});
     return;
   }
   Ref<vm::Cell> proof3, proof4;
@@ -499,16 +504,16 @@ void LiteQuery::continue_checkHasMessage_1() {
     // no shard with requested address found
     LOG(INFO) << "checkHasMessage(" << acc_workchain_ << ":" << acc_addr_.to_hex()
               << ") query completed (unknown workchain/shard)";
-    finish_checkHasMessage(false);
+    finish_findTransaction(false);
   } else {
     shard_proof_ = proof.move_as_ok();
-    set_continuation([this]() -> void { continue_checkHasMessage_2(std::move(shard_proof_)); });
+    set_continuation([this]() -> void { continue_findTransaction_got_account_info(std::move(shard_proof_)); });
     request_block_data_state(blkid);
   }
 }
 
-void LiteQuery::continue_checkHasMessage_2(td::BufferSlice shard_proof) {
-  LOG(INFO) << "continue checkHasMessage() query";
+void LiteQuery::continue_findTransaction_got_account_info(td::BufferSlice shard_proof) {
+  LOG(INFO) << "continue findTransaction query";
   Ref<vm::Cell> proof1;
   if (!make_state_root_proof(proof1)) {
     return;
@@ -526,19 +531,157 @@ void LiteQuery::continue_checkHasMessage_2(td::BufferSlice shard_proof) {
     acc_root = acc_csr->prefetch_ref();
   }
 
-  auto account_r = block::get_config_data_from_smc(acc_csr);
-  if (account_r.is_error()) {
-    fatal_error(account_r.move_as_error());
+  auto proof = vm::std_boc_serialize_multi({std::move(proof1), pb.extract_proof()});
+  pb.clear();
+  if (proof.is_error()) {
+    fatal_error(proof.move_as_error());
     return;
   }
-  auto account = account_r.move_as_ok();
 
-  LOG(INFO) << "checkHasMessage(" << acc_workchain_ << ":" << acc_addr_.to_hex() << ", " << message_id_
-            << ") got account state";
-  finish_checkHasMessage(true);
+  td::BufferSlice data;
+  if (acc_root.not_null()) {
+    auto res = vm::std_boc_serialize(std::move(acc_root));
+    if (res.is_error()) {
+      fatal_error(res.move_as_error());
+      return;
+    }
+    data = res.move_as_ok();
+  }
+
+  block::AccountState account_state;
+  account_state.blk = base_blk_id_;
+  account_state.shard_blk = blk_id_;
+  account_state.shard_proof = std::move(shard_proof);
+  account_state.proof = proof.move_as_ok();
+  account_state.state = std::move(data);
+  auto r_info = account_state.validate(base_blk_id_, block::StdAddress(acc_workchain_, acc_addr_));
+  if (r_info.is_error()) {
+    fatal_error(r_info.move_as_error());
+    return;
+  }
+
+  auto info = r_info.move_as_ok();
+  trans_lt_ = info.last_trans_lt;
+  trans_hash_ = info.last_trans_hash;
+
+  LOG(INFO) << "findTransaction(" << acc_workchain_ << ":" << acc_addr_.to_hex() << ", " << message_id_
+            << ", ...) got account state";
+
+  continue_findTransaction_process_transactions();
 }
 
-void LiteQuery::finish_checkHasMessage(bool has_message) {
+void LiteQuery::continue_findTransaction_process_transactions() {
+  LOG(INFO) << "continue findTransaction()";
+  bool redo = true;
+  while (redo && trans_lt_ && block_.not_null()) {
+    redo = false;
+    if (!ton::shard_contains(block_->block_id().shard_full(), ton::extract_addr_prefix(acc_workchain_, acc_addr_))) {
+      fatal_error("obtained a block that cannot contain specified account");
+      return;
+    }
+    auto res = block::get_block_transaction_try(block_->root_cell(), acc_workchain_, acc_addr_, trans_lt_);
+    if (res.is_error()) {
+      fatal_error(res.move_as_error());
+      return;
+    }
+    auto root = res.move_as_ok();
+    if (root.not_null()) {
+      break;
+    }
+
+    // transaction found
+    if (trans_hash_ != root->get_hash().bits()) {
+      fatal_error("transaction hash mismatch");
+      return;
+    }
+    block::gen::Transaction::Record trans;
+    if (!tlb::unpack_cell(root, trans)) {
+      fatal_error("cannot unpack transaction");
+      return;
+    }
+    if (trans.prev_trans_lt >= trans_lt_) {
+      fatal_error("previous transaction time is not less than the current one");
+      return;
+    }
+    if (trans.now < before_) {
+      fatal_error("transaction is out of requested time range (less then 'after')");
+      return;
+    }
+
+    auto in_msg = trans.r1.in_msg->prefetch_ref();
+    if (!in_msg.is_null() && in_msg->get_hash() == message_id_) {
+      finish_findTransaction(true);
+      return;
+    }
+
+    vm::Dictionary dict{trans.r1.out_msgs, 15};
+    for (td::int32 i = 0; i < trans.outmsg_cnt; i++) {
+      auto out_msg = dict.lookup_ref(td::BitArray<15>{i});
+      if (out_msg->get_hash() == message_id_) {
+        finish_findTransaction(true);
+        return;
+      }
+    }
+
+    aux_objs_.emplace_back(block_);
+    blk_ids_.push_back(block_->block_id());
+    LOG(DEBUG) << "going to previous transaction with lt=" << trans.prev_trans_lt << " from current lt=" << trans_lt_;
+    trans_lt_ = trans.prev_trans_lt;
+    trans_hash_ = trans.prev_trans_hash;
+    redo = (trans_lt_ > 0);
+  }
+
+  if (!trans_lt_) {
+    finish_findTransaction(false);
+    return;
+  }
+
+  ++pending_;
+  LOG(DEBUG) << "sending get_block_by_lt_from_db() query to manager for " << acc_workchain_ << ":" << acc_addr_.to_hex()
+             << " " << trans_lt_;
+  td::actor::send_closure_later(
+      manager_, &ValidatorManager::get_block_by_lt_from_db, ton::extract_addr_prefix(acc_workchain_, acc_addr_),
+      trans_lt_, [Self = actor_id(this), manager = manager_](td::Result<ConstBlockHandle> res) {
+        if (res.is_error()) {
+          td::actor::send_closure(Self, &LiteQuery::abort_findTransaction, res.move_as_error(), ton::BlockIdExt{});
+        } else {
+          auto handle = res.move_as_ok();
+          LOG(DEBUG) << "requesting data for block " << handle->id().to_str();
+          td::actor::send_closure_later(
+              manager, &ValidatorManager::get_block_data_from_db, handle,
+              [Self, blkid = handle->id()](td::Result<Ref<BlockData>> res) {
+                if (res.is_error()) {
+                  td::actor::send_closure(Self, &LiteQuery::abort_findTransaction, res.move_as_error(), blkid);
+                } else {
+                  td::actor::send_closure_later(Self, &LiteQuery::continue_findTransaction_got_block, blkid,
+                                                res.move_as_ok());
+                }
+              });
+        }
+      });
+}
+
+void LiteQuery::continue_findTransaction_got_block(BlockIdExt blkid, Ref<BlockData> block) {
+  LOG(INFO) << "findTransaction() : loaded block " << blkid.to_str();
+  --pending_;
+  CHECK(!pending_);
+  CHECK(block.not_null());
+  block_ = Ref<BlockQ>(std::move(block));
+  blk_id_ = blkid;
+  continue_findTransaction_process_transactions();
+}
+
+void LiteQuery::abort_findTransaction(td::Status error, ton::BlockIdExt blkid) {
+  pending_ = 0;
+  if (blkid.is_valid()) {
+    fatal_error(PSTRING() << "cannot load block " << blkid.to_str()
+                          << " with specified transaction: " << error.message());
+  } else {
+    fatal_error(PSTRING() << "cannot compute block with specified transaction: " << error.message());
+  }
+}
+
+void LiteQuery::finish_findTransaction(bool has_message) {
   LOG(INFO) << "checkHasMessage(" << acc_workchain_ << ":" << acc_addr_.to_hex() << ", " << message_id_
             << ") query completed";
   finish_query(td::BufferSlice{reinterpret_cast<const char*>(&has_message), 1});
