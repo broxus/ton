@@ -918,6 +918,8 @@ bool TestNode::show_help(std::string command) {
          "remote-version\tShows server time, version and capabilities\n"
          "last\tGet last block and state info from server\n"
          "sendfile <filename>\tLoad a serialized message from <filename> and send it to server\n"
+         "checkhasmessage <addr> <message-id>\tCheck whether specified account has this message in transaction "
+         "history\n"
          "status\tShow connection and local database status\n"
          "getaccount <addr> [<block-id-ext>]\tLoads the most recent state of specified account; <addr> is in "
          "[<workchain>:]<hex-or-base64-addr> format\n"
@@ -1003,6 +1005,9 @@ bool TestNode::do_parse_line() {
     return eoln() && get_server_mc_block_id();
   } else if (word == "sendfile") {
     return !eoln() && set_error(send_ext_msg_from_filename(get_line_tail()));
+  } else if (word == "checkhasmessage") {
+    return parse_account_addr(workchain, addr) && parse_hash(hash) && seekeoln() &&
+           check_has_message(workchain, addr, hash);
   } else if (word == "getaccount") {
     return parse_account_addr_ext(workchain, addr, addr_ext) &&
            (seekeoln()
@@ -1166,6 +1171,26 @@ td::Status TestNode::send_ext_msg_from_filename(std::string filename) {
   } else {
     return td::Status::Error("server connection not ready");
   }
+}
+
+bool TestNode::check_has_message(ton::WorkchainId workchain, ton::StdSmcAddress addr, ton::Bits256 message_id) {
+  auto a = ton::create_tl_object<ton::lite_api::liteServer_accountId>(workchain, addr);
+  auto b = ton::serialize_tl_object(
+      ton::create_tl_object<ton::lite_api::liteServer_checkHasMessage>(std::move(a), message_id), true);
+  LOG(INFO) << "requesting whether account " << workchain << ":" << addr.to_hex() << " has message with id "
+            << message_id;
+  return envelope_send_query(std::move(b), [Self = actor_id(this)](td::Result<td::BufferSlice> R) {
+    if (R.is_error()) {
+      return;
+    }
+
+    auto response = R.move_as_ok();
+    if (response.empty()) {
+      LOG(ERROR) << "cannot parse answer to liteServer.getAccountState";
+    } else {
+      std::cout << "Got result" << static_cast<bool>(response[0]) << std::endl;
+    }
+  });
 }
 
 bool TestNode::get_account_state(ton::WorkchainId workchain, ton::StdSmcAddress addr, ton::BlockIdExt ref_blkid,

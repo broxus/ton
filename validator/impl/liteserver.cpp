@@ -145,6 +145,9 @@ void LiteQuery::start_up() {
                                           static_cast<LogicalTime>(q.lt_), q.hash_, static_cast<unsigned>(q.count_));
           },
           [&](lite_api::liteServer_sendMessage& q) { this->perform_sendMessage(std::move(q.body_)); },
+          [&](lite_api::liteServer_checkHasMessage& q) {
+            this->perform_checkHasMessage(q.account_->workchain_, q.account_->id_, q.message_id_);
+          },
           [&](lite_api::liteServer_getShardInfo& q) {
             this->perform_getShardInfo(ton::create_block_id(q.id_),
                                        ShardIdFull{q.workchain_, static_cast<ShardId>(q.shard_)}, q.exact_);
@@ -440,6 +443,105 @@ void LiteQuery::perform_sendMessage(td::BufferSlice data) {
   td::actor::send_closure_later(manager_, &ValidatorManager::send_external_message, res.move_as_ok());
   auto b = ton::create_serialize_tl_object<ton::lite_api::liteServer_sendMsgStatus>(1);
   finish_query(std::move(b));
+}
+
+void LiteQuery::perform_checkHasMessage(WorkchainId workchain, StdSmcAddress addr, ton::Bits256 message_id) {
+  LOG(INFO) << "started a checkHasMessage(" << message_id.to_hex() << ")";
+
+  acc_workchain_ = workchain;
+  acc_addr_ = addr;
+  message_id_ = message_id;
+
+  td::actor::send_closure_later(
+      manager_, &ton::validator::ValidatorManager::get_top_masterchain_state_block,
+      [Self = actor_id(this)](td::Result<std::pair<Ref<ton::validator::MasterchainState>, BlockIdExt>> res) -> void {
+        if (res.is_error()) {
+          td::actor::send_closure(Self, &LiteQuery::abort_query, res.move_as_error());
+        } else {
+          auto pair = res.move_as_ok();
+          td::actor::send_closure_later(Self, &LiteQuery::continue_checkHasMessage_0, std::move(pair.first),
+                                        pair.second);
+        }
+      });
+}
+
+void LiteQuery::continue_checkHasMessage_0(td::Ref<MasterchainState> mc_state, BlockIdExt blkid) {
+  LOG(INFO) << "obtained last masterchain block = " << blkid.to_str();
+  base_blk_id_ = blkid;
+  CHECK(mc_state.not_null())
+  mc_state_ = Ref<MasterchainStateQ>(std::move(mc_state));
+  CHECK(mc_state_.not_null())
+  set_continuation([&]() -> void { continue_checkHasMessage_1(); });
+  request_mc_block_data(blkid);
+}
+
+void LiteQuery::continue_checkHasMessage_1() {
+  LOG(INFO) << "continue checkHasMessage() query";
+  if (acc_workchain_ == masterchainId) {
+    blk_id_ = base_blk_id_;
+    block_ = mc_block_;
+    state_ = mc_state_;
+    continue_checkHasMessage_2({});
+    return;
+  }
+  Ref<vm::Cell> proof3, proof4;
+  ton::BlockIdExt blkid;
+  if (!(make_mc_state_root_proof(proof3) &&
+        make_shard_info_proof(proof4, blkid, extract_addr_prefix(acc_workchain_, acc_addr_)))) {
+    return;
+  }
+  auto proof = vm::std_boc_serialize_multi({std::move(proof3), std::move(proof4)});
+  if (proof.is_error()) {
+    fatal_error(proof.move_as_error());
+    return;
+  }
+  if (!blkid.is_valid()) {
+    // no shard with requested address found
+    LOG(INFO) << "checkHasMessage(" << acc_workchain_ << ":" << acc_addr_.to_hex()
+              << ") query completed (unknown workchain/shard)";
+    finish_checkHasMessage(false);
+  } else {
+    shard_proof_ = proof.move_as_ok();
+    set_continuation([this]() -> void { continue_checkHasMessage_2(std::move(shard_proof_)); });
+    request_block_data_state(blkid);
+  }
+}
+
+void LiteQuery::continue_checkHasMessage_2(td::BufferSlice shard_proof) {
+  LOG(INFO) << "continue checkHasMessage() query";
+  Ref<vm::Cell> proof1;
+  if (!make_state_root_proof(proof1)) {
+    return;
+  }
+  vm::MerkleProofBuilder pb{state_->root_cell()};
+  block::gen::ShardStateUnsplit::Record sstate;
+  if (!tlb::unpack_cell(pb.root(), sstate)) {
+    fatal_error("cannot unpack state header");
+    return;
+  }
+  vm::AugmentedDictionary accounts_dict{vm::load_cell_slice_ref(sstate.accounts), 256, block::tlb::aug_ShardAccounts};
+  auto acc_csr = accounts_dict.lookup(acc_addr_);
+  Ref<vm::Cell> acc_root;
+  if (acc_csr.not_null()) {
+    acc_root = acc_csr->prefetch_ref();
+  }
+
+  auto account_r = block::get_config_data_from_smc(acc_csr);
+  if (account_r.is_error()) {
+    fatal_error(account_r.move_as_error());
+    return;
+  }
+  auto account = account_r.move_as_ok();
+
+  LOG(INFO) << "checkHasMessage(" << acc_workchain_ << ":" << acc_addr_.to_hex() << ", " << message_id_
+            << ") got account state";
+  finish_checkHasMessage(true);
+}
+
+void LiteQuery::finish_checkHasMessage(bool has_message) {
+  LOG(INFO) << "checkHasMessage(" << acc_workchain_ << ":" << acc_addr_.to_hex() << ", " << message_id_
+            << ") query completed";
+  finish_query(td::BufferSlice{reinterpret_cast<const char*>(&has_message), 1});
 }
 
 bool LiteQuery::request_mc_block_data(BlockIdExt blkid) {
