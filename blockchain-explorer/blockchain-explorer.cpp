@@ -271,7 +271,8 @@ class CoreActor : public CoreActorInterface {
   struct HttpRequestExtra {
     HttpRequestExtra(MHD_Connection* connection, bool is_post) {
       if (is_post) {
-        postprocessor = MHD_create_post_processor(connection, 1 << 14, iterate_post, static_cast<void*>(this));
+        postprocessor = MHD_create_post_processor(
+            connection, 1u << 14, reinterpret_cast<MHD_PostDataIterator>(iterate_post), static_cast<void*>(this));
       }
     }
     ~HttpRequestExtra() {
@@ -358,7 +359,8 @@ class CoreActor : public CoreActorInterface {
       command = url_s.substr(pos + 1);
     }
 
-    MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, get_arg_iterate, static_cast<void*>(&opts));
+    MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND,
+                              reinterpret_cast<MHD_KeyValueIterator>(get_arg_iterate), static_cast<void*>(&opts));
 
     if (command == "status") {
       HttpQueryRunner g{[&](td::Promise<MHD_Response*> promise) {
@@ -476,8 +478,9 @@ class CoreActor : public CoreActorInterface {
                                                              remote_addr_, make_callback(0)));
     }
     daemon_ = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, static_cast<td::uint16>(http_port_), nullptr, nullptr,
-                               &process_http_request, nullptr, MHD_OPTION_NOTIFY_COMPLETED, request_completed, nullptr,
-                               MHD_OPTION_THREAD_POOL_SIZE, 16, MHD_OPTION_END);
+                               reinterpret_cast<MHD_AccessHandlerCallback>(&process_http_request), nullptr,
+                               MHD_OPTION_NOTIFY_COMPLETED, request_completed, nullptr, MHD_OPTION_THREAD_POOL_SIZE, 16,
+                               MHD_OPTION_END);
     CHECK(daemon_ != nullptr);
   }
 };
