@@ -593,7 +593,6 @@ void LiteQuery::continue_findTransaction_process_transactions() {
     }
     auto root = res.move_as_ok();
     if (root.is_null()) {
-      fatal_error("requested block root is null");
       break;
     }
 
