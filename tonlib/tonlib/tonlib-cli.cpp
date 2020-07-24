@@ -362,6 +362,7 @@ class TonlibCli : public td::actor::Actor {
       td::TerminalIO::out() << "time\tGet server time\n";
       td::TerminalIO::out() << "remote-version\tShows server time, version and capabilities\n";
       td::TerminalIO::out() << "sendfile <filename>\tLoad a serialized message from <filename> and send it to server\n";
+      td::TerminalIO::out() << "findtransaction <addr> <message-id> <after-utime>";
       td::TerminalIO::out() << "setconfig|validateconfig <path> [<name>] [<use_callback>] [<force>] - set or validate "
                                "lite server config\n";
       td::TerminalIO::out() << "runmethod <addr> <method-id> <params>...\tRuns GET method <method-id> of account "
@@ -465,6 +466,11 @@ class TonlibCli : public td::actor::Actor {
       transfer(parser, cmd, std::move(cmd_promise));
     } else if (cmd == "getstate") {
       get_state(parser.read_word(), std::move(cmd_promise));
+    } else if (cmd == "findtransaction") {
+      auto address = parser.read_word();
+      auto message_id = parser.read_word();
+      auto after = parser.read_word();
+      find_transaction(address, message_id, after, std::move(cmd_promise));
     } else if (cmd == "getaddress") {
       get_address(parser.read_word(), std::move(cmd_promise));
     } else if (cmd == "importkeypem") {
@@ -1825,6 +1831,23 @@ class TonlibCli : public td::actor::Actor {
                  td::TerminalIO::out() << to_string(state->account_state_);
                  return td::Unit();
                }));
+  }
+
+  void find_transaction(td::Slice key, td::Slice message_id, td::Slice after_data, td::Promise<td::Unit> promise) {
+    TRY_RESULT_PROMISE(promise, address, to_account_address(key, false))
+    TRY_RESULT_PROMISE(promise, after, td::to_integer_safe<td::uint32>(after_data))
+
+    auto address_str = address.address->account_address_;
+    send_query(
+        make_object<tonlib_api::findTransaction>(
+            ton::move_tl_object_as<tonlib_api::accountAddress>(std::move(address.address)), message_id.str(), after),
+        promise.wrap([address_str](auto&& state) {
+          td::TerminalIO::out() << "Sync utime: " << state->sync_utime_ << "\n";
+          td::TerminalIO::out() << "Found: " << state->found_ << "\n";
+          td::TerminalIO::out() << "transaction.LT: " << state->lt_ << "\n";
+          td::TerminalIO::out() << "transaction.Hash: " << state->hash_;
+          return td::Unit();
+        }));
   }
 
   void get_address(td::Slice key, td::Promise<td::Unit> promise) {

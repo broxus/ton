@@ -27,6 +27,7 @@
 */
 #pragma once
 
+#include <ton/ton-types.h>
 #include "td/utils/Status.h"
 #include "td/utils/buffer.h"
 #include "td/utils/misc.h"
@@ -902,4 +903,26 @@ class CheckDhtServersQuery : public Query {
 
  private:
   ton::PublicKeyHash id_;
+};
+
+class DownloadBlockQuery : public Query {
+ public:
+  DownloadBlockQuery(td::actor::ActorId<ValidatorEngineConsole> console, Tokenizer tokenizer)
+      : Query(console, std::move(tokenizer)) {
+  }
+  td::Status run() override;
+  td::Status send() override;
+  td::Status receive(td:: BufferSlice data) override;
+  static std::string get_name() {
+    return "downloadblock";
+  }
+  static std::string get_help() {
+    return "downloadblock <block-id-ext>\tdownloads specified block into db";
+  }
+  std::string name() const override {
+    return get_name();
+  }
+
+ private:
+  ton::BlockIdExt block_;
 };

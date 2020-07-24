@@ -239,6 +239,8 @@ class TonlibClient : public td::actor::Actor {
                         td::Promise<object_ptr<tonlib_api::accountRevisionList>>&& promise);
   td::Status do_request(tonlib_api::guessAccount& request,
                         td::Promise<object_ptr<tonlib_api::accountRevisionList>>&& promise);
+  td::Status do_request(const tonlib_api::findTransaction& request,
+                        td::Promise<object_ptr<tonlib_api::transactionSearchResult>>&& promise);
 
   td::Status do_request(tonlib_api::sync& request, td::Promise<object_ptr<tonlib_api::ton_blockIdExt>>&& promise);
 

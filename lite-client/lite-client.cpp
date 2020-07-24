@@ -918,6 +918,8 @@ bool TestNode::show_help(std::string command) {
          "remote-version\tShows server time, version and capabilities\n"
          "last\tGet last block and state info from server\n"
          "sendfile <filename>\tLoad a serialized message from <filename> and send it to server\n"
+         "findtransaction <addr> <message-id> <after-utime>\tFind account transaction that has message specified "
+         "message in it\n"
          "status\tShow connection and local database status\n"
          "getaccount <addr> [<block-id-ext>]\tLoads the most recent state of specified account; <addr> is in "
          "[<workchain>:]<hex-or-base64-addr> format\n"
@@ -1003,6 +1005,10 @@ bool TestNode::do_parse_line() {
     return eoln() && get_server_mc_block_id();
   } else if (word == "sendfile") {
     return !eoln() && set_error(send_ext_msg_from_filename(get_line_tail()));
+  } else if (word == "findtransaction") {
+    ton::UnixTime after;
+    return parse_account_addr(workchain, addr) && parse_hash(hash) && parse_uint32(after) && seekeoln() &&
+           find_transaction(workchain, addr, hash, after);
   } else if (word == "getaccount") {
     return parse_account_addr_ext(workchain, addr, addr_ext) &&
            (seekeoln()
@@ -1165,6 +1171,38 @@ td::Status TestNode::send_ext_msg_from_filename(std::string filename) {
                                                            : td::Status::Error("cannot send query to server");
   } else {
     return td::Status::Error("server connection not ready");
+  }
+}
+
+bool TestNode::find_transaction(ton::WorkchainId workchain, ton::StdSmcAddress addr, ton::Bits256 message_id,
+                                ton::UnixTime after) {
+  auto a = ton::create_tl_object<ton::lite_api::liteServer_accountId>(workchain, addr);
+  auto b = ton::serialize_tl_object(
+      ton::create_tl_object<ton::lite_api::liteServer_findTransaction>(std::move(a), message_id, after), true);
+  LOG(INFO) << "requesting whether account " << workchain << ":" << addr.to_hex() << " has message with id "
+            << message_id;
+
+  return envelope_send_query(std::move(b), [Self = actor_id(this)](td::Result<td::BufferSlice> R) {
+    if (R.is_error()) {
+      return;
+    }
+
+    auto F = ton::fetch_tl_object<ton::lite_api::liteServer_transactionSearchResult>(R.move_as_ok(), true);
+    if (F.is_error()) {
+      LOG(ERROR) << "cannot parse answer to liteServer.findTransaction";
+    } else {
+      auto f = F.move_as_ok();
+      td::actor::send_closure_later(Self, &TestNode::found_transasction, static_cast<ton::UnixTime>(f->sync_utime_),
+                                    f->found_, f->lt_, f->hash_);
+    }
+  });
+}
+
+void TestNode::found_transasction(ton::UnixTime sync_utime, bool found, ton::LogicalTime lt, ton::Bits256 hash) {
+  std::cout << "sync_utime = " << sync_utime << "\n"
+            << "found = " << found << std::endl;
+  if (found) {
+    std::cout << "transaction lt = " << lt << " hash = " << hash.to_hex() << std::endl;
   }
 }
 
