@@ -611,7 +611,7 @@ void LiteQuery::continue_findTransaction_process_transactions() {
       return;
     }
     if (trans.now < after_) {
-      fatal_error("transaction is out of requested time range (less then 'after')");
+      finish_findTransaction(acc_sync_utime_, false, 0, td::Bits256{});
       return;
     }
 
@@ -1494,7 +1494,7 @@ void LiteQuery::continue_getTransactions(unsigned remaining, bool exact) {
         return;
       }
       roots_.push_back(std::move(root));
-      aux_objs_.push_back(block_);
+      aux_objs_.emplace_back(block_);
       blk_ids_.push_back(block_->block_id());
       LOG(DEBUG) << "going to previous transaction with lt=" << trans.prev_trans_lt << " from current lt=" << trans_lt_;
       trans_lt_ = trans.prev_trans_lt;
