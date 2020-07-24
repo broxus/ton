@@ -563,6 +563,7 @@ void LiteQuery::continue_findTransaction_got_account_info(td::BufferSlice shard_
   auto info = r_info.move_as_ok();
   trans_lt_ = info.last_trans_lt;
   trans_hash_ = info.last_trans_hash;
+  block_.clear(); // will be later requested by `get_block_by_lt_from_db`
 
   LOG(INFO) << "findTransaction(" << acc_workchain_ << ":" << acc_addr_.to_hex() << ", " << message_id_
             << ", ...) got account state";
@@ -585,7 +586,8 @@ void LiteQuery::continue_findTransaction_process_transactions() {
       return;
     }
     auto root = res.move_as_ok();
-    if (root.not_null()) {
+    if (root.is_null()) {
+      fatal_error("requested block root is null");
       break;
     }
 

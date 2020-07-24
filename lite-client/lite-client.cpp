@@ -1190,7 +1190,7 @@ bool TestNode::find_transaction(ton::WorkchainId workchain, ton::StdSmcAddress a
     if (response.empty()) {
       LOG(ERROR) << "cannot parse answer to liteServer.getAccountState";
     } else {
-      std::cout << "Got result" << static_cast<bool>(response[0]) << std::endl;
+      std::cout << "got result " << static_cast<bool>(response[0]) << std::endl;
     }
   });
 }
