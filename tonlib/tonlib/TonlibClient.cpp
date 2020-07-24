@@ -494,9 +494,7 @@ class AccountState {
             [&](tonlib_api::wallet_highload_v2_initialAccountState& wallet_highload_v2) {
               wallet_id_ = static_cast<uint32_t>(wallet_highload_v2.wallet_id_);
             },
-            [&](tonlib_api::dns_initialAccountState& dns) {
-              wallet_id_ = static_cast<uint32_t>(dns.wallet_id_);
-            },
+            [&](tonlib_api::dns_initialAccountState& dns) { wallet_id_ = static_cast<uint32_t>(dns.wallet_id_); },
             [&](tonlib_api::rwallet_initialAccountState& rwallet) {
               for (auto revision : ton::SmartContractCode::get_revisions(ton::SmartContractCode::RestrictedWallet)) {
                 auto r_init_data = to_init_data(rwallet);
@@ -544,7 +542,7 @@ class AccountState {
     }
 
     ton::WalletV3::InitData init_data{key.as_octet_string(), wallet_id_};
-    auto o_revision = ton::WalletV3::guess_revision(address_,  init_data);
+    auto o_revision = ton::WalletV3::guess_revision(address_, init_data);
     if (o_revision) {
       wallet_type_ = WalletType::WalletV3;
       wallet_revision_ = o_revision.value();
@@ -2452,6 +2450,28 @@ td::Status TonlibClient::do_request(const tonlib_api::getAccountState& request,
   TRY_RESULT(account_address, get_account_address(request.account_address_->account_address_));
   make_request(int_api::GetAccountState{std::move(account_address), query_context_.block_id.copy(), {}},
                promise.wrap([](auto&& res) { return res->to_fullAccountState(); }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::findTransaction& request,
+                                    td::Promise<object_ptr<tonlib_api::transactionSearchResult>>&& promise) {
+  if (!request.account_address_) {
+    return TonlibError::EmptyField("account_address");
+  }
+  ton::Bits256 message_id;
+  if (message_id.from_hex(request.message_id_) < 0) {
+    return TonlibError::InvalidField("message_id", "invalid hash");
+  }
+
+  TRY_RESULT(account_address, get_account_address(request.account_address_->account_address_));
+
+  auto a = ton::create_tl_object<ton::lite_api::liteServer_accountId>(account_address.workchain, account_address.addr);
+  client_.send_query(
+      ton::lite_api::liteServer_findTransaction(std::move(a), message_id, static_cast<td::int64>(request.after_)),
+      promise.wrap([](auto&& result) {
+        return tonlib_api::make_object<tonlib_api::transactionSearchResult>(
+            static_cast<ton::UnixTime>(result->sync_utime_), result->found_, result->lt_, result->hash_.to_hex());
+      }));
   return td::Status::OK();
 }
 

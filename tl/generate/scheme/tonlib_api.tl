@@ -90,6 +90,8 @@ accountList accounts:vector<fullAccountState> = AccountList;
 syncStateDone = SyncState;
 syncStateInProgress from_seqno:int32 to_seqno:int32 current_seqno:int32 = SyncState;
 
+transactionSearchResult sync_utime:int32 found:Bool lt:int64 hash:bytes = TransactionSearchResult;
+
 //
 // MSG
 //
@@ -253,6 +255,8 @@ guessAccount public_key:string rwallet_init_public_key:string = AccountRevisionL
 
 getAccountState account_address:accountAddress = FullAccountState;
 createQuery private_key:InputKey address:accountAddress timeout:int32 action:Action initial_account_state:InitialAccountState = query.Info;
+
+findTransaction account_address:accountAddress message_id:bytes after:int32 = TransactionSearchResult;
 
 msg.decrypt input_key:InputKey data:msg.dataEncryptedArray = msg.DataDecryptedArray;
 msg.decryptWithProof proof:bytes data:msg.dataEncrypted = msg.Data;
