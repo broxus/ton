@@ -191,7 +191,8 @@ class TestNode : public td::actor::Actor {
   td::Status send_ext_msg_from_filename(std::string filename);
   td::Status save_db_file(ton::FileHash file_hash, td::BufferSlice data);
   bool find_transaction(ton::WorkchainId workchain, ton::StdSmcAddress addr, ton::Bits256 message_id,
-                        ton::UnixTime after, ton::UnixTime before);
+                        ton::UnixTime after);
+  void found_transasction(ton::UnixTime sync_utime, bool found, ton::LogicalTime lt, ton::Bits256 hash);
   bool get_account_state(ton::WorkchainId workchain, ton::StdSmcAddress addr, ton::BlockIdExt ref_blkid,
                          int addr_ext = 0, std::string filename = "", int mode = -1);
   void got_account_state(ton::BlockIdExt ref_blk, ton::BlockIdExt blk, ton::BlockIdExt shard_blk,

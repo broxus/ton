@@ -41,6 +41,7 @@ class LiteQuery : public td::actor::Actor {
   int mode_{0};
   WorkchainId acc_workchain_;
   StdSmcAddress acc_addr_;
+  td::int64 acc_sync_utime_;
   LogicalTime trans_lt_;
   Bits256 trans_hash_;
   vm::CellHash message_id_;
@@ -60,7 +61,6 @@ class LiteQuery : public td::actor::Actor {
   std::unique_ptr<block::BlockProofChain> chain_;
   Ref<vm::Stack> stack_;
   unsigned after_;
-  unsigned before_;
 
  public:
   enum {
@@ -98,14 +98,14 @@ class LiteQuery : public td::actor::Actor {
   void continue_getState(BlockIdExt blkid, Ref<ShardState> state);
   void continue_getZeroState(BlockIdExt blkid, td::BufferSlice state);
   void perform_sendMessage(td::BufferSlice ext_msg);
-  void perform_findTransaction(WorkchainId workchain, StdSmcAddress addr, ton::Bits256 message_id, td::int64 after, td::int64 before);
+  void perform_findTransaction(WorkchainId workchain, StdSmcAddress addr, ton::Bits256 message_id, td::int64 after);
   void continue_findTransaction_get_masterchain_blk_data(td::Ref<MasterchainState> mc_state, BlockIdExt blkid);
   void continue_findTransaction_get_account_info();
   void continue_findTransaction_got_account_info(td::BufferSlice shard_proof);
   void continue_findTransaction_process_transactions();
   void continue_findTransaction_got_block(BlockIdExt blkid, Ref<BlockData> block);
   void abort_findTransaction(td::Status error, ton::BlockIdExt blkid);
-  void finish_findTransaction(bool has_message);
+  void finish_findTransaction(td::int64 sync_utime, bool found, LogicalTime lt, Bits256 hash);
   void perform_getAccountState(BlockIdExt blkid, WorkchainId workchain, StdSmcAddress addr, int mode);
   void continue_getAccountState_0(Ref<MasterchainState> mc_state, BlockIdExt blkid);
   void continue_getAccountState();
