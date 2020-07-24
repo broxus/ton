@@ -2458,12 +2458,16 @@ td::Status TonlibClient::do_request(const tonlib_api::findTransaction& request,
   if (!request.account_address_) {
     return TonlibError::EmptyField("account_address");
   }
-  ton::Bits256 message_id;
-  if (message_id.from_hex(request.message_id_) < 0) {
-    return TonlibError::InvalidField("message_id", "invalid hash");
-  }
 
   TRY_RESULT(account_address, get_account_address(request.account_address_->account_address_));
+
+  auto to_bits256 = [](td::Slice data, td::Slice name) -> td::Result<td::Bits256> {
+    if (data.size() != 32) {
+      return TonlibError::InvalidField(name, "wrong length (not 32 bytes)");
+    }
+    return td::Bits256(data.ubegin());
+  };
+  TRY_RESULT(message_id, to_bits256(request.message_id_, "message_id"));
 
   auto a = ton::create_tl_object<ton::lite_api::liteServer_accountId>(account_address.workchain, account_address.addr);
   client_.send_query(

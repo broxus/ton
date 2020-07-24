@@ -1833,21 +1833,27 @@ class TonlibCli : public td::actor::Actor {
                }));
   }
 
-  void find_transaction(td::Slice key, td::Slice message_id, td::Slice after_data, td::Promise<td::Unit> promise) {
+  void find_transaction(td::Slice key, td::Slice message_id_data, td::Slice after_data, td::Promise<td::Unit> promise) {
     TRY_RESULT_PROMISE(promise, address, to_account_address(key, false))
     TRY_RESULT_PROMISE(promise, after, td::to_integer_safe<td::uint32>(after_data))
 
+    ton::Bits256 message_id;
+    if (message_id.from_hex(message_id_data) < 0) {
+      promise.set_error(td::Status::Error("invalid message id"));
+      return;
+    }
+
     auto address_str = address.address->account_address_;
-    send_query(
-        make_object<tonlib_api::findTransaction>(
-            ton::move_tl_object_as<tonlib_api::accountAddress>(std::move(address.address)), message_id.str(), after),
-        promise.wrap([address_str](auto&& state) {
-          td::TerminalIO::out() << "Sync utime: " << state->sync_utime_ << "\n";
-          td::TerminalIO::out() << "Found: " << state->found_ << "\n";
-          td::TerminalIO::out() << "transaction.LT: " << state->lt_ << "\n";
-          td::TerminalIO::out() << "transaction.Hash: " << state->hash_;
-          return td::Unit();
-        }));
+    send_query(make_object<tonlib_api::findTransaction>(
+                   ton::move_tl_object_as<tonlib_api::accountAddress>(std::move(address.address)),
+                   message_id.as_slice().str(), after),
+               promise.wrap([address_str](auto&& state) {
+                 td::TerminalIO::out() << "Sync utime: " << state->sync_utime_ << "\n";
+                 td::TerminalIO::out() << "Found: " << state->found_ << "\n";
+                 td::TerminalIO::out() << "transaction.LT: " << state->lt_ << "\n";
+                 td::TerminalIO::out() << "transaction.Hash: " << state->hash_;
+                 return td::Unit();
+               }));
   }
 
   void get_address(td::Slice key, td::Promise<td::Unit> promise) {
