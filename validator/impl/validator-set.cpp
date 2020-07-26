@@ -63,6 +63,21 @@ td::Result<ValidatorWeight> ValidatorSetQ::check_signatures(RootHash root_hash, 
     weight += vdescr->weight;
   }
 
+  std::stringstream output;
+  output << "signed by (simple): ";
+  for (const auto &item : ids_map_) {
+    if (nodes.count(item.first)) {
+      output << item.first.to_hex() << " ";
+    }
+  }
+  output << "\n not signed by (simple): ";
+  for (const auto &item : ids_map_) {
+    if (!nodes.count(item.first)) {
+      output << item.first.to_hex() << " ";
+    }
+  }
+  LOG(INFO) << output.str();
+
   if (weight * 3 <= total_weight_ * 2) {
     return td::Status::Error(ErrorCode::protoviolation, "too small sig weight");
   }
@@ -93,6 +108,21 @@ td::Result<ValidatorWeight> ValidatorSetQ::check_approve_signatures(RootHash roo
     TRY_STATUS(E->check_signature(block.as_slice(), sig.signature.as_slice()));
     weight += vdescr->weight;
   }
+
+  std::stringstream output;
+  output << "signed by (approve): ";
+  for (const auto &item : ids_map_) {
+    if (nodes.count(item.first)) {
+      output << item.first.to_hex() << " ";
+    }
+  }
+  output << "\n not signed by (approve): ";
+  for (const auto &item : ids_map_) {
+    if (!nodes.count(item.first)) {
+      output << item.first.to_hex() << " ";
+    }
+  }
+  LOG(INFO) << output.str();
 
   if (weight * 3 <= total_weight_ * 2) {
     return td::Status::Error(ErrorCode::protoviolation, "too small sig weight");
