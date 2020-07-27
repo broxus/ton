@@ -22,6 +22,7 @@
 #include <map>
 #include <list>
 #include <atomic>
+#include <unordered_map>
 
 #include "validator-session.h"
 #include "validator-session-state.h"
@@ -62,6 +63,9 @@ class ValidatorSessionImpl : public ValidatorSession {
   std::map<ValidatorSessionCandidateId, std::pair<UnixTime, td::BufferSlice>> approved_;
 
   std::set<ValidatorSessionCandidateId> active_requests_;
+
+  using BlockTimings = std::map<ton::Bits256, td::Timestamp>;
+  std::map<ton::Bits256, std::pair<td::Timestamp, BlockTimings>> timings_ = {};
 
   bool pending_generate_ = false;
   bool generated_ = false;

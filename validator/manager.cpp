@@ -1083,7 +1083,18 @@ void ValidatorManagerImpl::set_block_proof_link(BlockHandle handle, td::Ref<Proo
 
 void ValidatorManagerImpl::set_block_signatures(BlockHandle handle, td::Ref<BlockSignatureSet> signatures,
                                                 td::Promise<td::Unit> promise) {
-  td::actor::send_closure(db_, &Db::store_block_signatures, handle, std::move(signatures), std::move(promise));
+  const auto block_id = handle->id();
+  const auto now = handle->unix_time();
+
+  LOG(INFO) << "Storing " << block_id.to_str() << "\ntime " << now
+            << "\nsignature count: " << (signatures.is_null() ? -1 : signatures->size());
+
+  auto P = [db = db_.get(), handle = std::move(handle), signatures = std::move(signatures),
+            promise = std::move(promise)](td::Unit) mutable {
+    td::actor::send_closure(db, &Db::store_block_signatures, handle, std::move(signatures), std::move(promise));
+  };
+
+  td::actor::send_closure(scorer_, &Scorer<ton::UnixTime>::push_block, block_id, now, std::move(P));
 }
 
 void ValidatorManagerImpl::set_next_block(BlockIdExt block_id, BlockIdExt next, td::Promise<td::Unit> promise) {
@@ -2436,9 +2447,9 @@ void ValidatorManagerImpl::wait_shard_client_state(BlockSeqno seqno, td::Timesta
 td::actor::ActorOwn<ValidatorManagerInterface> ValidatorManagerFactory::create(
     td::Ref<ValidatorManagerOptions> opts, std::string db_root, td::actor::ActorId<keyring::Keyring> keyring,
     td::actor::ActorId<adnl::Adnl> adnl, td::actor::ActorId<rldp::Rldp> rldp,
-    td::actor::ActorId<overlay::Overlays> overlays) {
+    td::actor::ActorId<overlay::Overlays> overlays, td::actor::ActorId<Scorer<ton::UnixTime>> scorer) {
   return td::actor::create_actor<validator::ValidatorManagerImpl>("manager", std::move(opts), db_root, keyring, adnl,
-                                                                  rldp, overlays);
+                                                                  rldp, overlays, scorer);
 }
 
 }  // namespace validator

@@ -207,6 +207,7 @@ std::unique_ptr<validatorsession::ValidatorSession::Callback> ValidatorGroup::ma
       for (auto &sig : approve_signatures) {
         approve_sigs.emplace_back(BlockSignature{sig.first.bits256_value(), std::move(sig.second)});
       }
+
       auto P = td::PromiseCreator::lambda([](td::Result<td::Unit>) {});
       td::actor::send_closure(id_, &ValidatorGroup::accept_block_candidate, round, source.compute_short_id(),
                               std::move(data), root_hash, file_hash, std::move(sigs), std::move(approve_sigs),

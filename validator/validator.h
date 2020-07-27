@@ -33,6 +33,7 @@
 #include "interfaces/block.h"
 #include "interfaces/proof.h"
 #include "interfaces/shard.h"
+#include "interfaces/scorer.h"
 #include "catchain/catchain-types.h"
 
 namespace ton {

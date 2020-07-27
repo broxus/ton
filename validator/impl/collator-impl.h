@@ -78,6 +78,11 @@ class Collator final : public td::actor::Actor {
   ton::BlockSeqno prev_mc_block_seqno{0};
   ton::BlockSeqno new_block_seqno{0};
   ton::BlockSeqno prev_key_block_seqno_{0};
+
+  using SignatureTiming = td::optional<ton::UnixTime>;
+  using BlockTimings = std::map<ton::Bits256, SignatureTiming>;
+  std::map<BlockIdExt, std::pair<ton::UnixTime, BlockTimings>> timings_ = {};
+
   int step{0};
   int pending{0};
   static constexpr int max_ihr_msg_size = 65535;   // 64k

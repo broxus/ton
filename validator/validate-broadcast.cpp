@@ -207,6 +207,7 @@ void ValidateBroadcast::check_signatures_common(td::Ref<ConfigHolder> conf) {
       return;
     }
   }
+
   auto S = val_set->check_signatures(broadcast_.block_id.root_hash, broadcast_.block_id.file_hash, sig_set_);
   if (S.is_ok()) {
     checked_signatures();

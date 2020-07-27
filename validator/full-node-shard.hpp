@@ -19,6 +19,7 @@
 #pragma once
 
 #include "full-node-shard.h"
+#include "scorer.hpp"
 
 namespace ton {
 

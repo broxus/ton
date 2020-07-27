@@ -250,6 +250,16 @@ void ValidatorSessionImpl::process_broadcast(PublicKeyHash src, td::BufferSlice 
 
   blocks_[block_round - cur_round_][block_id] = std::move(candidate);
 
+  const auto &[inserted_block, new_insertion] =
+      timings_.emplace(block_id, std::make_pair<td::Timestamp, BlockTimings>(td::Timestamp::now(), {}));
+  if (new_insertion) {
+    LOG(INFO) << "Inserted new block to timings table: " << inserted_block->first.to_hex() << ", "
+              << inserted_block->second.first.at_unix();
+  } else {
+    LOG(INFO) << "Overwritten existing block with id in timings table: " << inserted_block->first.to_hex() << ", "
+              << inserted_block->second.first.at_unix();
+  }
+
   VLOG(VALIDATOR_SESSION_WARNING) << this << ": received broadcast " << block_id;
   if (block_round != cur_round_) {
     return;

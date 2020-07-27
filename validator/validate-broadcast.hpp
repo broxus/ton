@@ -18,6 +18,7 @@
 */
 #pragma once
 
+#include "validator/interfaces/scorer.h"
 #include "validator/interfaces/validator-manager.h"
 #include "validator/interfaces/shard.h"
 

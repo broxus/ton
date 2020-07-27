@@ -34,6 +34,7 @@
 #include "validator/validator.h"
 #include "validator/full-node.h"
 #include "validator/full-node-master.h"
+#include "validator/scorer.h"
 #include "adnl/adnl-ext-client.h"
 
 #include "td/actor/MultiPromise.h"
@@ -144,6 +145,7 @@ class ValidatorEngine : public td::actor::Actor {
   td::actor::ActorOwn<ton::validator::fullnode::FullNode> full_node_;
   std::map<td::uint16, td::actor::ActorOwn<ton::validator::fullnode::FullNodeMaster>> full_node_masters_;
   td::actor::ActorOwn<ton::adnl::AdnlExtServer> control_ext_server_;
+  td::actor::ActorOwn<ton::validator::Scorer<ton::UnixTime>> scorer_;
 
   std::string local_config_ = "";
   std::string global_config_ = "ton-global.config";

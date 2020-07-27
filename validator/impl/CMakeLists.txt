@@ -39,7 +39,7 @@ set(TON_VALIDATOR_SOURCE
   top-shard-descr.hpp
   validate-query.hpp
   validator-set.hpp
-)
+        )
 
 add_library(ton_validator STATIC ${TON_VALIDATOR_SOURCE})
 

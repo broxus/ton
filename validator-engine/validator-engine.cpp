@@ -1745,9 +1745,11 @@ void ValidatorEngine::started_overlays() {
 }
 
 void ValidatorEngine::start_validator() {
+  scorer_ = ton::validator::ScorerFactory::create(db_root_);
+
   validator_options_.write().set_allow_blockchain_init(config_.validators.size() > 0);
   validator_manager_ = ton::validator::ValidatorManagerFactory::create(
-      validator_options_, db_root_, keyring_.get(), adnl_.get(), rldp_.get(), overlay_manager_.get());
+      validator_options_, db_root_, keyring_.get(), adnl_.get(), rldp_.get(), overlay_manager_.get(), scorer_.get());
 
   for (auto &v : config_.validators) {
     td::actor::send_closure(validator_manager_, &ton::validator::ValidatorManagerInterface::add_permanent_key, v.first,

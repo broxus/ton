@@ -89,7 +89,7 @@ set(VALIDATOR_SOURCE
   ${VALIDATOR_DB_SOURCE}
 
   ${VALIDATOR_HEADERS}
-)
+        scorer.cpp scorer.hpp scorer.h)
 
 set(DISK_VALIDATOR_SOURCE
   apply-block.cpp
@@ -154,7 +154,7 @@ set(FULL_NODE_SOURCE
   net/download-proof.cpp
   net/get-next-key-blocks.hpp
   net/get-next-key-blocks.cpp
-)
+        interfaces/scorer.h)
 
 add_library(validator STATIC ${VALIDATOR_SOURCE})
 add_library(validator-disk STATIC ${DISK_VALIDATOR_SOURCE})
