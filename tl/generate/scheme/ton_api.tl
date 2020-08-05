@@ -616,6 +616,9 @@ engine.validator.proposalVote perm_key:int256 to_send:bytes = engine.validator.P
 engine.validator.dhtServerStatus id:int256 status:int = engine.validator.DhtServerStatus;
 engine.validator.dhtServersStatus servers:(vector engine.validator.dhtServerStatus) = engine.validator.DhtServersStatus;
 
+engine.validator.validatorKeysSet election_date:int temp_key:int256 adnl_addr:int256 = engine.validator.ValidatorKeysSet;
+engine.validator.validatorKeys validators:(vector engine.validator.ValidatorKeysSet) = engine.validator.ValidatorKeys;
+
 ---functions---
 
 engine.validator.getTime = engine.validator.Time;
@@ -633,8 +636,9 @@ engine.validator.addLiteserver key_hash:int256 port:int = engine.validator.Succe
 engine.validator.addControlInterface key_hash:int256 port:int = engine.validator.Success;
 engine.validator.addControlProcess key_hash:int256 port:int peer_key:int256 permissions:int = engine.validator.Success;
 
-engine.validator.delAdnlId key_hash:int256 = engine.validator.Success;
+engine.validator.getValidatorKeys = engine.validator.ValidatorKeys;
 engine.validator.delDhtId key_hash:int256 = engine.validator.Success;
+engine.validator.delAdnlId key_hash:int256 = engine.validator.Success;
 engine.validator.delValidatorPermanentKey key_hash:int256 = engine.validator.Success;
 engine.validator.delValidatorTempKey permanent_key_hash:int256 key_hash:int256 = engine.validator.Success;
 engine.validator.delValidatorAdnlAddress permanent_key_hash:int256 key_hash:int256 = engine.validator.Success;
