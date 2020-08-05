@@ -422,6 +422,28 @@ td::Status AddLiteServerQuery::receive(td::BufferSlice data) {
   return td::Status::OK();
 }
 
+td::Status GetValidatorsQuery::run() {
+  TRY_STATUS(tokenizer_.check_endl());
+  return td::Status::OK();
+}
+
+td::Status GetValidatorsQuery::send() {
+  auto b = ton::create_serialize_tl_object<ton::ton_api::engine_validator_getValidatorKeys>();
+  td::actor::send_closure(console_, &ValidatorEngineConsole::envelope_send_query, std::move(b), create_promise());
+  return td::Status::OK();
+}
+
+td::Status GetValidatorsQuery::receive(td::BufferSlice data) {
+  TRY_RESULT_PREFIX(f, ton::fetch_tl_object<ton::ton_api::engine_validator_validatorKeys>(std::move(data), true),
+                    "received incorrect answer: ");
+
+  td::TerminalIO::out() << "received " << f->validators_.size() << " items\n";
+  for (const auto &set : f->validators_) {
+    td::TerminalIO::out() << "" << set->election_date_ << "," << set->temp_key_.to_hex() << ","
+                          << set->adnl_addr_.to_hex() << "\n";
+  }
+  return td::Status::OK();
+}
 td::Status DelAdnlAddrQuery::run() {
   TRY_RESULT_ASSIGN(key_hash_, tokenizer_.get_token<ton::PublicKeyHash>());
   TRY_STATUS(tokenizer_.check_endl());

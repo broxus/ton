@@ -118,6 +118,7 @@ void ValidatorEngineConsole::run() {
   add_query_runner(std::make_unique<QueryRunnerImpl<AddValidatorAdnlAddrQuery>>());
   add_query_runner(std::make_unique<QueryRunnerImpl<ChangeFullNodeAdnlAddrQuery>>());
   add_query_runner(std::make_unique<QueryRunnerImpl<AddLiteServerQuery>>());
+  add_query_runner(std::make_unique<QueryRunnerImpl<GetValidatorsQuery>>());
   add_query_runner(std::make_unique<QueryRunnerImpl<DelAdnlAddrQuery>>());
   add_query_runner(std::make_unique<QueryRunnerImpl<DelDhtIdQuery>>());
   add_query_runner(std::make_unique<QueryRunnerImpl<DelValidatorPermanentKeyQuery>>());

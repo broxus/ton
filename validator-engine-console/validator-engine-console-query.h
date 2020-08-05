@@ -560,6 +560,25 @@ class AddLiteServerQuery : public Query {
   ton::PublicKeyHash key_hash_;
 };
 
+class GetValidatorsQuery : public Query {
+ public:
+  GetValidatorsQuery(td::actor::ActorId<ValidatorEngineConsole> console, Tokenizer tokenizer)
+      : Query(console, std::move(tokenizer)) {
+  }
+  td::Status run() override;
+  td::Status send() override;
+  td::Status receive(td::BufferSlice data) override;
+  static std::string get_name() {
+    return "getvalidators";
+  }
+  static std::string get_help() {
+    return "getvalidators\tget list of current validators";
+  }
+  std::string name() const override {
+    return get_name();
+  }
+};
+
 class DelAdnlAddrQuery : public Query {
  public:
   DelAdnlAddrQuery(td::actor::ActorId<ValidatorEngineConsole> console, Tokenizer tokenizer)
