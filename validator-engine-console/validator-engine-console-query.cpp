@@ -439,8 +439,9 @@ td::Status GetValidatorsQuery::receive(td::BufferSlice data) {
                     "received incorrect answer: ");
 
   td::TerminalIO::out() << "received " << f->validators_.size() << " items\n";
-  for (const auto& set : f->validators_) {
-    td::TerminalIO::out() << "" << set->election_date_ << "," << set->temp_key_.to_hex() << set->adnl_addr_.to_hex() << "\n";
+  for (const auto &set : f->validators_) {
+    td::TerminalIO::out() << "" << set->election_date_ << "," << set->temp_key_.to_hex() << ","
+                          << set->adnl_addr_.to_hex() << "\n";
   }
   return td::Status::OK();
 }

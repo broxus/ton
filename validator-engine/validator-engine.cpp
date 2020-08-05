@@ -2716,15 +2716,15 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
     td::actor::ActorId<ton::keyring::Keyring> keyring;
     td::Promise<td::BufferSlice> promise;
 
-    std::vector<Validator> validators;
-    std::map<ton::Bits256, ton::PublicKey> adnl_pubs;
-    std::map<ton::Bits256, ton::PublicKey> temp_keys;
-    size_t current_validator;
-    size_t current_adnl_addr;
-    size_t current_temp_key;
+    std::vector<Validator> validators{};
+    std::map<ton::Bits256, ton::PublicKey> adnl_pubs{};
+    std::map<ton::Bits256, ton::PublicKey> temp_keys{};
+    size_t current_validator = 0;
+    size_t current_adnl_addr = 0;
+    size_t current_temp_key = 0;
 
-    std::shared_ptr<AdnlPromiseFactory> adnl_promise_factory;
-    std::shared_ptr<TempKeyPromiseFactory> temp_key_promise_factory;
+    std::shared_ptr<AdnlPromiseFactory> adnl_promise_factory{};
+    std::shared_ptr<TempKeyPromiseFactory> temp_key_promise_factory{};
 
     bool handle_step() {
       const auto &validator = validators[current_validator];
@@ -2734,7 +2734,7 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
         td::actor::send_closure(adnl, &ton::adnl::Adnl::get_self_node, ton::adnl::AdnlNodeIdShort{id},
                                 (*adnl_promise_factory)(id));
       } else if (current_temp_key < validator.temp_key_ids.size()) {
-        const auto id = validator.adnl_ids[current_temp_key];
+        const auto id = validator.temp_key_ids[current_temp_key];
         td::actor::send_closure(keyring, &ton::keyring::Keyring::get_public_key, ton::PublicKeyHash{id},
                                 (*temp_key_promise_factory)(id));
       } else if (current_validator + 1 < validators.size()) {
