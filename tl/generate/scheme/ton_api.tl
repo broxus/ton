@@ -616,7 +616,7 @@ engine.validator.proposalVote perm_key:int256 to_send:bytes = engine.validator.P
 engine.validator.dhtServerStatus id:int256 status:int = engine.validator.DhtServerStatus;
 engine.validator.dhtServersStatus servers:(vector engine.validator.dhtServerStatus) = engine.validator.DhtServersStatus;
 
-engine.validator.validatorKeysSet election_date:int temp_key:int256 adnl_addr:int256 = engine.validator.ValidatorKeysSet;
+engine.validator.validatorKeysSet election_date:int perm_key:int256 temp_keys:(vector int256) adnl_addrs:(vector int256) = engine.validator.ValidatorKeysSet;
 engine.validator.validatorKeys validators:(vector engine.validator.ValidatorKeysSet) = engine.validator.ValidatorKeys;
 
 ---functions---

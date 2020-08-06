@@ -439,13 +439,35 @@ td::Status GetValidatorsQuery::receive(td::BufferSlice data) {
                     "received incorrect answer: ");
 
   td::TerminalIO::out() << "received " << f->validators_.size() << " items\n";
+  td::StringBuilder output;
+
   for (const auto &set : f->validators_) {
-    td::TerminalIO::out() << "" << set->election_date_ << "," << set->temp_key_.to_hex() << ","
-                          << set->adnl_addr_.to_hex() << "\n";
+    output << set->election_date_ << ",";
+
+    output << set->perm_key_.to_hex() << ",[";
+
+    for (size_t i = 0; i < set->temp_keys_.size(); ++i) {
+      output << set->temp_keys_[i].to_hex();
+      if (i + 1 < set->temp_keys_.size()) {
+        output << " ";
+      }
+    }
+
+    output << "],[";
+    for (size_t i = 0; i < set->adnl_addrs_.size(); ++i) {
+      output << set->adnl_addrs_[i].to_hex();
+      if (i + 1 < set->adnl_addrs_.size()) {
+        output << " ";
+      }
+    }
+
+    output << "]\n";
   }
+
+  td::TerminalIO::out() << output.as_cslice();
+
   return td::Status::OK();
 }
-
 td::Status DelAdnlAddrQuery::run() {
   TRY_RESULT_ASSIGN(key_hash_, tokenizer_.get_token<ton::PublicKeyHash>());
   TRY_STATUS(tokenizer_.check_endl());
