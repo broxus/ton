@@ -2695,9 +2695,12 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
   }
 
   struct Validator {
-    explicit Validator(ton::UnixTime election_date, std::vector<ton::Bits256> &&adnl_ids,
+    explicit Validator(ton::UnixTime election_date, ton::Bits256 &&perm_key_id, std::vector<ton::Bits256> &&adnl_ids,
                        std::vector<ton::Bits256> &&temp_key_ids)
-        : election_date{election_date}, adnl_ids{std::move(adnl_ids)}, temp_key_ids{std::move(temp_key_ids)} {
+        : election_date{election_date}
+        , perm_key_id{std::move(perm_key_id)}
+        , adnl_ids{std::move(adnl_ids)}
+        , temp_key_ids{std::move(temp_key_ids)} {
     }
     ton::UnixTime election_date;
     ton::Bits256 perm_key_id;
@@ -2731,6 +2734,11 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
     std::shared_ptr<PermKeyPromiseFactory> perm_key_promise_factory{};
 
     void handle_step() {
+      if (current_validator >= validators.size()) {
+        on_complete();
+        return;
+      }
+
       const auto &validator = validators[current_validator];
 
       if (current_adnl_addr < validators.size()) {
@@ -2743,13 +2751,11 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
         const auto id = validator.temp_key_ids[current_temp_key];
         td::actor::send_closure(keyring, &ton::keyring::Keyring::get_public_key, ton::PublicKeyHash{id},
                                 (*temp_key_promise_factory)(id));
-      } else if (current_validator + 1 < validators.size()) {
+      } else {
         // receive perm key
         const auto id = validator.perm_key_id;
         td::actor::send_closure(keyring, &ton::keyring::Keyring::get_public_key, ton::PublicKeyHash{id},
                                 (*perm_key_promise_factory)(id));
-      } else {
-        on_complete();
       }
     }
 
@@ -2810,7 +2816,8 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
       temp_key_ids.emplace_back(id.first.bits256_value());
     }
 
-    context->validators.emplace_back(validator.second.election_date, std::move(adnl_ids), std::move(temp_key_ids));
+    context->validators.emplace_back(validator.second.election_date, validator.first.bits256_value(),
+                                     std::move(temp_key_ids), std::move(adnl_ids));
   }
 
   context->adnl_promise_factory = std::make_shared<AdnlPromiseFactory>([context](ton::Bits256 id) {
