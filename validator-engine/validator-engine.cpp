@@ -2700,11 +2700,13 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
         : election_date{election_date}, adnl_ids{std::move(adnl_ids)}, temp_key_ids{std::move(temp_key_ids)} {
     }
     ton::UnixTime election_date;
+    ton::Bits256 perm_key_id;
     std::vector<ton::Bits256> adnl_ids;
     std::vector<ton::Bits256> temp_key_ids;
   };
 
   using AdnlPromiseFactory = std::function<td::Promise<ton::adnl::AdnlNode>(ton::Bits256)>;
+  using PermKeyPromiseFactory = std::function<td::Promise<ton::PublicKey>(ton::Bits256)>;
   using TempKeyPromiseFactory = std::function<td::Promise<ton::PublicKey>(ton::Bits256)>;
 
   struct QueryContext {
@@ -2719,32 +2721,36 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
 
     std::vector<Validator> validators{};
     std::map<ton::Bits256, ton::PublicKey> adnl_pubs{};
-    std::map<ton::Bits256, ton::PublicKey> temp_keys{};
+    std::map<ton::Bits256, ton::PublicKey> keys{};
     size_t current_validator = 0;
     size_t current_adnl_addr = 0;
     size_t current_temp_key = 0;
 
     std::shared_ptr<AdnlPromiseFactory> adnl_promise_factory{};
     std::shared_ptr<TempKeyPromiseFactory> temp_key_promise_factory{};
+    std::shared_ptr<PermKeyPromiseFactory> perm_key_promise_factory{};
 
-    bool handle_step() {
+    void handle_step() {
       const auto &validator = validators[current_validator];
 
       if (current_adnl_addr < validators.size()) {
+        // receive next adnl
         const auto id = validator.adnl_ids[current_adnl_addr];
         td::actor::send_closure(adnl, &ton::adnl::Adnl::get_self_node, ton::adnl::AdnlNodeIdShort{id},
                                 (*adnl_promise_factory)(id));
       } else if (current_temp_key < validator.temp_key_ids.size()) {
+        // receive next temp key
         const auto id = validator.temp_key_ids[current_temp_key];
         td::actor::send_closure(keyring, &ton::keyring::Keyring::get_public_key, ton::PublicKeyHash{id},
                                 (*temp_key_promise_factory)(id));
       } else if (current_validator + 1 < validators.size()) {
-        return true;
+        // receive perm key
+        const auto id = validator.perm_key_id;
+        td::actor::send_closure(keyring, &ton::keyring::Keyring::get_public_key, ton::PublicKeyHash{id},
+                                (*perm_key_promise_factory)(id));
       } else {
         on_complete();
       }
-
-      return false;
     }
 
     void on_complete() {
@@ -2752,29 +2758,36 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
       result.reserve(validators.size());
 
       for (const auto &validator : validators) {
-        ton::Bits256 adnl_addr{};
-        ton::Bits256 temp_key{};
+        ton::Bits256 perm_key{};
+        std::vector<ton::Bits256> adnl_addrs{};
+        adnl_addrs.reserve(validator.adnl_ids.size());
+        std::vector<ton::Bits256> temp_keys{};
+        temp_keys.reserve(validator.temp_key_ids.size());
+
+        // search perm key
+        const auto it = keys.find(validator.perm_key_id);
+        if (it != keys.end()) {
+          perm_key = it->second.ed25519_value().raw();
+        }
 
         // search adnl key
         for (const auto &adnl_id : validator.adnl_ids) {
           const auto it = adnl_pubs.find(adnl_id);
           if (it != adnl_pubs.end()) {
-            adnl_addr = it->second.ed25519_value().raw();
-            break;
+            adnl_addrs.emplace_back(it->second.ed25519_value().raw());
           }
         }
 
         // search temp key
         for (const auto &temp_key_id : validator.temp_key_ids) {
-          const auto it = temp_keys.find(temp_key_id);
-          if (it != temp_keys.end()) {
-            temp_key = it->second.ed25519_value().raw();
-            break;
+          const auto it = keys.find(temp_key_id);
+          if (it != keys.end()) {
+            temp_keys.emplace_back(it->second.ed25519_value().raw());
           }
         }
 
         result.emplace_back(ton::create_tl_object<ton::ton_api::engine_validator_validatorKeysSet>(
-            validator.election_date, adnl_addr, temp_key));
+            validator.election_date, std::move(perm_key), std::move(adnl_addrs), std::move(temp_keys)));
       }
 
       auto b = ton::create_tl_object<ton::ton_api::engine_validator_validatorKeys>(std::move(result));
@@ -2807,8 +2820,7 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
       } else {
         context->adnl_pubs.insert(std::make_pair(id, P.move_as_ok().pub_id().pubkey()));
         ++context->current_adnl_addr;
-        while (context->handle_step()) {
-        }
+        context->handle_step();
       }
     });
   });
@@ -2818,16 +2830,26 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
       if (P.is_error()) {
         context->promise.set_error(P.move_as_error());
       } else {
-        context->temp_keys.insert(std::make_pair(id, P.move_as_ok()));
+        context->keys.insert(std::make_pair(id, P.move_as_ok()));
         ++context->current_temp_key;
-        while (context->handle_step()) {
-        }
+        context->handle_step();
       }
     });
   });
 
-  while (context->handle_step()) {
-  }
+  context->perm_key_promise_factory = std::make_shared<PermKeyPromiseFactory>([context](ton::Bits256 id) {
+    return td::PromiseCreator::lambda([context, id = std::move(id)](td::Result<ton::PublicKey> P) mutable {
+      if (P.is_error()) {
+        context->promise.set_error(P.move_as_error());
+      } else {
+        context->keys.insert(std::make_pair(id, P.move_as_ok()));
+        ++context->current_validator;
+        context->handle_step();
+      }
+    });
+  });
+
+  context->handle_step();
 }
 
 void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_delAdnlId &query, td::BufferSlice data,
