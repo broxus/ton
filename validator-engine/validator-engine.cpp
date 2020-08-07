@@ -2742,16 +2742,19 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
       const auto &validator = validators[current_validator];
 
       if (current_adnl_addr < validators.size()) {
+        LOG(INFO) << "TEMPLOG: receive next adnl";
         // receive next adnl
         const auto id = validator.adnl_ids[current_adnl_addr];
         td::actor::send_closure(adnl, &ton::adnl::Adnl::get_self_node, ton::adnl::AdnlNodeIdShort{id},
                                 (*adnl_promise_factory)(id));
       } else if (current_temp_key < validator.temp_key_ids.size()) {
+        LOG(INFO) << "TEMPLOG: receive next temp key";
         // receive next temp key
         const auto id = validator.temp_key_ids[current_temp_key];
         td::actor::send_closure(keyring, &ton::keyring::Keyring::get_public_key, ton::PublicKeyHash{id},
                                 (*temp_key_promise_factory)(id));
       } else {
+        LOG(INFO) << "TEMPLOG: receive perm key";
         // receive perm key
         const auto id = validator.perm_key_id;
         td::actor::send_closure(keyring, &ton::keyring::Keyring::get_public_key, ton::PublicKeyHash{id},
@@ -2762,6 +2765,8 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
     void on_complete() {
       std::vector<ton::tl_object_ptr<ton::ton_api::engine_validator_validatorKeysSet>> result;
       result.reserve(validators.size());
+
+      LOG(INFO) << "TEMPLOG: on complete";
 
       for (const auto &validator : validators) {
         ton::Bits256 perm_key{};
@@ -2796,6 +2801,8 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
             validator.election_date, std::move(perm_key), std::move(adnl_addrs), std::move(temp_keys)));
       }
 
+      LOG(INFO) << "TEMPLOG: done";
+
       auto b = ton::create_tl_object<ton::ton_api::engine_validator_validatorKeys>(std::move(result));
       promise.set_value(ton::serialize_tl_object(std::move(b), true));
     };
@@ -2823,8 +2830,10 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
   context->adnl_promise_factory = std::make_shared<AdnlPromiseFactory>([context](ton::Bits256 id) {
     return td::PromiseCreator::lambda([context, id = std::move(id)](td::Result<ton::adnl::AdnlNode> P) mutable {
       if (P.is_error()) {
+        LOG(INFO) << "TEMPLOG: got error for adnl " << id.to_hex();
         context->promise.set_error(P.move_as_error());
       } else {
+        LOG(INFO) << "TEMPLOG: got result for adnl " << id.to_hex();
         context->adnl_pubs.insert(std::make_pair(id, P.move_as_ok().pub_id().pubkey()));
         ++context->current_adnl_addr;
         context->handle_step();
@@ -2835,8 +2844,10 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
   context->temp_key_promise_factory = std::make_shared<TempKeyPromiseFactory>([context](ton::Bits256 id) {
     return td::PromiseCreator::lambda([context, id = std::move(id)](td::Result<ton::PublicKey> P) mutable {
       if (P.is_error()) {
+        LOG(INFO) << "TEMPLOG: got error for temp key " << id.to_hex();
         context->promise.set_error(P.move_as_error());
       } else {
+        LOG(INFO) << "TEMPLOG: got result for temp key " << id.to_hex();
         context->keys.insert(std::make_pair(id, P.move_as_ok()));
         ++context->current_temp_key;
         context->handle_step();
@@ -2847,8 +2858,10 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
   context->perm_key_promise_factory = std::make_shared<PermKeyPromiseFactory>([context](ton::Bits256 id) {
     return td::PromiseCreator::lambda([context, id = std::move(id)](td::Result<ton::PublicKey> P) mutable {
       if (P.is_error()) {
+        LOG(INFO) << "TEMPLOG: got error for perm key " << id.to_hex();
         context->promise.set_error(P.move_as_error());
       } else {
+        LOG(INFO) << "TEMPLOG: got result for perm key " << id.to_hex();
         context->keys.insert(std::make_pair(id, P.move_as_ok()));
         ++context->current_validator;
         context->handle_step();
