@@ -441,27 +441,20 @@ td::Status GetValidatorsQuery::receive(td::BufferSlice data) {
   td::TerminalIO::out() << "received " << f->validators_.size() << " items\n";
   td::StringBuilder output;
 
-  for (const auto &set : f->validators_) {
-    output << set->election_date_ << ",";
+  for (size_t i = 0; i < f->validators_.size(); ++i) {
+    const auto &set = f->validators_[i];
 
-    output << set->perm_key_.to_hex() << ",[";
+    output << "validator" << i << " " << set->election_date_ << " permkey: " << set->perm_key_.to_hex() << "\n";
 
-    for (size_t i = 0; i < set->temp_keys_.size(); ++i) {
-      output << set->temp_keys_[i].to_hex();
-      if (i + 1 < set->temp_keys_.size()) {
-        output << " ";
-      }
+    for (size_t j = 0; j < set->temp_keys_.size(); ++j) {
+      output << "validator" << i << " " << set->election_date_ << " tempkey" << j << ": " << set->temp_keys_[j].to_hex()
+             << "\n";
     }
 
-    output << "],[";
-    for (size_t i = 0; i < set->adnl_addrs_.size(); ++i) {
-      output << set->adnl_addrs_[i].to_hex();
-      if (i + 1 < set->adnl_addrs_.size()) {
-        output << " ";
-      }
+    for (size_t j = 0; j < set->adnl_addrs_.size(); ++j) {
+      output << "validator" << i << " " << set->election_date_ << " adnl" << j << ": " << set->adnl_addrs_[j].to_hex()
+             << "\n";
     }
-
-    output << "]\n";
   }
 
   td::TerminalIO::out() << output.as_cslice();
