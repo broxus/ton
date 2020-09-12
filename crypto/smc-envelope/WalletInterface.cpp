@@ -55,10 +55,22 @@ td::Ref<vm::Cell> WalletInterface::create_int_message(const Gift &gift) {
   } else {
     cbi.store_zeroes(1);
   }
-  cbi.store_zeroes(1);
-  store_gift_message(cbi, gift);
+
+  vm::CellBuilder cb{};
+  store_gift_message(cb, gift);
+  auto body = cb.finalize();
+
+  if (gift.body_as_ref || !((cbi.size() + 1 + body->size() <= vm::Cell::max_bits) &&
+                            (cbi.size_refs() + body->size_refs() <= vm::Cell::max_refs))) {
+    cbi.store_ones(1);
+    cbi.store_ref(body);
+  } else {
+    cbi.store_zeroes(1);
+    cbi.append_data_cell(body);
+  }
   return cbi.finalize();
 }
+
 void WalletInterface::store_gift_message(vm::CellBuilder &cb, const Gift &gift) {
   if (gift.body.not_null()) {
     auto body = vm::load_cell_slice(gift.body);

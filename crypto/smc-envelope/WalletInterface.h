@@ -40,6 +40,7 @@ class WalletInterface : public SmartContract {
     bool is_encrypted{false};
     std::string message;
 
+    bool body_as_ref{false};
     td::Ref<vm::Cell> body;
     td::Ref<vm::Cell> init_state;
   };
