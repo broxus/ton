@@ -351,7 +351,7 @@ auto ValueBytes::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceD
   TRY_RESULT(default_value, param_->default_value())
   auto& result_buffer = dynamic_cast<ValueBytes&>(default_value.write()).value;
 
-  size_t total_size;
+  size_t total_size{};
   std::vector<td::BufferSlice> slices;
 
   auto cs = vm::load_cell_slice(cell);

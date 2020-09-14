@@ -212,15 +212,6 @@ td::Result<ton::RestrictedWallet::InitData> to_init_data(const tonlib_api::rwall
   return std::move(init_data);
 }
 
-tonlib_api::object_ptr<tonlib_api::Object> TonlibClient::do_static_request(
-    const tonlib_api::ftabi_computeFunctionId& request) {
-  if (request.signature_->data_.empty()) {
-    return status_to_tonlib_api(TonlibError::EmptyField("signature"));
-  }
-  const auto function_id = ftabi::compute_function_id(request.signature_->data_);
-  return tonlib_api::make_object<tonlib_api::ftabi_functionId>(static_cast<std::int32_t>(function_id));
-}
-
 td::Result<ftabi::ParamRef> parse_param(tonlib_api::ftabi_Param& param) {
   using ReturnType = td::Result<ftabi::ParamRef>;
   return downcast_call2<ReturnType>(
@@ -4109,6 +4100,15 @@ tonlib_api::object_ptr<tonlib_api::Object> TonlibClient::do_static_request(
 }
 
 tonlib_api::object_ptr<tonlib_api::Object> TonlibClient::do_static_request(
+    const tonlib_api::ftabi_computeFunctionId& request) {
+  if (request.signature_->data_.empty()) {
+    return status_to_tonlib_api(TonlibError::EmptyField("signature"));
+  }
+  const auto function_id = ftabi::compute_function_id(request.signature_->data_);
+  return tonlib_api::make_object<tonlib_api::ftabi_functionId>(static_cast<std::int32_t>(function_id));
+}
+
+tonlib_api::object_ptr<tonlib_api::Object> TonlibClient::do_static_request(
     const tonlib_api::ftabi_computeFunctionSignature& request) {
   if (request.name_.empty()) {
     return status_to_tonlib_api(TonlibError::EmptyField("name"));
@@ -4126,7 +4126,8 @@ tonlib_api::object_ptr<tonlib_api::Object> TonlibClient::do_static_request(
   return tonlib_api::make_object<tonlib_api::ftabi_functionSignature>(std::move(signature));
 }
 
-tonlib_api::object_ptr<tonlib_api::Object> do_static_request(tonlib_api::ftabi_createFunction& request) {
+TonlibClient::object_ptr<tonlib_api::Object> TonlibClient::do_static_request(
+    tonlib_api::ftabi_createFunction& request) {
   const auto& name = request.name_;
 
   auto inputs_r = parse_params(request.inputs_);
