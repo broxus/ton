@@ -11,9 +11,18 @@
 #include <vm/cp0.h>
 #include <vm/memo.h>
 #include <vm/vm.h>
+#include <tl/generate/auto/tl/tonlib_api.h>
 
 namespace ftabi {
+namespace tonlib_api = ton::tonlib_api;
 constexpr static auto STD_ADDRESS_BIT_LENGTH = 2 /* tag */ + 1 /* maybe */ + 8 /* workchain */ + 256 /* addr */;
+
+std::string to_bytes(td::Ref<vm::Cell> cell) {
+  if (cell.is_null()) {
+    return "";
+  }
+  return vm::std_boc_serialize(cell, vm::BagOfCells::Mode::WithCRC32C).move_as_ok().as_slice().str();
+}
 
 // value int
 
@@ -37,6 +46,10 @@ auto ValueInt::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceDat
   return std::move(cursor);
 }
 
+auto ValueInt::to_tonlib_api() const -> ApiValue {
+  return tonlib_api::make_object<tonlib_api::ftabi_valueInt>(std::move(param_->to_tonlib_api()), value.to_long());
+}
+
 auto ValueInt::to_string() const -> std::string {
   return value.to_dec_string();
 }
@@ -49,6 +62,14 @@ auto ValueInt::try_is_signed() const -> td::Result<bool> {
   }
 
   return td::Status::Error("invalid param type. int or uint expected");
+}
+
+auto ParamUint::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramUint>(name_, static_cast<int32_t>(size));
+}
+
+auto ParamInt::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramInt>(name_, static_cast<int32_t>(size));
 }
 
 // value bool
@@ -77,9 +98,18 @@ auto ValueBool::to_string() const -> std::string {
   return value ? "true" : "false";
 }
 
+auto ValueBool::to_tonlib_api() const -> ApiValue {
+  return tonlib_api::make_object<tonlib_api::ftabi_valueBool>(std::move(param_->to_tonlib_api()), value);
+}
+
 auto ValueBool::make_copy() const -> Value* {
   return new ValueBool{param_, value};
 }
+
+auto ParamBool::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramBool>(name_);
+}
+
 // value tuple
 
 ValueTuple::ValueTuple(ParamRef param, std::vector<ValueRef> values)
@@ -127,8 +157,39 @@ auto ValueTuple::to_string() const -> std::string {
   return result + ")";
 }
 
+auto ValueTuple::to_tonlib_api() const -> ApiValue {
+  std::vector<ApiValue> api_values{};
+  api_values.reserve(values.size());
+  for (const auto& item : values) {
+    api_values.emplace_back(std::move(item->to_tonlib_api()));
+  }
+  return tonlib_api::make_object<tonlib_api::ftabi_valueTuple>(std::move(param_->to_tonlib_api()),
+                                                               std::move(api_values));
+}
+
 auto ValueTuple::make_copy() const -> Value* {
   return new ValueTuple{param_, values};
+}
+
+auto ParamTuple::to_tonlib_api() const -> ApiParam {
+  std::vector<ApiParam> result{};
+  result.resize(items.size());
+  for (const auto& item : items) {
+    result.emplace_back(std::move(item->to_tonlib_api()));
+  }
+  return tonlib_api::make_object<tonlib_api::ftabi_paramTuple>(name_, std::move(result));
+}
+
+// value array :TODO
+
+auto ParamArray::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramArray>(name_, param->to_tonlib_api());
+}
+
+// value fixed array :TODO
+
+auto ParamFixedArray::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramFixedArray>(name_, param->to_tonlib_api(), size);
 }
 
 // value cell
@@ -176,8 +237,17 @@ auto ValueCell::to_string() const -> std::string {
   return ss.str();
 }
 
+auto ValueCell::to_tonlib_api() const -> ApiValue {
+  return tonlib_api::make_object<tonlib_api::ftabi_valueCell>(
+      std::move(param_->to_tonlib_api()), tonlib_api::make_object<tonlib_api::tvm_cell>(to_bytes(value)));
+}
+
 auto ValueCell::make_copy() const -> Value* {
   return new ValueCell{param_, value};
+}
+
+auto ParamCell::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramCell>(name_);
 }
 
 // value map
@@ -246,8 +316,18 @@ auto ValueMap::to_string() const -> std::string {
   return ss.str();
 }
 
+auto ValueMap::to_tonlib_api() const -> ApiValue {
+  // TODO: implement api conversion
+  auto status = td::Status::Error("not implemented yet");
+  return nullptr;
+}
+
 auto ValueMap::make_copy() const -> Value* {
   return new ValueMap{param_, values};
+}
+
+auto ParamMap::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramMap>(name_, key->to_tonlib_api(), value->to_tonlib_api());
 }
 
 // value address
@@ -298,8 +378,17 @@ auto ValueAddress::to_string() const -> std::string {
   return std::to_string(value.workchain) + ":" + value.addr.to_hex();
 }
 
+auto ValueAddress::to_tonlib_api() const -> ApiValue {
+  return tonlib_api::make_object<tonlib_api::ftabi_valueAddress>(
+      std::move(param_->to_tonlib_api()), tonlib_api::make_object<tonlib_api::accountAddress>(value.rserialize()));
+}
+
 auto ValueAddress::make_copy() const -> Value* {
   return new ValueAddress{param_, value};
+}
+
+auto ParamAddress::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramAddress>(name_);
 }
 
 // value bytes
@@ -388,8 +477,26 @@ auto ValueBytes::to_string() const -> std::string {
   return td::buffer_to_hex(td::Slice{value.data(), value.size()});
 }
 
+auto ValueBytes::to_tonlib_api() const -> ApiValue {
+  std::string result{};
+  result.resize(value.size(), 0);
+
+  static_assert(sizeof(decltype(result)::value_type) == sizeof(decltype(value)::value_type), "incompatible api bytes representation");
+  std::memcpy(&result[0], value.data(), value.size());
+
+  return tonlib_api::make_object<tonlib_api::ftabi_valueBytes>(std::move(param_->to_tonlib_api()), std::move(result));
+}
+
 auto ValueBytes::make_copy() const -> Value* {
   return new ValueBytes{param_, value};
+}
+
+auto ParamBytes::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramBytes>(name_);
+}
+
+auto ParamFixedBytes::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramFixedBytes>(name_, static_cast<int32_t>(size));
 }
 
 // value gram
@@ -420,8 +527,16 @@ auto ValueGram::to_string() const -> std::string {
   return "$" + value->to_dec_string();
 }
 
+auto ValueGram::to_tonlib_api() const -> ApiValue {
+  return tonlib_api::make_object<tonlib_api::ftabi_valueGram>(std::move(param_->to_tonlib_api()), value->to_long());
+}
+
 auto ValueGram::make_copy() const -> Value* {
   return new ValueGram{param_, value};
+}
+
+auto ParamGram::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramGram>(name_);
 }
 
 // value time
@@ -453,8 +568,17 @@ auto ValueTime::to_string() const -> std::string {
   return std::to_string(value);
 }
 
+auto ValueTime::to_tonlib_api() const -> ApiValue {
+  return tonlib_api::make_object<tonlib_api::ftabi_valueTime>(std::move(param_->to_tonlib_api()),
+                                                              static_cast<int64_t>(value));
+}
+
 auto ValueTime::make_copy() const -> Value* {
   return new ValueTime{param_, value};
+}
+
+auto ParamTime::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramTime>(name_);
 }
 
 // value expire
@@ -486,8 +610,17 @@ auto ValueExpire::to_string() const -> std::string {
   return std::to_string(value);
 }
 
+auto ValueExpire::to_tonlib_api() const -> ApiValue {
+  return tonlib_api::make_object<tonlib_api::ftabi_valueExpire>(std::move(param_->to_tonlib_api()),
+                                                                static_cast<int32_t>(value));
+}
+
 auto ValueExpire::make_copy() const -> Value* {
   return new ValueExpire{param_, value};
+}
+
+auto ParamExpire::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramExpire>(name_);
 }
 
 // value public key
@@ -535,6 +668,15 @@ auto ValuePublicKey::to_string() const -> std::string {
   }
 }
 
+auto ValuePublicKey::to_tonlib_api() const -> ApiValue {
+  td::SecureString result{};
+  if (value) {
+    result = std::move(value.value().copy());
+  }
+  return tonlib_api::make_object<tonlib_api::ftabi_valuePublicKey>(std::move(param_->to_tonlib_api()),
+                                                                   std::move(result));
+}
+
 auto ValuePublicKey::make_copy() const -> Value* {
   td::optional<td::SecureString> copy{};
   if (value) {
@@ -543,7 +685,12 @@ auto ValuePublicKey::make_copy() const -> Value* {
   return new ValuePublicKey{param_, std::move(copy)};
 }
 
+auto ParamPublicKey::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramPublicKey>(name_);
+}
+
 // functions
+
 auto fill_signature(const td::optional<td::SecureString>& signature, BuilderData&& cell) -> td::Result<BuilderData> {
   vm::CellBuilder cb{};
   if (signature) {
@@ -936,14 +1083,12 @@ static auto prepare_vm_c7(ton::UnixTime now, ton::LogicalTime lt, td::Ref<vm::Ce
   return vm::make_tuple_ref(std::move(tuple));
 }
 
-auto run_smc_method(AccountStateInfo&& account, td::Ref<Function>&& function, td::Ref<FunctionCall>&& function_call)
-    -> td::Result<std::vector<ValueRef>> {
+auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, td::Ref<Function>&& function,
+                    td::Ref<FunctionCall>&& function_call) -> td::Result<std::vector<ValueRef>> {
   try {
-    const auto& info = account.state_details_info;
-
     if (info.root.is_null()) {
-      LOG(ERROR) << "account state of " << account.workchain << ":" << account.addr.to_hex() << " is empty";
-      return td::Status::Error(PSLICE() << "account state of " << account.workchain << ":" << account.addr.to_hex()
+      LOG(ERROR) << "account state of " << address.workchain << ":" << address.addr.to_hex() << " is empty";
+      return td::Status::Error(PSLICE() << "account state of " << address.workchain << ":" << address.addr.to_hex()
                                         << " is empty");
     }
 
@@ -960,14 +1105,14 @@ auto run_smc_method(AccountStateInfo&& account, td::Ref<Function>&& function, td
     // validate account state
     switch (block::gen::t_AccountState.get_tag(*store.state)) {
       case block::gen::AccountState::account_uninit:
-        LOG(ERROR) << "account " << account.workchain << ":" << account.addr.to_hex()
+        LOG(ERROR) << "account " << address.workchain << ":" << address.addr.to_hex()
                    << " not initialized yet (cannot run any methods)";
-        return td::Status::Error(PSLICE() << "account " << account.workchain << ":" << account.addr.to_hex()
+        return td::Status::Error(PSLICE() << "account " << address.workchain << ":" << address.addr.to_hex()
                                           << " not initialized yet (cannot run any methods)");
       case block::gen::AccountState::account_frozen:
-        LOG(ERROR) << "account " << account.workchain << ":" << account.addr.to_hex()
+        LOG(ERROR) << "account " << address.workchain << ":" << address.addr.to_hex()
                    << " frozen (cannot run any methods)";
-        return td::Status::Error(PSLICE() << "account " << account.workchain << ":" << account.addr.to_hex()
+        return td::Status::Error(PSLICE() << "account " << address.workchain << ":" << address.addr.to_hex()
                                           << " frozen (cannot run any methods)");
       default:
         break;
@@ -986,7 +1131,7 @@ auto run_smc_method(AccountStateInfo&& account, td::Ref<Function>&& function, td
     } else {
       message_body_ref = message_body;
     }
-    auto message = ton::GenericAccount::create_ext_message(block::StdAddress{account.workchain, account.addr}, {},
+    auto message = ton::GenericAccount::create_ext_message(block::StdAddress{address.workchain, address.addr}, {},
                                                            std::move(message_body_ref));
 
     auto message_body_cs = vm::load_cell_slice_ref(message_body);
@@ -1014,7 +1159,7 @@ auto run_smc_method(AccountStateInfo&& account, td::Ref<Function>&& function, td
     vm.set_c7(prepare_vm_c7(info.gen_utime, info.gen_lt, my_addr, balance));
 
     // execute
-    LOG(INFO) << "starting VM to run method of smart contract " << account.workchain << ":" << account.addr.to_hex();
+    LOG(INFO) << "starting VM to run method of smart contract " << address.workchain << ":" << address.addr.to_hex();
 
     int exit_code;
     try {

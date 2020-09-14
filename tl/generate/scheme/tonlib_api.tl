@@ -129,7 +129,6 @@ ftabi.paramTime name:string = ftabi.Param;
 ftabi.paramExpire name:string = ftabi.Param;
 ftabi.paramPublicKey name:string = ftabi.Param;
 
-ftabi.valueUint param:ftabi.Param value:int64 = ftabi.Value;
 ftabi.valueInt param:ftabi.Param value:int64 = ftabi.Value;
 ftabi.valueBool param:ftabi.Param value:Bool = ftabi.Value;
 ftabi.valueTuple param:ftabi.Param values:vector<ftabi.Value> = ftabi.Value;
@@ -151,6 +150,8 @@ ftabi.functionCallExternal headerValues:vector<ftabi.Value> inputValues:vector<f
 ftabi.functionCallExternalSigned headerValues:vector<ftabi.Value> inputValues:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
 ftabi.functionCallInternal headerValues:vector<ftabi.Value> inputValues:vector<ftabi.Value> = ftabi.FunctionCall;
 ftabi.functionCallInternalSigned headerValues:vector<ftabi.Value> inputValues:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
+
+ftabi.localRunResult values:vector<ftabi.Value> = ftabi.LocalRunResult;
 
 //
 // DNS
@@ -321,6 +322,7 @@ ftabi.computeFunctionId signature:ftabi.FunctionSignature = ftabi.FunctionId;
 ftabi.computeFunctionSignature name:string inputs:vector<ftabi.Param> outputs:vector<ftabi.Param> = ftabi.FunctionSignature;
 ftabi.createFunction name:string header:vector<ftabi.Param> inputs:vector<ftabi.Param> outputs:vector<ftabi.Param> = ftabi.Function;
 ftabi.createMessageBody function:ftabi.Function call:ftabi.FunctionCall = ftabi.MessageBody;
+ftabi.runLocal address:AccountAddress function:ftabi.Function call:ftabi.FunctionCall = ftabi.LocalRunResult;
 
 dns.resolve account_address:accountAddress name:string category:int32 ttl:int32 = dns.Resolved;
 

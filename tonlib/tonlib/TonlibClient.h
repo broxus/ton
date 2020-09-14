@@ -215,7 +215,6 @@ class TonlibClient : public td::actor::Actor {
   template <class P>
   td::Status do_request(const tonlib_api::ftabi_createMessageBody& request, P&&);
 
-
   void make_any_request(tonlib_api::Function& function, QueryContext query_context,
                         td::Promise<tonlib_api::object_ptr<tonlib_api::Object>>&& promise);
   template <class T, class P>
@@ -325,6 +324,9 @@ class TonlibClient : public td::actor::Actor {
 
   td::Status do_request(const tonlib_api::smc_runGetMethod& request,
                         td::Promise<object_ptr<tonlib_api::smc_runResult>>&& promise);
+
+  td::Status do_request(tonlib_api::ftabi_runLocal& request,
+                        td::Promise<object_ptr<tonlib_api::ftabi_localRunResult>>&& promise);
 
   td::Status do_request(const tonlib_api::dns_resolve& request,
                         td::Promise<object_ptr<tonlib_api::dns_resolved>>&& promise);

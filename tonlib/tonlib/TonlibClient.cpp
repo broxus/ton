@@ -293,10 +293,6 @@ td::Result<ftabi::ValueRef> parse_value(tonlib_api::ftabi_Value& value) {
   return downcast_call2<ReturnType>(
       value,
       td::overloaded(  //
-          [](const tonlib_api::ftabi_valueUint& value) -> ReturnType {
-            TRY_RESULT(param, parse_param(*value.param_))
-            return ftabi::ValueRef{ftabi::ValueInt(std::move(param), td::make_bigint(value.value_))};
-          },
           [](const tonlib_api::ftabi_valueInt& value) -> ReturnType {
             TRY_RESULT(param, parse_param(*value.param_))
             return ftabi::ValueRef{ftabi::ValueInt(std::move(param), td::make_bigint(value.value_))};
@@ -3643,6 +3639,48 @@ td::Status TonlibClient::do_request(const tonlib_api::smc_runGetMethod& request,
   return td::Status::OK();
 }
 
+td::Status TonlibClient::do_request(tonlib_api::ftabi_runLocal& request,
+                                    td::Promise<tonlib_api::object_ptr<tonlib_api::ftabi_localRunResult>>&& promise) {
+  if (!request.address_) {
+    return TonlibError::EmptyField("address");
+  }
+  if (!request.function_) {
+    return TonlibError::EmptyField("function");
+  }
+  if (!request.call_) {
+    return TonlibError::EmptyField("call");
+  }
+
+  TRY_RESULT(account_address, get_account_address(request.address_->account_address_));
+  TRY_RESULT(function, parse_function(*request.function_))
+  TRY_RESULT(function_call, parse_function_call(request.call_))
+
+  using ReturnType = tonlib_api::object_ptr<tonlib_api::ftabi_localRunResult>;
+
+  auto actor_id = actor_id_++;
+  actors_[actor_id] = td::actor::create_actor<GetRawAccountState>(
+      "GetAccountState", client_.get_client(), account_address, query_context_.block_id.copy(),
+      actor_shared(this, actor_id),
+      promise.wrap([address = account_address, function = td::Ref<ftabi::Function>{std::move(function)},
+                    function_call = td::Ref<ftabi::FunctionCall>{std::move(function_call)}](
+                       RawAccountState&& state) mutable -> td::Result<ReturnType> {
+        auto values_r =
+            ftabi::run_smc_method(address, std::move(state.info), std::move(function), std::move(function_call));
+        if (values_r.is_error()) {
+          return values_r.move_as_error();
+        }
+        auto values = values_r.move_as_ok();
+
+        std::vector<tonlib_api::object_ptr<tonlib_api::ftabi_Value>> results;
+        results.reserve(values.size());
+        for (const auto& value : values) {
+          results.emplace_back(std::move(value->to_tonlib_api()));
+        }
+        return tonlib_api::make_object<tonlib_api::ftabi_localRunResult>(std::move(results));
+      }));
+  return td::Status::OK();
+}
+
 td::Result<tonlib_api::object_ptr<tonlib_api::dns_EntryData>> to_tonlib_api(
     const ton::ManualDns::EntryData& entry_data) {
   td::Result<tonlib_api::object_ptr<tonlib_api::dns_EntryData>> res;
@@ -4365,4 +4403,5 @@ td::Status TonlibClient::do_request(const tonlib_api::ftabi_createMessageBody& r
   UNREACHABLE();
   return TonlibError::Internal();
 }
+
 }  // namespace tonlib
