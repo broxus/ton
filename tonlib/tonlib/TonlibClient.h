@@ -164,6 +164,11 @@ class TonlibClient : public td::actor::Actor {
 
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::msg_decryptWithProof& request);
 
+  static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_computeFunctionId& request);
+  static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_computeFunctionSignature& request);
+  static object_ptr<tonlib_api::Object> do_static_request(tonlib_api::ftabi_createFunction& request);
+  static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_createMessageBody& request);
+
   template <class P>
   td::Status do_request(const tonlib_api::runTests& request, P&&);
   template <class P>
@@ -200,6 +205,16 @@ class TonlibClient : public td::actor::Actor {
   td::Status do_request(const tonlib_api::kdf& request, P&&);
   template <class P>
   td::Status do_request(const tonlib_api::msg_decryptWithProof& request, P&&);
+
+  template <class P>
+  td::Status do_request(const tonlib_api::ftabi_computeFunctionId& request, P&&);
+  template <class P>
+  td::Status do_request(const tonlib_api::ftabi_computeFunctionSignature& request, P&&);
+  template <class P>
+  td::Status do_request(tonlib_api::ftabi_createFunction& request, P&&);
+  template <class P>
+  td::Status do_request(const tonlib_api::ftabi_createMessageBody& request, P&&);
+
 
   void make_any_request(tonlib_api::Function& function, QueryContext query_context,
                         td::Promise<tonlib_api::object_ptr<tonlib_api::Object>>&& promise);

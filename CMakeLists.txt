@@ -368,6 +368,7 @@ add_subdirectory(crypto)
 add_subdirectory(lite-client)
 
 #BEGIN tonlib
+add_subdirectory(ftabi)
 add_subdirectory(tonlib)
 #END tonlib
 
