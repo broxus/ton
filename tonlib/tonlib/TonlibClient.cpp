@@ -297,6 +297,13 @@ td::Result<ftabi::ValueRef> parse_value(tonlib_api::ftabi_Value& value) {
             TRY_RESULT(param, parse_param(*value.param_))
             return ftabi::ValueRef{ftabi::ValueInt(std::move(param), td::make_bigint(value.value_))};
           },
+          [](const tonlib_api::ftabi_valueBigInt& value) -> ReturnType {
+            TRY_RESULT(param, parse_param(*value.param_))
+            td::BigInt256 data{};
+            data.import_bytes(reinterpret_cast<const uint8_t*>(value.value_.data()), value.value_.size(),
+                              param->type() == ftabi::ParamType::Int);
+            return ftabi::ValueRef{ftabi::ValueInt(std::move(param), data)};
+          },
           [](const tonlib_api::ftabi_valueBool& value) -> ReturnType {
             TRY_RESULT(param, parse_param(*value.param_))
             return ftabi::ValueRef{ftabi::ValueBool(std::move(param), value.value_)};

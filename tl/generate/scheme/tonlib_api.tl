@@ -130,6 +130,7 @@ ftabi.paramExpire name:string = ftabi.Param;
 ftabi.paramPublicKey name:string = ftabi.Param;
 
 ftabi.valueInt param:ftabi.Param value:int64 = ftabi.Value;
+ftabi.valueBigInt param:ftabi.Param value:bytes = ftabi.Value;
 ftabi.valueBool param:ftabi.Param value:Bool = ftabi.Value;
 ftabi.valueTuple param:ftabi.Param values:vector<ftabi.Value> = ftabi.Value;
 ftabi.valueCell param:ftabi.Param value:tvm.Cell = ftabi.Value;

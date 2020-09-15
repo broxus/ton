@@ -1147,6 +1147,8 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
     // create vm
     LOG(DEBUG) << "creating VM";
 
+    vm::init_op_cp0(true);  // enable vm debug
+
     vm::VmState vm{state_init.code->prefetch_ref(),
                    std::move(stack),
                    vm::GasLimits{1'000'000'000},
