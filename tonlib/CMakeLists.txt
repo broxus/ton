@@ -51,6 +51,8 @@ set(TONLIB_ONLINE_TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/test/online.cpp PARENT
 
 add_library(tonlib STATIC ${TONLIB_SOURCE})
 
+target_compile_features(tonlib PRIVATE cxx_std_17)
+
 target_include_directories(tonlib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/..

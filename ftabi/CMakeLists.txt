@@ -10,4 +10,7 @@ target_include_directories(ftabi PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/..
 )
+
+target_compile_features(ftabi PRIVATE cxx_std_17)
+
 target_link_libraries(ftabi PUBLIC ton_crypto ton_block smc-envelope)
