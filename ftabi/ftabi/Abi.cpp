@@ -16,6 +16,7 @@
 namespace ftabi {
 namespace tonlib_api = ton::tonlib_api;
 constexpr static auto STD_ADDRESS_BIT_LENGTH = 2 /* tag */ + 1 /* maybe */ + 8 /* workchain */ + 256 /* addr */;
+constexpr static size_t SIGNATURE_LENGTH = 64;
 
 std::string to_bytes(td::Ref<vm::Cell> cell) {
   if (cell.is_null()) {
@@ -481,7 +482,8 @@ auto ValueBytes::to_tonlib_api() const -> ApiValue {
   std::string result{};
   result.resize(value.size(), 0);
 
-  static_assert(sizeof(decltype(result)::value_type) == sizeof(decltype(value)::value_type), "incompatible api bytes representation");
+  static_assert(sizeof(decltype(result)::value_type) == sizeof(decltype(value)::value_type),
+                "incompatible api bytes representation");
   std::memcpy(&result[0], value.data(), value.size());
 
   return tonlib_api::make_object<tonlib_api::ftabi_valueBytes>(std::move(param_->to_tonlib_api()), std::move(result));
@@ -812,6 +814,62 @@ auto compute_function_signature(const std::string& name, const InputParams& inpu
   return name + inputs_signature + ")" + outputs_signature + ")v" + std::to_string(ABI_VERSION);
 }
 
+auto decode_header(SliceData&& data, const std::vector<ParamRef>& header_params, bool internal)
+    -> td::Result<std::tuple<SliceData, uint32_t, std::vector<ValueRef>>> {
+  std::vector<ValueRef> results{};
+  if (!internal) {
+    bool has_signature = false;
+    if (!data.write().fetch_bool_to(has_signature)) {
+      return td::Status::Error("failed to fetch signature option bit");
+    }
+    if (has_signature && !data.write().advance(SIGNATURE_LENGTH * 8)) {
+      return td::Status::Error("failed to fetch signature");
+    }
+    for (const auto& param : header_params) {
+      TRY_RESULT(default_value, param->default_value())
+      TRY_RESULT_ASSIGN(data, default_value.write().deserialize(std::move(data), false))
+      results.emplace_back(std::move(default_value));
+    }
+  }
+  long long function_id = 0;
+  if (!data.write().fetch_long_bool(32, function_id)) {
+    return td::Status::Error("failed to fetch function id");
+  }
+
+  return std::make_tuple(std::move(data), static_cast<uint32_t>(function_id), internal);
+}
+
+auto decode_input_id(SliceData&& data, const std::vector<ParamRef>& header_params, bool internal)
+    -> td::Result<uint32_t> {
+  TRY_RESULT(decoded_header, decode_header(std::move(data), header_params, internal))
+  return std::get<1>(decoded_header);
+}
+
+auto decode_output_id(SliceData&& data) -> td::Result<uint32_t> {
+  long long output_id = 0;
+  if (!data.write().fetch_long_bool(32, output_id)) {
+    return td::Status::Error("failed to fetch output id");
+  }
+  return output_id;
+}
+
+auto decode_params(SliceData&& data, const std::vector<ParamRef>& params) -> td::Result<std::vector<ValueRef>> {
+  std::vector<ValueRef> results;
+
+  for (size_t i = 0; i < params.size(); ++i) {
+    const auto last = i + 1 == params.size();
+    TRY_RESULT(default_value, params[i]->default_value())
+    TRY_RESULT_ASSIGN(data, default_value.write().deserialize(std::move(data), last))
+    results.emplace_back(std::move(default_value));
+  }
+
+  if (!data->empty_ext()) {
+    return td::Status::Error("incomplete deserialization");
+  }
+
+  return std::move(results);
+}
+
 FunctionCall::FunctionCall(InputValues&& inputs) : inputs{std::move(inputs)} {
 }
 
@@ -884,6 +942,19 @@ auto Function::encode_input(const HeaderValues& header, const InputValues& input
   return message;
 }
 
+auto Function::decode_input(SliceData&& data, bool internal) const
+    -> td::Result<std::pair<std::vector<ValueRef>, std::vector<ValueRef>>> {
+  TRY_RESULT(decoded_header, decode_header(std::move(data), header_, internal))
+  auto [cursor, input_id, header_values] = std::move(decoded_header);
+
+  if (input_id != input_id_) {
+    return td::Status::Error("invalid input_id");
+  }
+
+  TRY_RESULT(values, decode_params(std::move(cursor), inputs_));
+  return std::make_pair(std::move(header_values), std::move(values));
+}
+
 auto Function::decode_output(SliceData&& data) const -> td::Result<std::vector<ValueRef>> {
   unsigned long long output_id;
   if (!data.write().fetch_ulong_bool(32, output_id)) {
@@ -894,24 +965,7 @@ auto Function::decode_output(SliceData&& data) const -> td::Result<std::vector<V
     return td::Status::Error("invalid output_id");
   }
 
-  return decode_params(std::move(data));
-}
-
-auto Function::decode_params(SliceData&& cursor) const -> td::Result<std::vector<ValueRef>> {
-  std::vector<ValueRef> results;
-
-  for (size_t i = 0; i < outputs_.size(); ++i) {
-    const auto last = i + 1 == outputs_.size();
-    TRY_RESULT(default_value, outputs_[i]->default_value())
-    TRY_RESULT_ASSIGN(cursor, default_value.write().deserialize(std::move(cursor), last))
-    results.emplace_back(std::move(default_value));
-  }
-
-  if (!cursor->empty_ext()) {
-    return td::Status::Error("incomplete deserialization");
-  }
-
-  return std::move(results);
+  return decode_params(std::move(data), outputs_);
 }
 
 auto Function::encode_header(const HeaderValues& header, bool internal) const -> td::Result<std::vector<BuilderData>> {
@@ -956,10 +1010,9 @@ auto Function::create_unsigned_call(const HeaderValues& header, const InputValue
   if (!internal) {
     vm::CellBuilder cb{};
     if (reserve_sign) {
-      constexpr size_t signature_length = 64;
-      uint8_t signature_buffer[signature_length] = {};
-      CHECK(cb.store_ones_bool(1) && cb.store_bytes_bool(signature_buffer, signature_length))
-      remove_bits += signature_length * 8;
+      uint8_t signature_buffer[SIGNATURE_LENGTH] = {};
+      CHECK(cb.store_ones_bool(1) && cb.store_bytes_bool(signature_buffer, SIGNATURE_LENGTH))
+      remove_bits += SIGNATURE_LENGTH * 8;
     } else {
       CHECK(cb.store_zeroes_bool(1))
     }

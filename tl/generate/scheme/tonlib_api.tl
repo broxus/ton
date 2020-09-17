@@ -147,12 +147,13 @@ ftabi.messageBody data:bytes = ftabi.MessageBody;
 
 ftabi.function name:string header_params:vector<ftabi.Param> input_params:vector<ftabi.Param> output_params:vector<ftabi.Param> input_id:int32 output_id:int32 = ftabi.Function;
 
-ftabi.functionCallExternal headerValues:vector<ftabi.Value> inputValues:vector<ftabi.Value> = ftabi.FunctionCall;
-ftabi.functionCallExternalSigned headerValues:vector<ftabi.Value> inputValues:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
-ftabi.functionCallInternal headerValues:vector<ftabi.Value> inputValues:vector<ftabi.Value> = ftabi.FunctionCall;
-ftabi.functionCallInternalSigned headerValues:vector<ftabi.Value> inputValues:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
+ftabi.functionCallExternal header_values:vector<ftabi.Value> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
+ftabi.functionCallExternalSigned header_values:vector<ftabi.Value> input_values:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
+ftabi.functionCallInternal header_values:vector<ftabi.Value> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
+ftabi.functionCallInternalSigned header_values:vector<ftabi.Value> input_values:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
 
-ftabi.localRunResult values:vector<ftabi.Value> = ftabi.LocalRunResult;
+ftabi.decodedInput header_values:vector<ftabi.Value> values:vector<ftabi.Value> = ftabi.DecodedInput;
+ftabi.decodedOutput values:vector<ftabi.Value> = ftabi.DecodedOutput;
 
 //
 // DNS
@@ -323,7 +324,9 @@ ftabi.computeFunctionId signature:ftabi.FunctionSignature = ftabi.FunctionId;
 ftabi.computeFunctionSignature name:string inputs:vector<ftabi.Param> outputs:vector<ftabi.Param> = ftabi.FunctionSignature;
 ftabi.createFunction name:string header:vector<ftabi.Param> inputs:vector<ftabi.Param> outputs:vector<ftabi.Param> = ftabi.Function;
 ftabi.createMessageBody function:ftabi.Function call:ftabi.FunctionCall = ftabi.MessageBody;
-ftabi.runLocal address:AccountAddress function:ftabi.Function call:ftabi.FunctionCall = ftabi.LocalRunResult;
+ftabi.runLocal address:AccountAddress function:ftabi.Function call:ftabi.FunctionCall = ftabi.DecodedOutput;
+ftabi.decodeOutput function:ftabi.Function data:bytes = ftabi.DecodedOutput;
+ftabi.decodeInput function:ftabi.Function data:bytes internal:Bool = ftabi.DecodedInput;
 
 dns.resolve account_address:accountAddress name:string category:int32 ttl:int32 = dns.Resolved;
 

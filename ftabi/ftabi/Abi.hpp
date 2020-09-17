@@ -564,6 +564,13 @@ auto compute_function_id(const std::string& signature) -> uint32_t;
 auto compute_function_signature(const std::string& name, const InputParams& inputs, const OutputParams& outputs)
     -> std::string;
 
+auto decode_header(SliceData&& data, const std::vector<ParamRef>& header_params, bool internal)
+    -> td::Result<std::tuple<SliceData, uint32_t, std::vector<ValueRef>>>;
+auto decode_input_id(SliceData&& data, const std::vector<ParamRef>& header_params, bool internal)
+    -> td::Result<uint32_t>;
+auto decode_output_id(SliceData&& data) -> td::Result<uint32_t>;
+auto decode_params(SliceData&& data, const std::vector<ParamRef>& params) -> td::Result<std::vector<ValueRef>>;
+
 struct FunctionCall : public td::CntObject {
   explicit FunctionCall(InputValues&& inputs);
   explicit FunctionCall(HeaderValues&& header, InputValues&& inputs);
@@ -592,8 +599,9 @@ class Function : public td::CntObject {
   auto encode_input(const HeaderValues& header, const InputValues& inputs, bool internal,
                     const td::optional<td::Ed25519::PrivateKey>& private_key) const -> td::Result<BuilderData>;
 
+  auto decode_input(SliceData&& data, bool internal) const
+      -> td::Result<std::pair<std::vector<ValueRef>, std::vector<ValueRef>>>;
   auto decode_output(SliceData&& data) const -> td::Result<std::vector<ValueRef>>;
-  auto decode_params(SliceData&& cursor) const -> td::Result<std::vector<ValueRef>>;
 
   auto encode_header(const HeaderValues& header, bool internal) const -> td::Result<std::vector<BuilderData>>;
 
