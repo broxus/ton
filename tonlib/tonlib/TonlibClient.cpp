@@ -441,7 +441,7 @@ std::vector<tonlib_api::object_ptr<tonlib_api::ftabi_Value>> to_tonlib_api(const
   for (const auto& value : values) {
     results.emplace_back(std::move(value->to_tonlib_api()));
   }
-  return std::move(results);
+  return results;
 }
 
 td::Result<ton::pchan::Config> to_pchan_config(const tonlib_api::pchan_initialAccountState& pchan_state) {

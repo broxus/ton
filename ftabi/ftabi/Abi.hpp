@@ -61,7 +61,7 @@ struct Param : public td::CntObject {
   }
 
   virtual auto type_signature() const -> std::string = 0;
-  virtual auto bit_len() const -> size_t {
+  virtual auto bit_len() const -> uint32_t {
     return 0;
   }
   virtual auto default_value() const -> td::Result<ValueRef> {
@@ -116,12 +116,12 @@ struct ValueInt : Value {
 struct ParamUint : Param {
   using ValueType = ValueInt;
 
-  explicit ParamUint(const std::string& name, size_t size) : Param{name, ParamType::Uint}, size{size} {
+  explicit ParamUint(const std::string& name, uint32_t size) : Param{name, ParamType::Uint}, size{size} {
   }
   auto type_signature() const -> std::string final {
     return "uint" + std::to_string(size);
   }
-  auto bit_len() const -> size_t final {
+  auto bit_len() const -> uint32_t final {
     return size;
   }
   auto default_value() const -> td::Result<ValueRef> final {
@@ -132,18 +132,18 @@ struct ParamUint : Param {
     return new ParamUint{name_, size};
   }
 
-  size_t size;
+  uint32_t size;
 };
 
 struct ParamInt : Param {
   using ValueType = ValueInt;
 
-  explicit ParamInt(const std::string& name, size_t size) : Param{name, ParamType::Int}, size{size} {
+  explicit ParamInt(const std::string& name, uint32_t size) : Param{name, ParamType::Int}, size{size} {
   }
   auto type_signature() const -> std::string final {
     return "int" + std::to_string(size);
   }
-  auto bit_len() const -> size_t final {
+  auto bit_len() const -> uint32_t final {
     return size;
   }
   auto default_value() const -> td::Result<ValueRef> final {
@@ -154,7 +154,7 @@ struct ParamInt : Param {
     return new ParamInt{name_, size};
   }
 
-  size_t size;
+  uint32_t size;
 };
 
 struct ValueBool : Value {
@@ -204,7 +204,7 @@ struct ParamTuple : Param {
   }
   template <typename Arg, typename... Args>
   explicit ParamTuple(const std::string& name, Arg&& arg, Args&&... args)
-      : Param{name, ParamType::Tuple}, items{ParamRef{std::forward(arg)}, ParamRef{std::forward(args)}...} {
+      : Param{name, ParamType::Tuple}, items{ParamRef{std::move(arg)}, ParamRef{std::move(args)}...} {
     static_assert(std::is_base_of_v<Param, Arg> && (std::is_base_of_v<Param, Args> && ...));
   }
   auto type_signature() const -> std::string final {
@@ -238,15 +238,29 @@ struct ParamTuple : Param {
   std::vector<ParamRef> items;
 };
 
+struct ValueArray : Value {
+  explicit ValueArray(ParamRef param, std::vector<ValueRef> value);
+  auto serialize() const -> td::Result<std::vector<BuilderData>> final;
+  auto deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> final;
+  auto to_string() const -> std::string final;
+  auto to_tonlib_api() const -> ApiValue final;
+  auto make_copy() const -> Value* final;
+
+  std::vector<ValueRef> values;
+};
+
 struct ParamArray : Param {
   explicit ParamArray(const std::string& name, ParamRef param)
       : Param{name, ParamType::Array}, param{std::move(param)} {
   }
   template <typename T>
-  explicit ParamArray(const std::string& name, T&& param) : Param{name, ParamType::Array}, param{std::forward(param)} {
+  explicit ParamArray(const std::string& name, T&& param) : Param{name, ParamType::Array}, param{std::move(param)} {
   }
   auto type_signature() const -> std::string final {
     return param->type_signature() + "[]";
+  }
+  auto default_value() const -> td::Result<ValueRef> final {
+    return ValueArray{ParamRef{make_copy()}, {}};
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
@@ -256,16 +270,30 @@ struct ParamArray : Param {
   ParamRef param;
 };
 
+struct ValueFixedArray : Value {
+  explicit ValueFixedArray(ParamRef param, std::vector<ValueRef> value);
+  auto serialize() const -> td::Result<std::vector<BuilderData>> final;
+  auto deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> final;
+  auto to_string() const -> std::string final;
+  auto to_tonlib_api() const -> ApiValue final;
+  auto make_copy() const -> Value* final;
+
+  std::vector<ValueRef> values;
+};
+
 struct ParamFixedArray : Param {
-  explicit ParamFixedArray(const std::string& name, ParamRef param, size_t size)
+  explicit ParamFixedArray(const std::string& name, ParamRef param, uint32_t size)
       : Param{name, ParamType::FixedArray}, param{std::move(param)}, size{size} {
   }
   template <typename T>
-  explicit ParamFixedArray(const std::string& name, T&& param, size_t size)
+  explicit ParamFixedArray(const std::string& name, T&& param, uint32_t size)
       : Param{name, ParamType::FixedArray}, param{std::forward(param)}, size{size} {
   }
   auto type_signature() const -> std::string final {
     return param->type_signature() + "[" + std::to_string(size) + "]";
+  }
+  auto default_value() const -> td::Result<ValueRef> final {
+    return ValueFixedArray{ParamRef{make_copy()}, {}};
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
@@ -273,7 +301,7 @@ struct ParamFixedArray : Param {
   }
 
   ParamRef param;
-  size_t size;
+  uint32_t size;
 };
 
 struct ValueCell : Value {
@@ -325,6 +353,9 @@ struct ParamMap : Param {
   }
   auto type_signature() const -> std::string final {
     return "map(" + key->type_signature() + "," + value->type_signature() + ")";
+  }
+  auto default_value() const -> td::Result<ValueRef> final {
+    return ValueMap{ParamRef{make_copy()}, {}};
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {

@@ -16,14 +16,99 @@
 namespace ftabi {
 namespace tonlib_api = ton::tonlib_api;
 constexpr static auto STD_ADDRESS_BIT_LENGTH = 2 /* tag */ + 1 /* maybe */ + 8 /* workchain */ + 256 /* addr */;
-constexpr static size_t SIGNATURE_LENGTH = 64;
+constexpr static uint32_t SIGNATURE_LENGTH = 64;
 
-std::string to_bytes(td::Ref<vm::Cell> cell) {
+namespace details {
+auto to_bytes(td::Ref<vm::Cell> cell) -> std::string {
   if (cell.is_null()) {
     return "";
   }
   return vm::std_boc_serialize(cell, vm::BagOfCells::Mode::WithCRC32C).move_as_ok().as_slice().str();
 }
+
+auto find_next_bits(SliceData&& cursor, uint32_t bits) -> td::Result<SliceData> {
+  if (cursor->empty()) {
+    if (cursor->size_refs() != 1) {
+      return td::Status::Error("invalid cellslice structure");
+    }
+
+    td::Ref<vm::Cell> cell;
+    if (!cursor.write().fetch_ref_to(cell)) {
+      return td::Status::Error("failed to fetch cell ref");
+    }
+    return vm::load_cell_slice_ref(cell);
+  } else if (cursor->size() >= bits) {
+    return std::move(cursor);
+  } else {
+    return td::Status::Error("not enought bits in the cell");
+  }
+}
+
+auto put_array_to_map(const std::vector<ValueRef>& values) -> td::Result<SliceData> {
+  constexpr auto key_len = 32;
+  vm::Dictionary dictionary{key_len};
+  for (unsigned i = 0; i < values.size(); ++i) {
+    TRY_RESULT(serialized, values[i]->serialize())
+    TRY_RESULT(value, pack_cells_into_chain(std::move(serialized)))
+    if (!dictionary.set(td::BitArray<key_len>{i}, vm::load_cell_slice_ref(value), vm::DictionaryBase::SetMode::Add)) {
+      return td::Status::Error("failed to add value");
+    }
+  }
+  return dictionary.get_root();
+}
+
+auto get_dictionary(SliceData& cursor) -> td::Result<SliceData> {
+  auto root = cursor->clone();
+  bool as_ref;
+  if (!cursor.write().fetch_bool_to(as_ref)) {
+    return td::Status::Error("failed to fetch as_ref bit");
+  }
+  if (as_ref) {
+    if (!cursor.write().advance_refs(1)) {
+      return td::Status::Error("failed to get dictionary");
+    }
+  } else {
+    root.advance_refs(root.size_refs());
+  }
+  return root.fetch_subslice(std::min(1u, root.size()), std::min(1u, root.size_refs()));
+}
+
+auto read_array_from_map(const ParamRef& param, SliceData&& cursor, uint32_t size)
+    -> td::Result<std::pair<SliceData, std::vector<ValueRef>>> {
+  TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), 1))
+
+  TRY_RESULT(root, details::get_dictionary(cursor))
+  vm::Dictionary dictionary{root.write(), 32};
+
+  std::vector<ValueRef> result{};
+  result.reserve(size);
+  for (uint32_t i = 0; i < size; ++i) {
+    auto data = dictionary.lookup(td::BitArray<32>{i});
+    if (data.is_null()) {
+      return td::Status::Error("failed to find index");
+    }
+    TRY_RESULT(value, param->default_value())
+    TRY_RESULT(next, value.write().deserialize(std::move(data), true))
+    result.emplace_back(std::move(value));
+  }
+  return std::make_pair(std::move(cursor), std::move(result));
+}
+
+auto to_string(const std::vector<ValueRef>& values, const char* brackets) -> std::string {
+  if (values.empty()) {
+    return brackets;
+  }
+  std::string result{};
+  result += brackets[0];
+  for (size_t i = 0; i < values.size(); ++i) {
+    result += values[i]->to_string();
+    if (i + 1 != values.size()) {
+      result += ", ";
+    }
+  }
+  return result + brackets[1];
+}
+}  // namespace details
 
 // value int
 
@@ -38,6 +123,7 @@ auto ValueInt::serialize() const -> td::Result<std::vector<BuilderData>> {
 }
 
 auto ValueInt::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> {
+  TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), param_->bit_len()))
   TRY_RESULT(sgnd, try_is_signed())
   auto fetched = cursor.write().fetch_int256(param_->bit_len(), sgnd);
   if (fetched.is_null()) {
@@ -89,6 +175,7 @@ auto ValueBool::serialize() const -> td::Result<std::vector<BuilderData>> {
 }
 
 auto ValueBool::deserialize(SliceData&& cursor, bool /*last*/) -> td::Result<SliceData> {
+  TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), 1))
   if (!cursor.write().fetch_bool_to(value)) {
     return td::Status::Error("invalid value type. bool expected");
   }
@@ -145,17 +232,7 @@ auto ValueTuple::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceD
 }
 
 auto ValueTuple::to_string() const -> std::string {
-  if (values.empty()) {
-    return "()";
-  }
-  std::string result = "(";
-  for (size_t i = 0; i < values.size(); ++i) {
-    result += values[i]->to_string();
-    if (i + 1 != values.size()) {
-      result += ", ";
-    }
-  }
-  return result + ")";
+  return details::to_string(values, "()");
 }
 
 auto ValueTuple::to_tonlib_api() const -> ApiValue {
@@ -181,13 +258,91 @@ auto ParamTuple::to_tonlib_api() const -> ApiParam {
   return tonlib_api::make_object<tonlib_api::ftabi_paramTuple>(name_, std::move(result));
 }
 
-// value array :TODO
+// value array
+
+ValueArray::ValueArray(ParamRef param, std::vector<ValueRef> values)
+    : Value{std::move(param)}, values{std::move(values)} {
+}
+
+auto ValueArray::serialize() const -> td::Result<std::vector<BuilderData>> {
+  TRY_RESULT(array_data, details::put_array_to_map(values))
+  vm::CellBuilder cb{};
+  CHECK(cb.store_long_bool(values.size(), 32) && cb.append_cellslice_bool(array_data))
+  return std::vector<BuilderData>{cb.finalize()};
+}
+
+auto ValueArray::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> {
+  if (param_->type() != ParamType::Array) {
+    return td::Status::Error("invalid array param type");
+  }
+  const auto& param = dynamic_cast<const ParamArray*>(param_.get())->param;
+
+  TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), 32));
+  unsigned long long size;
+  if (!cursor.write().fetch_ulong_bool(32, size)) {
+    return td::Status::Error("failed to fetch array size");
+  }
+
+  TRY_RESULT(deserialized, details::read_array_from_map(param, std::move(cursor), static_cast<int32_t>(size)))
+  values = std::move(deserialized.second);
+  return std::move(deserialized.first);
+}
+
+auto ValueArray::to_string() const -> std::string {
+  return details::to_string(values, "[]");
+}
+
+auto ValueArray::to_tonlib_api() const -> ApiValue {
+  // TODO: add tonlib api
+  return nullptr;
+}
+
+auto ValueArray::make_copy() const -> Value* {
+  return new ValueArray{param_, values};
+}
 
 auto ParamArray::to_tonlib_api() const -> ApiParam {
   return tonlib_api::make_object<tonlib_api::ftabi_paramArray>(name_, param->to_tonlib_api());
 }
 
-// value fixed array :TODO
+// value fixed array
+
+ValueFixedArray::ValueFixedArray(ParamRef param, std::vector<ValueRef> values)
+    : Value{std::move(param)}, values{std::move(values)} {
+}
+
+auto ValueFixedArray::serialize() const -> td::Result<std::vector<BuilderData>> {
+  TRY_RESULT(array_data, details::put_array_to_map(values))
+  vm::CellBuilder cb{};
+  CHECK(cb.append_cellslice_bool(array_data))
+  return std::vector<BuilderData>{cb.finalize()};
+}
+
+auto ValueFixedArray::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> {
+  if (param_->type() != ParamType::FixedArray) {
+    return td::Status::Error("invalid fixed array param type");
+  }
+  const auto* array_param = dynamic_cast<const ParamFixedArray*>(param_.get());
+  const auto& item_param = array_param->param;
+  const auto size = array_param->size;
+
+  TRY_RESULT(deserialized, details::read_array_from_map(item_param, std::move(cursor), size))
+  values = std::move(deserialized.second);
+  return std::move(deserialized.first);
+}
+
+auto ValueFixedArray::to_string() const -> std::string {
+  return details::to_string(values, "[]");
+}
+
+auto ValueFixedArray::to_tonlib_api() const -> ApiValue {
+  // TODO: add tonlib api
+  return nullptr;
+}
+
+auto ValueFixedArray::make_copy() const -> Value* {
+  return new ValueFixedArray{param_, values};
+}
 
 auto ParamFixedArray::to_tonlib_api() const -> ApiParam {
   return tonlib_api::make_object<tonlib_api::ftabi_paramFixedArray>(name_, param->to_tonlib_api(), size);
@@ -240,7 +395,7 @@ auto ValueCell::to_string() const -> std::string {
 
 auto ValueCell::to_tonlib_api() const -> ApiValue {
   return tonlib_api::make_object<tonlib_api::ftabi_valueCell>(
-      std::move(param_->to_tonlib_api()), tonlib_api::make_object<tonlib_api::tvm_cell>(to_bytes(value)));
+      param_->to_tonlib_api(), tonlib_api::make_object<tonlib_api::tvm_cell>(details::to_bytes(value)));
 }
 
 auto ValueCell::make_copy() const -> Value* {
@@ -258,15 +413,22 @@ ValueMap::ValueMap(ParamRef param, std::vector<std::pair<ValueRef, ValueRef>> va
 }
 
 auto ValueMap::serialize() const -> td::Result<std::vector<BuilderData>> {
-  size_t bit_len{};
+  if (param_->type() != ParamType::Map) {
+    return td::Status::Error("invalid map param type");
+  }
+  auto param = dynamic_cast<const ParamMap*>(param_.get());
+  const auto& param_key = *param->key;
+  const auto& param_value = *param->value;
+
+  uint32_t bit_len{};
   std::unique_ptr<block::gen::TLB> value_type{};
-  if (param_->type() == ParamType::Uint) {
-    bit_len = param_->bit_len();
+  if (param_key.type() == ParamType::Uint) {
+    bit_len = param_key.bit_len();
     value_type = std::make_unique<block::gen::UInt>(bit_len);
-  } else if (param_->type() == ParamType::Int) {
-    bit_len = param_->bit_len();
+  } else if (param_key.type() == ParamType::Int) {
+    bit_len = param_key.bit_len();
     value_type = std::make_unique<block::gen::Int>(bit_len);
-  } else if (param_->type() == ParamType::Address) {
+  } else if (param_key.type() == ParamType::Address) {
     bit_len = STD_ADDRESS_BIT_LENGTH;
     value_type = std::make_unique<block::gen::MsgAddress>();
   } else {
@@ -297,6 +459,31 @@ auto ValueMap::serialize() const -> td::Result<std::vector<BuilderData>> {
 }
 
 auto ValueMap::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> {
+  TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), 1))
+  if (param_->type() != ParamType::Map) {
+    return td::Status::Error("invalid map param type");
+  }
+  auto param = dynamic_cast<const ParamMap*>(param_.get());
+  const auto& param_key = *param->key;
+  const auto& param_value = *param->value;
+
+  uint32_t bit_len;
+  if (param_key.type() == ParamType::Uint || param_key.type() == ParamType::Int) {
+    bit_len = param_key.bit_len();
+  } else if (param_key.type() == ParamType::Address) {
+    bit_len = STD_ADDRESS_BIT_LENGTH;
+  } else {
+    return td::Status::Error("only integer and std address values can be used as keys");
+  }
+
+  vm::Dictionary dictionary{cursor, static_cast<int>(bit_len)};
+  for (const auto& item : dictionary) {
+    TRY_RESULT(value, param_value.default_value())
+    SliceData cloned{item.second};
+    TRY_RESULT(deserialized, value.write().deserialize(std::move(cloned), true));
+    LOG(WARNING) << value->to_string();
+  }
+
   // TODO: implement deserialization
   return td::Status::Error("not implemented yet");
 }
@@ -349,6 +536,7 @@ auto ValueAddress::serialize() const -> td::Result<std::vector<BuilderData>> {
 }
 
 auto ValueAddress::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> {
+  TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), 1))
   switch ((unsigned)cursor.write().fetch_ulong(2)) {
     case 0b00:                      // addr_none$00 = MsgAddressExt;
       value = block::StdAddress{};  // -> (0)
@@ -517,6 +705,7 @@ auto ValueGram::serialize() const -> td::Result<std::vector<BuilderData>> {
 }
 
 auto ValueGram::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> {
+  TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), 1))
   auto grams = block::tlb::t_Grams.as_integer_skip(cursor.write());
   if (grams.is_null()) {
     return td::Status::Error("failed to parse grams");
@@ -557,6 +746,7 @@ auto ValueTime::serialize() const -> td::Result<std::vector<BuilderData>> {
 }
 
 auto ValueTime::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> {
+  TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), 64))
   unsigned long long result;
   if (!cursor.write().fetch_ulong_bool(64, result)) {
     return td::Status::Error("failed to fetch time");
@@ -599,6 +789,7 @@ auto ValueExpire::serialize() const -> td::Result<std::vector<BuilderData>> {
 }
 
 auto ValueExpire::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> {
+  TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), 32))
   unsigned long long result;
   if (!cursor.write().fetch_ulong_bool(32, result)) {
     return td::Status::Error("failed to fetch time");
@@ -646,6 +837,7 @@ auto ValuePublicKey::serialize() const -> td::Result<std::vector<BuilderData>> {
 }
 
 auto ValuePublicKey::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> {
+  TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), 1))
   bool has_value;
   if (!cursor.write().fetch_bool_to(has_value)) {
     return td::Status::Error("failed to fetch public key maybe tag");
@@ -1005,7 +1197,7 @@ auto Function::create_unsigned_call(const HeaderValues& header, const InputValue
 
   TRY_RESULT(cells, encode_header(header, internal))
 
-  size_t remove_bits = 1;
+  uint32_t remove_bits = 1;
 
   if (!internal) {
     vm::CellBuilder cb{};
