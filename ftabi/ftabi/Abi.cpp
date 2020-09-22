@@ -134,7 +134,13 @@ auto ValueInt::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceDat
 }
 
 auto ValueInt::to_tonlib_api() const -> ApiValue {
-  return tonlib_api::make_object<tonlib_api::ftabi_valueInt>(std::move(param_->to_tonlib_api()), value.to_long());
+  if (value.signed_fits_bits(64)) {
+    return tonlib_api::make_object<tonlib_api::ftabi_valueInt>(std::move(param_->to_tonlib_api()), value.to_long());
+  } else {
+    td::BufferSlice bytes(32);
+    CHECK(value.export_bytes(bytes.as_slice().ubegin(), bytes.size(), value.sgn()))
+    return tonlib_api::make_object<tonlib_api::ftabi_valueBigInt>(std::move(param_->to_tonlib_api()), bytes.as_slice().str());
+  }
 }
 
 auto ValueInt::to_string() const -> std::string {
