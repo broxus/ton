@@ -1028,7 +1028,7 @@ auto decode_header(SliceData&& data, const std::vector<ParamRef>& header_params,
     return td::Status::Error("failed to fetch function id");
   }
 
-  return std::make_tuple(std::move(data), static_cast<uint32_t>(function_id), internal);
+  return std::make_tuple(std::move(data), static_cast<uint32_t>(function_id), results);
 }
 
 auto decode_input_id(SliceData&& data, const std::vector<ParamRef>& header_params, bool internal)
