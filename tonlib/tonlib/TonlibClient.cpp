@@ -2719,10 +2719,10 @@ class GenericCreateSendGrams : public TonlibQueryActor {
 
   struct Action {
     block::StdAddress destination;
-    td::int64 amount;
+    td::int64 amount{};
 
     bool is_encrypted{false};
-    bool should_encrypt;
+    bool should_encrypt{};
     std::string message;
 
     td::Ref<vm::Cell> body;
