@@ -249,6 +249,7 @@ logTags tags:vector<string> = LogTags;
 data bytes:secureBytes = Data;
 
 liteServer.info now:int53 version:int32 capabilities:int64 = liteServer.Info;
+liteServer.currentTime now:int32 = liteServer.CurrentTime;
 
 ---functions---
 
@@ -344,6 +345,7 @@ withBlock id:ton.blockIdExt function:Function = Object;
 runTests dir:string = Ok;
 
 liteServer.getInfo = liteServer.Info;
+liteServer.getTime = liteServer.CurrentTime;
 
 //@description Sets new log stream for internal logging of tonlib. This is an offline method. Can be called before authorization. Can be called synchronously @log_stream New log stream
 setLogStream log_stream:LogStream = Ok;

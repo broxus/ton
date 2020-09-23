@@ -3409,6 +3409,14 @@ td::Status TonlibClient::do_request(const tonlib_api::query_getInfo& request,
   return td::Status::OK();
 }
 
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getTime& request,
+                      td::Promise<tonlib_api::object_ptr<tonlib_api::liteServer_currentTime>>&& promise) {
+  client_.send_query(ton::lite_api::liteServer_getTime(), promise.wrap([](auto&& time) {
+    return tonlib_api::make_object<tonlib_api::liteServer_currentTime>(time->now_);
+  }));
+  return td::Status::OK();
+}
+
 void TonlibClient::query_estimate_fees(td::int64 id, bool ignore_chksig, td::Result<LastConfigState> r_state,
                                        td::Promise<object_ptr<tonlib_api::query_fees>>&& promise) {
   auto it = queries_.find(id);

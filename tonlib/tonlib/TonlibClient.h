@@ -304,6 +304,8 @@ class TonlibClient : public td::actor::Actor {
 
   td::Status do_request(const tonlib_api::query_getInfo& request,
                         td::Promise<object_ptr<tonlib_api::query_info>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getTime& request,
+                        td::Promise<object_ptr<tonlib_api::liteServer_currentTime>>&& promise);
   td::Status do_request(const tonlib_api::query_estimateFees& request,
                         td::Promise<object_ptr<tonlib_api::query_fees>>&& promise);
   td::Status do_request(const tonlib_api::query_send& request, td::Promise<object_ptr<tonlib_api::ok>>&& promise);
