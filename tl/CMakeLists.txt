@@ -28,13 +28,20 @@ target_include_directories(tl_lite_api PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../crypto/> $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/generate>)
 
 if (TONLIB_ENABLE_JNI)
-  find_package(JNI REQUIRED)
   set(TL_JNI_OBJECT
     tl/tl_jni_object.cpp
     tl/tl_jni_object.h)
-  set(JNI_INCLUDE_DIRS
-    $<BUILD_INTERFACE:${JAVA_INCLUDE_PATH}>
-    $<BUILD_INTERFACE:${JAVA_INCLUDE_PATH2}>)
+
+  if (NOT ANDROID) # jni is available by default on Android
+    if (NOT JNI_FOUND)
+      find_package(JNI REQUIRED)
+    endif()
+
+    set(JNI_INCLUDE_DIRS
+      $<BUILD_INTERFACE:${JAVA_INCLUDE_PATH}>
+      $<BUILD_INTERFACE:${JAVA_INCLUDE_PATH2}>)
+  endif()
+
 endif()
 
 set_source_files_properties(${TL_TONLIB_API} PROPERTIES GENERATED TRUE)
