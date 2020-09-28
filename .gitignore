@@ -13,3 +13,7 @@ test/regression-tests.cache/
 **/*build*/
 .idea/
 gitrevision.hh
+
+example/android/build*/
+example/android/libs/
+example/android/src/com/broxus/ton/TonApi.java
