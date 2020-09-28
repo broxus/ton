@@ -47,7 +47,12 @@ unpackedAccountAddress workchain_id:int32 bounceable:Bool testnet:Bool addr:byte
 internal.transactionId lt:int64 hash:bytes = internal.TransactionId;
 
 ton.blockId workchain:int32 shard:int64 seqno:int32 = internal.BlockId;
+//@param root_hash  int256
+//@param file_hash  int256
 ton.blockIdExt workchain:int32 shard:int64 seqno:int32 root_hash:bytes file_hash:bytes = ton.BlockIdExt;
+//@param root_hash  int256
+//@param file_hash  int256
+ton.zeroStateIdExt workchain:int32 root_hash:bytes file_hash:bytes = ton.ZeroStateIdExt;
 
 raw.fullAccountState balance:int64 code:bytes data:bytes last_transaction_id:internal.transactionId block_id:ton.blockIdExt frozen_hash:bytes sync_utime:int53 = raw.FullAccountState;
 raw.message source:accountAddress destination:accountAddress value:int64 fwd_fee:int64 ihr_fee:int64 created_lt:int64 body_hash:bytes msg_data:msg.Data = raw.Message;
@@ -248,8 +253,39 @@ logTags tags:vector<string> = LogTags;
 
 data bytes:secureBytes = Data;
 
+//
+// LiteServer
+//
+
+//@param id         int256
+liteServer.accountId workchain:int32 id:bytes = liteServer.AccountId;
 liteServer.info now:int53 version:int32 capabilities:int64 = liteServer.Info;
 liteServer.currentTime now:int32 = liteServer.CurrentTime;
+//@param state_root_hash    int256
+liteServer.masterchainInfo last:ton.blockIdExt state_root_hash:bytes init:ton.zeroStateIdExt = liteServer.MasterchainInfo;
+liteServer.blockData id:ton.blockIdExt data:bytes = liteServer.BlockData;
+//@param root_hash  int256
+//@param file_hash  int256
+liteServer.blockState id:ton.blockIdExt root_hash:bytes file_hash:bytes data:bytes = liteServer.BlockState;
+liteServer.blockHeader id:ton.blockIdExt mode:int32 header_proof:bytes = liteServer.BlockHeader;
+//@param node_id_short  int256
+liteServer.signature node_id_short:bytes signature:bytes = liteServer.Signature;
+liteServer.signatureSet validator_set_hash:int32 catchain_seqno:int32 signatures:(vector liteServer.signature) = liteServer.SignatureSet;
+liteServer.blockLinkBack to_key_block:Bool from:ton.blockIdExt to:ton.blockIdExt dest_proof:bytes proof:bytes state_proof:bytes = liteServer.BlockLink;
+liteServer.blockLinkForward to_key_block:Bool from:ton.blockIdExt to:ton.blockIdExt dest_proof:bytes config_proof:bytes signatures:liteServer.SignatureSet = liteServer.BlockLink;
+liteServer.partialBlockProof complete:Bool from:ton.blockIdExt to:ton.blockIdExt steps:(vector liteServer.BlockLink) = liteServer.PartialBlockProof;
+//@param account    int256 if mode & 1
+//@param lt         int64  if mode & 2
+//@param hash       int256 if mode & 4
+liteServer.transactionId mode:int32 account:bytes lt:int64 hash:bytes = liteServer.TransactionId;
+//@param account    int256
+liteServer.transactionId3 account:bytes lt:int64 = liteServer.TransactionId3;
+liteServer.allShardsInfo id:ton.blockIdExt proof:bytes data:bytes = liteServer.AllShardsInfo;
+liteServer.blockTransactions id:ton.blockIdExt req_count:int32 incomplete:Bool ids:(vector liteServer.transactionId) proof:bytes = liteServer.BlockTransactions;
+liteServer.transactionInfo id:ton.blockIdExt proof:bytes transaction:bytes = liteServer.TransactionInfo;
+liteServer.transactionList ids:(vector ton.blockIdExt) transactions:bytes = liteServer.TransactionList;
+liteServer.shardInfo id:ton.blockIdExt shardblk:ton.blockIdExt shard_proof:bytes shard_descr:bytes = liteServer.ShardInfo;
+liteServer.configInfo mode:int32 id:ton.blockIdExt state_proof:bytes config_proof:bytes = liteServer.ConfigInfo;
 
 ---functions---
 
@@ -346,6 +382,24 @@ runTests dir:string = Ok;
 
 liteServer.getInfo = liteServer.Info;
 liteServer.getTime = liteServer.CurrentTime;
+liteServer.getMasterchainInfo = liteServer.MasterchainInfo;
+liteServer.getBlock id:ton.blockIdExt = liteServer.BlockData;
+liteServer.getState id:ton.blockIdExt = liteServer.BlockState;
+liteServer.getBlockHeader id:ton.blockIdExt mode:int32 = liteServer.BlockHeader;
+liteServer.getShardInfo id:ton.blockIdExt workchain:int32 shard:int64 exact:Bool = liteServer.ShardInfo;
+liteServer.getAllShardsInfo id:ton.blockIdExt = liteServer.AllShardsInfo;
+liteServer.getOneTransaction id:ton.blockIdExt account:liteServer.accountId lt:int64 = liteServer.TransactionInfo;
+//@param hash   int256
+liteServer.getTransactions count:int32 account:liteServer.accountId lt:int64 hash:bytes = liteServer.TransactionList;
+//@param lt     int64 if mode & 2
+//@param utime  int32 if mode & 4
+liteServer.lookupBlock mode:int32 id:ton.blockId lt:int64 utime:int32 = liteServer.BlockHeader;
+//@param after  liteServer.transactionId3 if mode & 128
+liteServer.listBlockTransactions id:ton.blockIdExt mode:int32 count:int32 after:liteServer.transactionId3 reverse_order:Bool want_proof:Bool = liteServer.BlockTransactions;
+//@param target_block   ton.blockIdExt if mode & 1
+liteServer.getBlockProof mode:int32 known_block:ton.blockIdExt target_block:ton.blockIdExt = liteServer.PartialBlockProof;
+liteServer.getConfigAll mode:int32 id:ton.blockIdExt = liteServer.ConfigInfo;
+liteServer.getConfigParams mode:int32 id:ton.blockIdExt param_list:(vector int32) = liteServer.ConfigInfo;
 
 //@description Sets new log stream for internal logging of tonlib. This is an offline method. Can be called before authorization. Can be called synchronously @log_stream New log stream
 setLogStream log_stream:LogStream = Ok;

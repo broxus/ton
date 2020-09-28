@@ -37,6 +37,7 @@
 #include "smc-envelope/SmartContractCode.h"
 
 #include "auto/tl/tonlib_api.hpp"
+#include "auto/tl/lite_api.hpp"
 #include "block/block-auto.h"
 #include "block/check-proof.h"
 #include "ton/lite-tl.hpp"
@@ -95,15 +96,101 @@ struct SendMessage {
 };
 }  // namespace int_api
 
+template <class Type>
+using lite_api_ptr = ton::lite_api::object_ptr<Type>;
+
+namespace lite_api = ton::lite_api;
+
 template <class R, class O, class F>
 R downcast_call2(O&& o, F&& f, R res = {}) {
   downcast_call(o, [&](auto& x) { res = f(x); });
   return res;
 }
 
+auto to_bits256(td::Slice data, td::Slice name) -> td::Result<td::Bits256> {
+  if (data.size() != 32) {
+    return TonlibError::InvalidField(name, "wrong length (not 32 bytes)");
+  }
+  return td::Bits256(data.ubegin());
+}
+
 auto to_tonlib_api(const ton::BlockIdExt& blk) {
   return tonlib_api::make_object<tonlib_api::ton_blockIdExt>(
       blk.id.workchain, blk.id.shard, blk.id.seqno, blk.root_hash.as_slice().str(), blk.file_hash.as_slice().str());
+}
+
+auto to_tonlib_api(const lite_api::tonNode_blockIdExt& blk) {
+  return tonlib_api::make_object<tonlib_api::ton_blockIdExt>(
+      blk.workchain_, blk.shard_, blk.seqno_, blk.root_hash_.as_slice().str(), blk.file_hash_.as_slice().str());
+}
+
+auto to_lite_api(const tonlib_api::ton_blockId& blk) {
+  return lite_api::make_object<lite_api::tonNode_blockId>(blk.workchain_, blk.shard_, blk.seqno_);
+}
+
+auto to_lite_api(const tonlib_api::ton_blockIdExt& blk) -> td::Result<lite_api_ptr<lite_api::tonNode_blockIdExt>> {
+  TRY_RESULT(root_hash, to_bits256(blk.root_hash_, "blk.root_hash"))
+  TRY_RESULT(file_hash, to_bits256(blk.file_hash_, "blk.file_hash"))
+  return lite_api::make_object<lite_api::tonNode_blockIdExt>(blk.workchain_, blk.shard_, blk.seqno_, root_hash,
+                                                             file_hash);
+}
+
+auto to_lite_api(const tonlib_api::liteServer_accountId& account)
+    -> td::Result<lite_api_ptr<lite_api::liteServer_accountId>> {
+  TRY_RESULT(id, to_bits256(account.id_, "account.id"))
+  return lite_api::make_object<lite_api::liteServer_accountId>(account.workchain_, id);
+}
+
+auto to_lite_api(const tonlib_api::liteServer_transactionId3& transaction)
+    -> td::Result<lite_api_ptr<lite_api::liteServer_transactionId3>> {
+  TRY_RESULT(account, to_bits256(transaction.account_, "transaction.account"))
+  return lite_api::make_object<lite_api::liteServer_transactionId3>(account, transaction.lt_);
+}
+
+auto to_tonlib_api(const lite_api::liteServer_signatureSet& set) {
+  std::vector<tonlib_api::object_ptr<tonlib_api::liteServer_signature>> signatures;
+  signatures.resize(set.signatures_.size());
+  for (const auto& item : set.signatures_) {
+    signatures.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_signature>(
+        item->node_id_short_.as_slice().str(), item->signature_.as_slice().str()));
+  }
+  return lite_api::make_object<tonlib_api::liteServer_signatureSet>(set.validator_set_hash_, set.catchain_seqno_,
+                                                                    std::move(signatures));
+}
+
+auto to_tonlib_api(lite_api::liteServer_BlockLink& link) {
+  using ReturnType = tonlib_api::object_ptr<tonlib_api::liteServer_BlockLink>;
+  return downcast_call2<ReturnType>(  //
+      link,                           //
+      td::overloaded(                 //
+          [](const lite_api::liteServer_blockLinkBack& param) -> ReturnType {
+            return tonlib_api::make_object<tonlib_api::liteServer_blockLinkBack>(
+                param.to_key_block_, to_tonlib_api(*param.from_), to_tonlib_api(*param.to_),
+                param.dest_proof_.as_slice().str(), param.proof_.as_slice().str(), param.state_proof_.as_slice().str());
+          },
+          [](const lite_api::liteServer_blockLinkForward& param) -> ReturnType {
+            return tonlib_api::make_object<tonlib_api::liteServer_blockLinkForward>(
+                param.to_key_block_, to_tonlib_api(*param.from_), to_tonlib_api(*param.to_),
+                param.dest_proof_.as_slice().str(), param.config_proof_.as_slice().str(),
+                to_tonlib_api(*param.signatures_));
+          }));
+}
+
+auto to_tonlib_api(const lite_api::liteServer_transactionId& id) {
+  std::string account{};
+  if (id.mode_ & lite_api::liteServer_transactionId::ACCOUNT_MASK) {
+    account = id.account_.as_slice().str();
+  }
+  std::string hash{};
+  if (id.mode_ & lite_api::liteServer_transactionId::HASH_MASK) {
+    hash = id.hash_.as_slice().str();
+  }
+  return tonlib_api::make_object<tonlib_api::liteServer_transactionId>(id.mode_, account, id.lt_, hash);
+}
+
+auto to_tonlib_api(const lite_api::tonNode_zeroStateIdExt& zeroStateId) {
+  return tonlib_api::make_object<tonlib_api::ton_zeroStateIdExt>(
+      zeroStateId.workchain_, zeroStateId.root_hash_.as_slice().str(), zeroStateId.file_hash_.as_slice().str());
 }
 
 tonlib_api::object_ptr<tonlib_api::options_configInfo> to_tonlib_api(const TonlibClient::FullConfig& full_config) {
@@ -3410,10 +3497,192 @@ td::Status TonlibClient::do_request(const tonlib_api::query_getInfo& request,
 }
 
 td::Status TonlibClient::do_request(const tonlib_api::liteServer_getTime& request,
-                      td::Promise<tonlib_api::object_ptr<tonlib_api::liteServer_currentTime>>&& promise) {
-  client_.send_query(ton::lite_api::liteServer_getTime(), promise.wrap([](auto&& time) {
-    return tonlib_api::make_object<tonlib_api::liteServer_currentTime>(time->now_);
-  }));
+                                    td::Promise<tonlib_api::object_ptr<tonlib_api::liteServer_currentTime>>&& promise) {
+  client_.send_query(lite_api::liteServer_getTime(),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_currentTime>&& time) {
+                       return tonlib_api::make_object<tonlib_api::liteServer_currentTime>(time->now_);
+                     }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getMasterchainInfo& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_masterchainInfo>>&& promise) {
+  client_.send_query(lite_api::liteServer_getMasterchainInfo(),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_masterchainInfo>&& masterchain_info) {
+                       return tonlib_api::make_object<tonlib_api::liteServer_masterchainInfo>(
+                           to_tonlib_api(*masterchain_info->last_), masterchain_info->state_root_hash_.as_slice().str(),
+                           to_tonlib_api(*masterchain_info->init_));
+                     }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getBlock& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_blockData>>&& promise) {
+  TRY_RESULT(id, to_lite_api(*request.id_))
+  client_.send_query(lite_api::liteServer_getBlock(std::move(id)),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_blockData>&& block_data) {
+                       return tonlib_api::make_object<tonlib_api::liteServer_blockData>(
+                           to_tonlib_api(*block_data->id_), block_data->data_.as_slice().str());
+                     }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getState& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_blockState>>&& promise) {
+  TRY_RESULT(id, to_lite_api(*request.id_))
+  client_.send_query(lite_api::liteServer_getState(std::move(id)),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_blockState>&& block_state) {
+                       return tonlib_api::make_object<tonlib_api::liteServer_blockState>(
+                           to_tonlib_api(*block_state->id_), block_state->root_hash_.as_slice().str(),
+                           block_state->file_hash_.as_slice().str(), block_state->data_.as_slice().str());
+                     }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getBlockHeader& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_blockHeader>>&& promise) {
+  TRY_RESULT(id, to_lite_api(*request.id_))
+  client_.send_query(lite_api::liteServer_getBlockHeader(std::move(id), request.mode_),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_blockHeader>&& block_header) {
+                       return tonlib_api::make_object<tonlib_api::liteServer_blockHeader>(
+                           to_tonlib_api(*block_header->id_), block_header->mode_,
+                           block_header->header_proof_.as_slice().str());
+                     }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getShardInfo& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_shardInfo>>&& promise) {
+  TRY_RESULT(id, to_lite_api(*request.id_))
+  client_.send_query(
+      lite_api::liteServer_getShardInfo(std::move(id), request.workchain_, request.shard_, request.exact_),
+      promise.wrap([](lite_api_ptr<lite_api::liteServer_shardInfo>&& shard_info) {
+        return tonlib_api::make_object<tonlib_api::liteServer_shardInfo>(
+            to_tonlib_api(*shard_info->id_), to_tonlib_api(*shard_info->shardblk_),
+            shard_info->shard_proof_.as_slice().str(), shard_info->shard_descr_.as_slice().str());
+      }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getAllShardsInfo& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_allShardsInfo>>&& promise) {
+  TRY_RESULT(id, to_lite_api(*request.id_))
+  client_.send_query(lite_api::liteServer_getAllShardsInfo(std::move(id)),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_allShardsInfo>&& shards_info) {
+                       return tonlib_api::make_object<tonlib_api::liteServer_allShardsInfo>(
+                           to_tonlib_api(*shards_info->id_), shards_info->proof_.as_slice().str(),
+                           shards_info->data_.as_slice().str());
+                     }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getOneTransaction& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_transactionInfo>>&& promise) {
+  TRY_RESULT(id, to_lite_api(*request.id_))
+  TRY_RESULT(account, to_lite_api(*request.account_))
+  client_.send_query(lite_api::liteServer_getOneTransaction(std::move(id), std::move(account), request.lt_),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_transactionInfo>&& transaction_info) {
+                       return tonlib_api::make_object<tonlib_api::liteServer_transactionInfo>(
+                           to_tonlib_api(*transaction_info->id_), transaction_info->proof_.as_slice().str(),
+                           transaction_info->transaction_.as_slice().str());
+                     }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getTransactions& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_transactionList>>&& promise) {
+  TRY_RESULT(account, to_lite_api(*request.account_))
+  TRY_RESULT(hash, to_bits256(request.hash_, "hash"))
+  client_.send_query(lite_api::liteServer_getTransactions(request.count_, std::move(account), request.lt_, hash),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_transactionList>&& transaction_list) {
+                       std::vector<tonlib_api::object_ptr<tonlib_api::ton_blockIdExt>> ids;
+                       ids.reserve(transaction_list->ids_.size());
+                       for (const auto& id : transaction_list->ids_) {
+                         ids.emplace_back(to_tonlib_api(*id));
+                       }
+                       return tonlib_api::make_object<tonlib_api::liteServer_transactionList>(
+                           std::move(ids), transaction_list->transactions_.as_slice().str());
+                     }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_lookupBlock& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_blockHeader>>&& promise) {
+  client_.send_query(
+      lite_api::liteServer_lookupBlock(request.mode_, to_lite_api(*request.id_), request.lt_, request.utime_),
+      promise.wrap([](lite_api_ptr<lite_api::liteServer_blockHeader>&& block_header) {
+        return tonlib_api::make_object<tonlib_api::liteServer_blockHeader>(
+            to_tonlib_api(*block_header->id_), block_header->mode_, block_header->header_proof_.as_slice().str());
+      }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_listBlockTransactions& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_blockTransactions>>&& promise) {
+  TRY_RESULT(id, to_lite_api(*request.id_))
+  lite_api_ptr<lite_api::liteServer_transactionId3> after = nullptr;
+  if (request.mode_ & lite_api::liteServer_listBlockTransactions::AFTER_MASK) {
+    TRY_RESULT_ASSIGN(after, to_lite_api(*request.after_))
+  }
+  client_.send_query(
+      lite_api::liteServer_listBlockTransactions(std::move(id), request.mode_, request.count_, std::move(after),
+                                                 request.reverse_order_, request.want_proof_),
+      promise.wrap([](lite_api_ptr<lite_api::liteServer_blockTransactions>&& block_transactions) {
+        std::vector<tonlib_api::object_ptr<tonlib_api::liteServer_transactionId>> ids;
+        ids.reserve(block_transactions->ids_.size());
+        for (const auto& id : block_transactions->ids_) {
+          ids.emplace_back(to_tonlib_api(*id));
+        }
+
+        return tonlib_api::make_object<tonlib_api::liteServer_blockTransactions>(
+            to_tonlib_api(*block_transactions->id_), block_transactions->req_count_, block_transactions->incomplete_,
+            std::move(ids), block_transactions->proof_.as_slice().str());
+      }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getBlockProof& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_partialBlockProof>>&& promise) {
+  TRY_RESULT(known_block, to_lite_api(*request.known_block_))
+  lite_api_ptr<lite_api::tonNode_blockIdExt> target_block;
+  if (request.mode_ & lite_api::liteServer_getBlockProof::TARGET_BLOCK_MASK) {
+    TRY_RESULT_ASSIGN(target_block, to_lite_api(*request.target_block_))
+  }
+  client_.send_query(lite_api::liteServer_getBlockProof(request.mode_, std::move(known_block), std::move(target_block)),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_partialBlockProof>&& partial_block_proof) {
+                       std::vector<tonlib_api::object_ptr<tonlib_api::liteServer_BlockLink>> steps;
+                       steps.reserve(partial_block_proof->steps_.size());
+                       for (const auto& step : partial_block_proof->steps_) {
+                         steps.emplace_back(to_tonlib_api(*step));
+                       }
+                       return tonlib_api::make_object<tonlib_api::liteServer_partialBlockProof>(
+                           partial_block_proof->complete_, to_tonlib_api(*partial_block_proof->from_),
+                           to_tonlib_api(*partial_block_proof->to_), std::move(steps));
+                     }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getConfigAll& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_configInfo>>&& promise) {
+  TRY_RESULT(id, to_lite_api(*request.id_))
+  client_.send_query(lite_api::liteServer_getConfigAll(request.mode_, std::move(id)),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_configInfo>&& config_info) {
+                       return tonlib_api::make_object<tonlib_api::liteServer_configInfo>(
+                           config_info->mode_, to_tonlib_api(*config_info->id_),
+                           config_info->state_proof_.as_slice().str(), config_info->config_proof_.as_slice().str());
+                     }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(tonlib_api::liteServer_getConfigParams& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_configInfo>>&& promise) {
+  TRY_RESULT(id, to_lite_api(*request.id_))
+  client_.send_query(lite_api::liteServer_getConfigParams(request.mode_, std::move(id), std::move(request.param_list_)),
+                     promise.wrap([](lite_api_ptr<lite_api::liteServer_configInfo>&& config_info) {
+                       return tonlib_api::make_object<tonlib_api::liteServer_configInfo>(
+                           config_info->mode_, to_tonlib_api(*config_info->id_),
+                           config_info->state_proof_.as_slice().str(), config_info->config_proof_.as_slice().str());
+                     }));
   return td::Status::OK();
 }
 

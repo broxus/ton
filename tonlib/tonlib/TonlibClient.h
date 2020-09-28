@@ -306,6 +306,32 @@ class TonlibClient : public td::actor::Actor {
                         td::Promise<object_ptr<tonlib_api::query_info>>&& promise);
   td::Status do_request(const tonlib_api::liteServer_getTime& request,
                         td::Promise<object_ptr<tonlib_api::liteServer_currentTime>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getMasterchainInfo& masterchain_info,
+                        td::Promise<object_ptr<tonlib_api::liteServer_masterchainInfo>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getBlock& block_data,
+                        td::Promise<object_ptr<tonlib_api::liteServer_blockData>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getState& block_state,
+                        td::Promise<object_ptr<tonlib_api::liteServer_blockState>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getBlockHeader& block_header,
+                        td::Promise<object_ptr<tonlib_api::liteServer_blockHeader>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getShardInfo& shard_info,
+                        td::Promise<object_ptr<tonlib_api::liteServer_shardInfo>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getAllShardsInfo& shards_info,
+                        td::Promise<object_ptr<tonlib_api::liteServer_allShardsInfo>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getOneTransaction& transaction_info,
+                        td::Promise<object_ptr<tonlib_api::liteServer_transactionInfo>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getTransactions& transaction_list,
+                        td::Promise<object_ptr<tonlib_api::liteServer_transactionList>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_lookupBlock& block_header,
+                        td::Promise<object_ptr<tonlib_api::liteServer_blockHeader>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_listBlockTransactions& block_transactions,
+                        td::Promise<object_ptr<tonlib_api::liteServer_blockTransactions>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getBlockProof& request,
+                        td::Promise<object_ptr<tonlib_api::liteServer_partialBlockProof>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getConfigAll& request,
+                        td::Promise<object_ptr<tonlib_api::liteServer_configInfo>>&& promise);
+  td::Status do_request(tonlib_api::liteServer_getConfigParams& request,
+                        td::Promise<object_ptr<tonlib_api::liteServer_configInfo>>&& promise);
   td::Status do_request(const tonlib_api::query_estimateFees& request,
                         td::Promise<object_ptr<tonlib_api::query_fees>>&& promise);
   td::Status do_request(const tonlib_api::query_send& request, td::Promise<object_ptr<tonlib_api::ok>>&& promise);
