@@ -284,9 +284,19 @@ liteServer.allShardsInfo id:ton.blockIdExt proof:bytes data:bytes = liteServer.A
 liteServer.blockTransactions id:ton.blockIdExt req_count:int32 incomplete:Bool ids:(vector liteServer.transactionId) proof:bytes = liteServer.BlockTransactions;
 //@param hash               int256
 liteServer.messageInfo hash:bytes = liteServer.MessageInfo;
-//@param account_addr       int256
-//@oaram prev_trans_hash    int256
-liteServer.transactionInfo account_addr:bytes lt:int64 prev_trans_hash:bytes prev_trans_lt:int64 now:int32 outmsg_cnt:int32 orig_status:int32 end_status:int32 in_msg:liteServer.MessageInfo out_msgs:vector<liteServer.MessageInfo> = liteServer.TransactionInfo;
+//@param old_hash           int256
+//@param new_hash           int256
+liteServer.transactionHashUpdate old_hash:bytes new_hash:bytes = liteServer.TransactionHashUpdate;
+liteServer.transactionDescrOrdinary credit_first:Bool aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
+liteServer.transactionDescrTickTock is_tock:Bool aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
+liteServer.transactionDescrSplitPrepare aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
+liteServer.transactionDescrSplitInstall installed:Bool = liteServer.TransactionDescr;
+liteServer.transactionDescrMergePrepare aborted:Bool = liteServer.TransactionDescr;
+liteServer.transactionDescrMergeInstall aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
+//@param account            int256
+//@param prev_trans_hash    int256
+//@param total_fees         int256
+liteServer.transactionInfo workchain:int32 account:bytes hash:bytes lt:int64 prev_trans_hash:bytes prev_trans_lt:int64 now:int32 outmsg_cnt:int32 orig_status:int32 end_status:int32 in_msg:liteServer.MessageInfo out_msgs:vector<liteServer.MessageInfo> total_fees:bytes hash_update:liteServer.TransactionHashUpdate desc:liteServer.TransactionDescr = liteServer.TransactionInfo;
 liteServer.transactionList ids:(vector ton.blockIdExt) transactions:bytes = liteServer.TransactionList;
 liteServer.shardInfo id:ton.blockIdExt shardblk:ton.blockIdExt shard_proof:bytes shard_descr:bytes = liteServer.ShardInfo;
 liteServer.configInfo mode:int32 id:ton.blockIdExt state_proof:bytes config_proof:bytes = liteServer.ConfigInfo;

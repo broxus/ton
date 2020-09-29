@@ -3581,7 +3581,7 @@ auto parse_message(td::Ref<vm::Cell>&& msg) -> td::Result<tonlib_api::object_ptr
   return tonlib_api::make_object<tonlib_api::liteServer_messageInfo>(msg->get_hash().as_slice().str());
 }
 
-auto to_tonlib_api(const lite_api::liteServer_transactionInfo& info)
+auto to_tonlib_api(int workchain, td::Bits256 account, const lite_api::liteServer_transactionInfo& info)
     -> td::Result<tonlib_api::object_ptr<tonlib_api::liteServer_transactionInfo>> {
   TRY_RESULT(list, vm::std_boc_deserialize(std::move(info.transaction_)));
   block::gen::Transaction::Record trans;
@@ -3603,20 +3603,100 @@ auto to_tonlib_api(const lite_api::liteServer_transactionInfo& info)
     out_msgs.emplace_back(std::move(msg));
   }
 
+  td::BufferSlice total_fees(32);
+  block::CurrencyCollection total_fees_collection;
+  if (!total_fees_collection.validate_unpack(trans.total_fees) &&
+      total_fees_collection.grams->export_bytes(reinterpret_cast<unsigned char*>(total_fees.data()), 32, false)) {
+    return td::Status::Error("failed to unpack transaction fees");
+  }
+
+  block::gen::HASH_UPDATE::Record hash_update;
+  if (!tlb::type_unpack_cell(std::move(trans.state_update), block::gen::t_HASH_UPDATE_Account, hash_update)) {
+    return td::Status::Error("failed to unpack state update");
+  }
+
+  tonlib_api::object_ptr<tonlib_api::liteServer_TransactionDescr> transaction_descr = nullptr;
+
+  auto td_cs = vm::load_cell_slice(trans.description);
+  int tag = block::gen::t_TransactionDescr.get_tag(td_cs);
+  switch (tag) {
+    case block::gen::TransactionDescr::trans_ord: {
+      block::gen::TransactionDescr::Record_trans_ord record;
+      if (!tlb::unpack(td_cs, record)) {
+        return td::Status::Error("failed to unpack ordinary transaction");
+      }
+      transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrOrdinary>(
+          record.credit_first, record.aborted, record.destroyed);
+      break;
+    }
+    case block::gen::TransactionDescr::trans_tick_tock: {
+      block::gen::TransactionDescr::Record_trans_tick_tock record;
+      if (!tlb::unpack(td_cs, record)) {
+        return td::Status::Error("failed to unpack ticktock transaction");
+      }
+      transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrTickTock>(
+          record.is_tock, record.aborted, record.destroyed);
+      break;
+    }
+    case block::gen::TransactionDescr::trans_split_prepare: {
+      block::gen::TransactionDescr::Record_trans_split_prepare record;
+      if (!tlb::unpack(td_cs, record)) {
+        return td::Status::Error("failed to unpack split prepare transaction");
+      }
+      transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrSplitPrepare>(
+          record.aborted, record.destroyed);
+      break;
+    }
+    case block::gen::TransactionDescr::trans_split_install: {
+      block::gen::TransactionDescr::Record_trans_split_install record;
+      if (!tlb::unpack(td_cs, record)) {
+        return td::Status::Error("failed to unpack split install transaction");
+      }
+      transaction_descr =
+          tonlib_api::make_object<tonlib_api::liteServer_transactionDescrSplitInstall>(record.installed);
+      break;
+    }
+    case block::gen::TransactionDescr::trans_merge_prepare: {
+      block::gen::TransactionDescr::Record_trans_merge_prepare record;
+      if (!tlb::unpack(td_cs, record)) {
+        return td::Status::Error("failed to unpack merge prepare transaction");
+      }
+      transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrMergePrepare>(record.aborted);
+      break;
+    }
+    case block::gen::TransactionDescr::trans_merge_install: {
+      block::gen::TransactionDescr::Record_trans_merge_install record;
+      if (!tlb::unpack(td_cs, record)) {
+        return td::Status::Error("failed to unpack merge install transaction");
+      }
+      transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrMergeInstall>(
+          record.aborted, record.destroyed);
+      break;
+    }
+    default:
+      return td::Status::Error("failed to unpack transaction description");
+  }
+
   return tonlib_api::make_object<tonlib_api::liteServer_transactionInfo>(
-      trans.account_addr.as_slice().str(), static_cast<std::int64_t>(trans.lt), trans.prev_trans_hash.as_slice().str(),
-      static_cast<std::int64_t>(trans.prev_trans_lt), static_cast<std::int32_t>(trans.now), trans.outmsg_cnt,
-      static_cast<std::int32_t>(trans.orig_status), static_cast<std::int32_t>(trans.end_status), std::move(in_msg),
-      std::move(out_msgs));
+      workchain, account.as_slice().str(), list->get_hash().as_slice().str(), static_cast<std::int64_t>(trans.lt),
+      trans.prev_trans_hash.as_slice().str(), static_cast<std::int64_t>(trans.prev_trans_lt),
+      static_cast<std::int32_t>(trans.now), trans.outmsg_cnt, static_cast<std::int32_t>(trans.orig_status),
+      static_cast<std::int32_t>(trans.end_status), std::move(in_msg), std::move(out_msgs), total_fees.as_slice().str(),
+      tonlib_api::make_object<tonlib_api::liteServer_transactionHashUpdate>(hash_update.old_hash.as_slice().str(),
+                                                                            hash_update.new_hash.as_slice().str()),
+      std::move(transaction_descr));
 }
 
 td::Status TonlibClient::do_request(const tonlib_api::liteServer_getOneTransaction& request,
                                     td::Promise<object_ptr<tonlib_api::liteServer_transactionInfo>>&& promise) {
   TRY_RESULT(id, to_lite_api(*request.id_))
   TRY_RESULT(account, to_lite_api(*request.account_))
+  auto workchain = account->workchain_;
+  auto account_id = account->id_;
   client_.send_query(lite_api::liteServer_getOneTransaction(std::move(id), std::move(account), request.lt_),
-                     promise.wrap([](lite_api_ptr<lite_api::liteServer_transactionInfo>&& transaction_info) {
-                       return to_tonlib_api(*transaction_info);
+                     promise.wrap([workchain, account_id](
+                                      lite_api_ptr<lite_api::liteServer_transactionInfo>&& transaction_info) mutable {
+                       return to_tonlib_api(workchain, account_id, *transaction_info);
                      }));
   return td::Status::OK();
 }
