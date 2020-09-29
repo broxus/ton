@@ -260,7 +260,7 @@ tonlib_api::object_ptr<tonlib_api::internal_transactionId> to_transaction_id(con
                                                                      info.last_trans_hash.as_slice().str());
 }
 
-std::string to_bytes(td::Ref<vm::Cell> cell) {
+std::string to_bytes(const td::Ref<vm::Cell>& cell) {
   if (cell.is_null()) {
     return "";
   }
@@ -3576,15 +3576,47 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getAllShardsInf
   return td::Status::OK();
 }
 
+auto parse_message(td::Ref<vm::Cell>&& msg) -> td::Result<tonlib_api::object_ptr<tonlib_api::liteServer_messageInfo>> {
+  // TODO: decode message info
+  return tonlib_api::make_object<tonlib_api::liteServer_messageInfo>(msg->get_hash().as_slice().str());
+}
+
+auto to_tonlib_api(const lite_api::liteServer_transactionInfo& info)
+    -> td::Result<tonlib_api::object_ptr<tonlib_api::liteServer_transactionInfo>> {
+  TRY_RESULT(list, vm::std_boc_deserialize(std::move(info.transaction_)));
+  block::gen::Transaction::Record trans;
+  if (!tlb::unpack_cell(list, trans)) {
+    return td::Status::Error("failed to unpack transaction");
+  }
+
+  tonlib_api::object_ptr<tonlib_api::liteServer_messageInfo> in_msg = nullptr;
+  if (auto in_msg_ref = trans.r1.in_msg->prefetch_ref(); !in_msg_ref.is_null()) {
+    TRY_RESULT_ASSIGN(in_msg, parse_message(std::move(in_msg_ref)))
+  }
+
+  std::vector<tonlib_api::object_ptr<tonlib_api::liteServer_messageInfo>> out_msgs;
+  out_msgs.reserve(trans.outmsg_cnt);
+  vm::Dictionary dict{trans.r1.out_msgs, 15};
+  for (td::int32 i = 0; i < trans.outmsg_cnt; ++i) {
+    auto out_msg = dict.lookup_ref(td::BitArray<15>{i});
+    TRY_RESULT(msg, parse_message(std::move(out_msg)))
+    out_msgs.emplace_back(std::move(msg));
+  }
+
+  return tonlib_api::make_object<tonlib_api::liteServer_transactionInfo>(
+      trans.account_addr.as_slice().str(), static_cast<std::int64_t>(trans.lt), trans.prev_trans_hash.as_slice().str(),
+      static_cast<std::int64_t>(trans.prev_trans_lt), static_cast<std::int32_t>(trans.now), trans.outmsg_cnt,
+      static_cast<std::int32_t>(trans.orig_status), static_cast<std::int32_t>(trans.end_status), std::move(in_msg),
+      std::move(out_msgs));
+}
+
 td::Status TonlibClient::do_request(const tonlib_api::liteServer_getOneTransaction& request,
                                     td::Promise<object_ptr<tonlib_api::liteServer_transactionInfo>>&& promise) {
   TRY_RESULT(id, to_lite_api(*request.id_))
   TRY_RESULT(account, to_lite_api(*request.account_))
   client_.send_query(lite_api::liteServer_getOneTransaction(std::move(id), std::move(account), request.lt_),
                      promise.wrap([](lite_api_ptr<lite_api::liteServer_transactionInfo>&& transaction_info) {
-                       return tonlib_api::make_object<tonlib_api::liteServer_transactionInfo>(
-                           to_tonlib_api(*transaction_info->id_), transaction_info->proof_.as_slice().str(),
-                           transaction_info->transaction_.as_slice().str());
+                       return to_tonlib_api(*transaction_info);
                      }));
   return td::Status::OK();
 }
