@@ -282,8 +282,22 @@ liteServer.transactionId mode:int32 account:bytes lt:int64 hash:bytes = liteServ
 liteServer.transactionId3 account:bytes lt:int64 = liteServer.TransactionId3;
 liteServer.allShardsInfo id:ton.blockIdExt proof:bytes data:bytes = liteServer.AllShardsInfo;
 liteServer.blockTransactions id:ton.blockIdExt req_count:int32 incomplete:Bool ids:(vector liteServer.transactionId) proof:bytes = liteServer.BlockTransactions;
-//@param hash               int256
-liteServer.messageInfo hash:bytes = liteServer.MessageInfo;
+liteServer.messageAnycast depth:int32 rewrite_pfx:bytes = liteServer.MessageAnycast;
+liteServer.messageAddressExtNone = liteServer.MessageAddressExt;
+liteServer.messageAddressExtSome len:int32 external_address:bytes = liteServer.MessageAddressExt;
+//@param address    int256
+liteServer.messageAddressIntStd workchain:int32 address:bytes = liteServer.MessageAddressInt;
+//@param address    int256
+liteServer.messageAddressIntStdAnycast anycast:liteServer.MessageAnycast workchain:int32 address:bytes = liteServer.MessageAddressInt;
+liteServer.messageAddressIntVar workchain:int32 addr_len:int32 address:bytes = liteServer.MessageAddressInt;
+liteServer.messageAddressIntVarAnycast anycast:liteServer.MessageAnycast workchain:int32 addr_len:int32 address:bytes = liteServer.MessageAddressInt;
+//@param value              int256
+//@param ihr_fee            int256
+//@param fwd_fee            int256
+liteServer.messageInfoInt ihr_disabled:Bool bounce:Bool bounced:Bool src:liteServer.MessageAddressInt dest:liteServer.MessageAddressInt value:bytes ihr_fee:bytes fwd_fee:bytes created_lt:int64 created_at:int32 = liteServer.MessageInfo;
+//@param import_fee         int256
+liteServer.messageInfoExtIn src:liteServer.MessageAddressExt dest:liteServer.MessageAddressInt import_fee:bytes = liteServer.MessageInfo;
+liteServer.messageInfoExtOut src:liteServer.MessageAddressInt dest:liteServer.MessageAddressExt created_lt:int64 created_at:int32 = liteServer.MessageInfo;
 //@param old_hash           int256
 //@param new_hash           int256
 liteServer.transactionHashUpdate old_hash:bytes new_hash:bytes = liteServer.TransactionHashUpdate;
