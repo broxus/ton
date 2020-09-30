@@ -312,8 +312,8 @@ liteServer.transactionDescrMergeInstall aborted:Bool destroyed:Bool = liteServer
 //@param account            int256
 //@param prev_trans_hash    int256
 //@param total_fees         int256
-liteServer.transactionInfo workchain:int32 account:bytes hash:bytes lt:int64 prev_trans_hash:bytes prev_trans_lt:int64 now:int32 outmsg_cnt:int32 orig_status:int32 end_status:int32 in_msg:liteServer.Message out_msgs:vector<liteServer.Message> total_fees:bytes hash_update:liteServer.TransactionHashUpdate desc:liteServer.TransactionDescr = liteServer.TransactionInfo;
-liteServer.transactionList ids:(vector ton.blockIdExt) transactions:bytes = liteServer.TransactionList;
+liteServer.transaction workchain:int32 account:bytes hash:bytes lt:int64 prev_trans_hash:bytes prev_trans_lt:int64 now:int32 outmsg_cnt:int32 orig_status:int32 end_status:int32 in_msg:liteServer.Message out_msgs:vector<liteServer.Message> total_fees:bytes hash_update:liteServer.TransactionHashUpdate desc:liteServer.TransactionDescr = liteServer.Transaction;
+liteServer.transactionList ids:vector<ton.blockIdExt> transactions:vector<liteServer.Transaction> = liteServer.TransactionList;
 liteServer.shardInfo id:ton.blockIdExt shardblk:ton.blockIdExt shard_proof:bytes shard_descr:bytes = liteServer.ShardInfo;
 liteServer.configInfo mode:int32 id:ton.blockIdExt state_proof:bytes config_proof:bytes = liteServer.ConfigInfo;
 
@@ -418,7 +418,7 @@ liteServer.getState id:ton.blockIdExt = liteServer.BlockState;
 liteServer.getBlockHeader id:ton.blockIdExt mode:int32 = liteServer.BlockHeader;
 liteServer.getShardInfo id:ton.blockIdExt workchain:int32 shard:int64 exact:Bool = liteServer.ShardInfo;
 liteServer.getAllShardsInfo id:ton.blockIdExt = liteServer.AllShardsInfo;
-liteServer.getOneTransaction id:ton.blockIdExt account:liteServer.accountId lt:int64 = liteServer.TransactionInfo;
+liteServer.getOneTransaction id:ton.blockIdExt account:liteServer.accountId lt:int64 = liteServer.Transaction;
 //@param hash   int256
 liteServer.getTransactions count:int32 account:liteServer.accountId lt:int64 hash:bytes = liteServer.TransactionList;
 //@param lt     int64 if mode & 2
