@@ -15,7 +15,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 /**
  * Main class for interaction with the tonlib.
  */
-public final class Client implements Runnable {
+public final class TonClient implements Runnable {
     static {
         System.loadLibrary("native-lib");
     }

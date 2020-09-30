@@ -164,7 +164,7 @@ static jint register_native(JavaVM *vm) {
                                     reinterpret_cast<void *>(function_ptr));
   };
 
-  auto client_class = td::jni::get_jclass(env, PACKAGE_NAME "/Client");
+  auto client_class = td::jni::get_jclass(env, PACKAGE_NAME "/TonClient");
   //log_class = td::jni::get_jclass(env, PACKAGE_NAME "/Log");
   auto object_class = td::jni::get_jclass(env, PACKAGE_NAME "/TonApi$Object");
   auto function_class = td::jni::get_jclass(env, PACKAGE_NAME "/TonApi$Function");
