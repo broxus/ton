@@ -1741,6 +1741,7 @@ void TonlibClient::init_last_block(LastBlockState state) {
       td::actor::ActorOptions().with_name("LastBlock").with_poll(false), get_client_ref(), std::move(state), config_,
       source_.get_cancellation_token(), td::make_unique<Callback>(td::actor::actor_shared(this), config_generation_));
 }
+
 void TonlibClient::init_last_config() {
   ref_cnt_++;
   class Callback : public LastConfig::Callback {
@@ -1765,6 +1766,7 @@ void TonlibClient::on_result(td::uint64 id, tonlib_api::object_ptr<tonlib_api::O
   }
   callback_->on_result(id, std::move(response));
 }
+
 void TonlibClient::on_update(object_ptr<tonlib_api::Object> response) {
   on_result(0, std::move(response));
 }
@@ -1814,9 +1816,11 @@ void TonlibClient::request(td::uint64 id, tonlib_api::object_ptr<tonlib_api::Fun
 
   make_any_request(*function, {}, std::move(promise));
 }
+
 void TonlibClient::close() {
   stop();
 }
+
 tonlib_api::object_ptr<tonlib_api::Object> TonlibClient::static_request(
     tonlib_api::object_ptr<tonlib_api::Function> function) {
   VLOG(tonlib_query) << "Tonlib got static query " << to_string(function);
@@ -2424,6 +2428,7 @@ td::Result<std::string> to_std_address_or_throw(td::Ref<vm::CellSlice> cs) {
 td::Result<std::string> to_std_address(td::Ref<vm::CellSlice> cs) {
   return TRY_VM(to_std_address_or_throw(std::move(cs)));
 }
+
 struct ToRawTransactions {
   explicit ToRawTransactions(td::optional<td::Ed25519::PrivateKey> private_key) : private_key_(std::move(private_key)) {
   }
@@ -2858,36 +2863,37 @@ class GenericCreateSendGrams : public TonlibQueryActor {
       auto key = td::Ed25519::PublicKey(td::SecureString(public_key.key));
       res.o_public_key = std::move(key);
     }
-    auto status = downcast_call2<td::Status>(
-        *message.data_, td::overloaded(
-                            [&](tonlib_api::msg_dataRaw& text) {
-                              TRY_RESULT(body, vm::std_boc_deserialize(text.body_));
-                              TRY_RESULT(init_state, vm::std_boc_deserialize(text.init_state_, true));
-                              res.body = std::move(body);
-                              res.init_state = std::move(init_state);
-                              return td::Status::OK();
-                            },
-                            [&](tonlib_api::msg_dataText& text) {
-                              res.message = text.text_;
-                              res.should_encrypt = false;
-                              res.is_encrypted = false;
-                              return td::Status::OK();
-                            },
-                            [&](tonlib_api::msg_dataDecryptedText& text) {
-                              res.message = text.text_;
-                              if (!has_private_key_) {
-                                return TonlibError::EmptyField("input_key");
-                              }
-                              res.should_encrypt = true;
-                              res.is_encrypted = true;
-                              return td::Status::OK();
-                            },
-                            [&](tonlib_api::msg_dataEncryptedText& text) {
-                              res.message = text.text_;
-                              res.should_encrypt = false;
-                              res.is_encrypted = true;
-                              return td::Status::OK();
-                            }));
+    auto status = downcast_call2<td::Status>(  //
+        *message.data_,                        //
+        td::overloaded(                        //
+            [&](tonlib_api::msg_dataRaw& text) {
+              TRY_RESULT(body, vm::std_boc_deserialize(text.body_));
+              TRY_RESULT(init_state, vm::std_boc_deserialize(text.init_state_, true));
+              res.body = std::move(body);
+              res.init_state = std::move(init_state);
+              return td::Status::OK();
+            },
+            [&](tonlib_api::msg_dataText& text) {
+              res.message = text.text_;
+              res.should_encrypt = false;
+              res.is_encrypted = false;
+              return td::Status::OK();
+            },
+            [&](tonlib_api::msg_dataDecryptedText& text) {
+              res.message = text.text_;
+              if (!has_private_key_) {
+                return TonlibError::EmptyField("input_key");
+              }
+              res.should_encrypt = true;
+              res.is_encrypted = true;
+              return td::Status::OK();
+            },
+            [&](tonlib_api::msg_dataEncryptedText& text) {
+              res.message = text.text_;
+              res.should_encrypt = false;
+              res.is_encrypted = true;
+              return td::Status::OK();
+            }));
     // Use this limit as a preventive check
     if (res.message.size() > ton::WalletV3Traits::max_message_size) {
       return TonlibError::MessageTooLong();
@@ -2898,61 +2904,64 @@ class GenericCreateSendGrams : public TonlibQueryActor {
 
   td::Result<ton::ManualDns::Action> to_dns_action(tonlib_api::dns_Action& action) {
     using R = td::Result<ton::ManualDns::Action>;
-    return downcast_call2<R>(action,
-                             td::overloaded(
-                                 [&](tonlib_api::dns_actionDeleteAll& del_all) -> R {
-                                   return ton::ManualDns::Action{"", 0, {}};
-                                 },
-                                 [&](tonlib_api::dns_actionDelete& del) -> R {
-                                   TRY_RESULT(category, td::narrow_cast_safe<td::int16>(del.category_));
-                                   return ton::ManualDns::Action{del.name_, category, {}};
-                                 },
-                                 [&](tonlib_api::dns_actionSet& set) -> R {
-                                   if (!set.entry_) {
-                                     return TonlibError::EmptyField("entry");
-                                   }
-                                   if (!set.entry_->entry_) {
-                                     return TonlibError::EmptyField("entry.entry");
-                                   }
-                                   TRY_RESULT(category, td::narrow_cast_safe<td::int16>(set.entry_->category_));
-                                   TRY_RESULT(entry_data, to_dns_entry_data(*set.entry_->entry_));
-                                   TRY_RESULT(data_cell, entry_data.as_cell());
-                                   return ton::ManualDns::Action{set.entry_->name_, category, std::move(data_cell)};
-                                 }));
+    return downcast_call2<R>(  //
+        action,                //
+        td::overloaded(        //
+            [&](tonlib_api::dns_actionDeleteAll& del_all) -> R {
+              return ton::ManualDns::Action{"", 0, {}};
+            },
+            [&](tonlib_api::dns_actionDelete& del) -> R {
+              TRY_RESULT(category, td::narrow_cast_safe<td::int16>(del.category_));
+              return ton::ManualDns::Action{del.name_, category, {}};
+            },
+            [&](tonlib_api::dns_actionSet& set) -> R {
+              if (!set.entry_) {
+                return TonlibError::EmptyField("entry");
+              }
+              if (!set.entry_->entry_) {
+                return TonlibError::EmptyField("entry.entry");
+              }
+              TRY_RESULT(category, td::narrow_cast_safe<td::int16>(set.entry_->category_));
+              TRY_RESULT(entry_data, to_dns_entry_data(*set.entry_->entry_));
+              TRY_RESULT(data_cell, entry_data.as_cell());
+              return ton::ManualDns::Action{set.entry_->name_, category, std::move(data_cell)};
+            }));
   }
 
   td::Status parse_action(tonlib_api::Action& action) {
-    return downcast_call2<td::Status>(action,
-                                      td::overloaded([&](tonlib_api::actionNoop& cell) { return td::Status::OK(); },
-                                                     [&](tonlib_api::actionMsg& cell) {
-                                                       allow_send_to_uninited_ = cell.allow_send_to_uninited_;
-                                                       for (auto& from_action : cell.messages_) {
-                                                         if (!from_action) {
-                                                           return TonlibError::EmptyField("message");
-                                                         }
-                                                         TRY_RESULT(action, to_action(*from_action));
-                                                         actions_.push_back(std::move(action));
-                                                       }
-                                                       return td::Status::OK();
-                                                     },
-                                                     [&](tonlib_api::actionPchan& cell) {
-                                                       pchan_action_ = true;
-                                                       return td::Status::OK();
-                                                     },
-                                                     [&](tonlib_api::actionRwallet& cell) {
-                                                       rwallet_action_ = true;
-                                                       return td::Status::OK();
-                                                     },
-                                                     [&](tonlib_api::actionDns& cell) {
-                                                       for (auto& from_action : cell.actions_) {
-                                                         if (!from_action) {
-                                                           return TonlibError::EmptyField("action");
-                                                         }
-                                                         TRY_RESULT(action, to_dns_action(*from_action));
-                                                         dns_actions_.push_back(std::move(action));
-                                                       }
-                                                       return td::Status::OK();
-                                                     }));
+    return downcast_call2<td::Status>(  //
+        action,                         //
+        td::overloaded(                 //
+            [&](tonlib_api::actionNoop& cell) { return td::Status::OK(); },
+            [&](tonlib_api::actionMsg& cell) {
+              allow_send_to_uninited_ = cell.allow_send_to_uninited_;
+              for (auto& from_action : cell.messages_) {
+                if (!from_action) {
+                  return TonlibError::EmptyField("message");
+                }
+                TRY_RESULT(action, to_action(*from_action));
+                actions_.push_back(std::move(action));
+              }
+              return td::Status::OK();
+            },
+            [&](tonlib_api::actionPchan& cell) {
+              pchan_action_ = true;
+              return td::Status::OK();
+            },
+            [&](tonlib_api::actionRwallet& cell) {
+              rwallet_action_ = true;
+              return td::Status::OK();
+            },
+            [&](tonlib_api::actionDns& cell) {
+              for (auto& from_action : cell.actions_) {
+                if (!from_action) {
+                  return TonlibError::EmptyField("action");
+                }
+                TRY_RESULT(action, to_dns_action(*from_action));
+                dns_actions_.push_back(std::move(action));
+              }
+              return td::Status::OK();
+            }));
   }
 
   td::Status do_start_up() {
@@ -3667,53 +3676,13 @@ auto parse_grams(td::Ref<vm::CellSlice>& grams) -> td::Result<std::string> {
   return bytes.as_slice().str();
 }
 
-auto parse_message_out(td::Ref<vm::Cell>&& msg)
+auto parse_message_in_info(td::Ref<vm::CellSlice>& msg)
     -> td::Result<tonlib_api::object_ptr<tonlib_api::liteServer_MessageInfo>> {
-  auto msg_cs = vm::load_cell_slice(msg);
-  auto tag = block::gen::t_OutMsg.get_tag(msg_cs);
-  switch (tag) {
-    case block::gen::OutMsg::msg_export_ext: {
-      block::gen::CommonMsgInfo::Record_ext_out_msg_info info;
-      if (!tlb::unpack(msg_cs, info)) {
-        return td::Status::Error("failed to unpack ext_out message info");
-      }
-      TRY_RESULT(src, parse_msg_address_int(info.src))
-      TRY_RESULT(dest, parse_msg_address_ext(info.dest))
-      return tonlib_api::make_object<tonlib_api::liteServer_messageInfoExtOut>(std::move(src), std::move(dest),
-                                                                               info.created_lt, info.created_at);
-    }
-    case block::gen::OutMsg::msg_export_new:
-    case block::gen::OutMsg::msg_export_imm: {
-      block::gen::CommonMsgInfo::Record_int_msg_info info;
-      if (!tlb::unpack(msg_cs, info)) {
-        return td::Status::Error("failed to unpack internal message info");
-      }
-      TRY_RESULT(src, parse_msg_address_int(info.src))
-      TRY_RESULT(dest, parse_msg_address_int(info.dest))
-      block::CurrencyCollection value_currency_collection;
-      if (!value_currency_collection.validate_unpack(info.value)) {
-        return td::Status::Error("failed to unpack internal message value");
-      }
-      TRY_RESULT(value, to_tonlib_api(value_currency_collection.grams))
-      TRY_RESULT(ihr_fee, parse_grams(info.ihr_fee))
-      TRY_RESULT(fwd_fee, parse_grams(info.fwd_fee))
-      return tonlib_api::make_object<tonlib_api::liteServer_messageInfoInt>(
-          info.ihr_disabled, info.bounce, info.bounced, std::move(src), std::move(dest), value, ihr_fee, fwd_fee,
-          info.created_lt, info.created_at);
-    }
-    default:
-      return td::Status::Error("failed to unpack transaction outgoing message");
-  }
-}
-
-auto parse_message_in(td::Ref<vm::Cell>&& msg)
-    -> td::Result<tonlib_api::object_ptr<tonlib_api::liteServer_MessageInfo>> {
-  auto msg_cs = vm::load_cell_slice(msg);
-  auto tag = block::gen::t_InMsg.get_tag(msg_cs);
+  auto tag = block::gen::t_InMsg.get_tag(*msg);
   switch (tag) {
     case block::gen::InMsg::msg_import_ext: {
       block::gen::CommonMsgInfo::Record_ext_in_msg_info info;
-      if (!tlb::unpack(msg_cs, info)) {
+      if (!tlb::unpack(msg.write(), info)) {
         return td::Status::Error("failed to unpack ext_in message info");
       }
       TRY_RESULT(src, parse_msg_address_ext(info.src))
@@ -3726,7 +3695,7 @@ auto parse_message_in(td::Ref<vm::Cell>&& msg)
     case block::gen::InMsg::msg_import_imm:
     case block::gen::InMsg::msg_import_fin: {
       block::gen::CommonMsgInfo::Record_int_msg_info info;
-      if (!tlb::unpack(msg_cs, info)) {
+      if (!tlb::unpack(msg.write(), info)) {
         return td::Status::Error("failed to unpack internal message info");
       }
       TRY_RESULT(src, parse_msg_address_int(info.src))
@@ -3747,6 +3716,67 @@ auto parse_message_in(td::Ref<vm::Cell>&& msg)
   }
 }
 
+auto parse_message_out_info(td::Ref<vm::CellSlice>& msg)
+    -> td::Result<tonlib_api::object_ptr<tonlib_api::liteServer_MessageInfo>> {
+  auto tag = block::gen::t_OutMsg.get_tag(*msg);
+  switch (tag) {
+    case block::gen::OutMsg::msg_export_ext: {
+      block::gen::CommonMsgInfo::Record_ext_out_msg_info info;
+      if (!tlb::unpack(msg.write(), info)) {
+        return td::Status::Error("failed to unpack ext_out message info");
+      }
+      TRY_RESULT(src, parse_msg_address_int(info.src))
+      TRY_RESULT(dest, parse_msg_address_ext(info.dest))
+      return tonlib_api::make_object<tonlib_api::liteServer_messageInfoExtOut>(std::move(src), std::move(dest),
+                                                                               info.created_lt, info.created_at);
+    }
+    case block::gen::OutMsg::msg_export_new:
+    case block::gen::OutMsg::msg_export_imm: {
+      block::gen::CommonMsgInfo::Record_int_msg_info info;
+      if (!tlb::unpack(msg.write(), info)) {
+        return td::Status::Error("failed to unpack internal message info");
+      }
+      TRY_RESULT(src, parse_msg_address_int(info.src))
+      TRY_RESULT(dest, parse_msg_address_int(info.dest))
+      block::CurrencyCollection value_currency_collection;
+      if (!value_currency_collection.validate_unpack(info.value)) {
+        return td::Status::Error("failed to unpack internal message value");
+      }
+      TRY_RESULT(value, to_tonlib_api(value_currency_collection.grams))
+      TRY_RESULT(ihr_fee, parse_grams(info.ihr_fee))
+      TRY_RESULT(fwd_fee, parse_grams(info.fwd_fee))
+      return tonlib_api::make_object<tonlib_api::liteServer_messageInfoInt>(
+          info.ihr_disabled, info.bounce, info.bounced, std::move(src), std::move(dest), value, ihr_fee, fwd_fee,
+          info.created_lt, info.created_at);
+    }
+    default:
+      return td::Status::Error("failed to unpack transaction outgoing message");
+  }
+}
+
+enum class MessageDirection { In, Out };
+
+auto parse_message(td::Ref<vm::Cell>&& msg, MessageDirection direction)
+    -> td::Result<tonlib_api::object_ptr<tonlib_api::liteServer_message>> {
+  block::gen::Message::Record message;
+  if (!tlb::type_unpack_cell(msg, block::gen::t_Message_Any, message)) {
+    return td::Status::Error("failed to unpack message");
+  }
+  tonlib_api::object_ptr<tonlib_api::liteServer_MessageInfo> info;
+  switch (direction) {
+    case MessageDirection::In: {
+      TRY_RESULT_ASSIGN(info, parse_message_in_info(message.info))
+      break;
+    }
+    case MessageDirection::Out: {
+      TRY_RESULT_ASSIGN(info, parse_message_out_info(message.info))
+      break;
+    }
+  }
+  return tonlib_api::make_object<tonlib_api::liteServer_message>(msg->get_hash().as_slice().str(), std::move(info),
+                                                                 message.init.not_null(), message.body.not_null());
+}
+
 auto to_tonlib_api(int workchain, td::Bits256 account, const lite_api::liteServer_transactionInfo& info)
     -> td::Result<tonlib_api::object_ptr<tonlib_api::liteServer_transactionInfo>> {
   TRY_RESULT(list, vm::std_boc_deserialize(std::move(info.transaction_)));
@@ -3755,17 +3785,17 @@ auto to_tonlib_api(int workchain, td::Bits256 account, const lite_api::liteServe
     return td::Status::Error("failed to unpack transaction");
   }
 
-  tonlib_api::object_ptr<tonlib_api::liteServer_MessageInfo> in_msg = nullptr;
+  tonlib_api::object_ptr<tonlib_api::liteServer_message> in_msg = nullptr;
   if (auto in_msg_ref = trans.r1.in_msg->prefetch_ref(); in_msg_ref.not_null()) {
-    TRY_RESULT_ASSIGN(in_msg, parse_message_in(std::move(in_msg_ref)))
+    TRY_RESULT_ASSIGN(in_msg, parse_message(std::move(in_msg_ref), MessageDirection::In))
   }
 
-  std::vector<tonlib_api::object_ptr<tonlib_api::liteServer_MessageInfo>> out_msgs;
+  std::vector<tonlib_api::object_ptr<tonlib_api::liteServer_message>> out_msgs;
   out_msgs.reserve(trans.outmsg_cnt);
   vm::Dictionary dict{trans.r1.out_msgs, 15};
   for (td::int32 i = 0; i < trans.outmsg_cnt; ++i) {
     auto out_msg = dict.lookup_ref(td::BitArray<15>{i});
-    TRY_RESULT(msg, parse_message_out(std::move(out_msg)))
+    TRY_RESULT(msg, parse_message(std::move(out_msg), MessageDirection::Out))
     out_msgs.emplace_back(std::move(msg));
   }
 

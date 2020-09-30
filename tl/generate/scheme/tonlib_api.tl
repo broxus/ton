@@ -298,6 +298,8 @@ liteServer.messageInfoInt ihr_disabled:Bool bounce:Bool bounced:Bool src:liteSer
 //@param import_fee         int256
 liteServer.messageInfoExtIn src:liteServer.MessageAddressExt dest:liteServer.MessageAddressInt import_fee:bytes = liteServer.MessageInfo;
 liteServer.messageInfoExtOut src:liteServer.MessageAddressInt dest:liteServer.MessageAddressExt created_lt:int64 created_at:int32 = liteServer.MessageInfo;
+//@param bytes              int256
+liteServer.message hash:bytes info:liteServer.MessageInfo has_init:Bool has_body:Bool = liteServer.Message;
 //@param old_hash           int256
 //@param new_hash           int256
 liteServer.transactionHashUpdate old_hash:bytes new_hash:bytes = liteServer.TransactionHashUpdate;
@@ -310,7 +312,7 @@ liteServer.transactionDescrMergeInstall aborted:Bool destroyed:Bool = liteServer
 //@param account            int256
 //@param prev_trans_hash    int256
 //@param total_fees         int256
-liteServer.transactionInfo workchain:int32 account:bytes hash:bytes lt:int64 prev_trans_hash:bytes prev_trans_lt:int64 now:int32 outmsg_cnt:int32 orig_status:int32 end_status:int32 in_msg:liteServer.MessageInfo out_msgs:vector<liteServer.MessageInfo> total_fees:bytes hash_update:liteServer.TransactionHashUpdate desc:liteServer.TransactionDescr = liteServer.TransactionInfo;
+liteServer.transactionInfo workchain:int32 account:bytes hash:bytes lt:int64 prev_trans_hash:bytes prev_trans_lt:int64 now:int32 outmsg_cnt:int32 orig_status:int32 end_status:int32 in_msg:liteServer.Message out_msgs:vector<liteServer.Message> total_fees:bytes hash_update:liteServer.TransactionHashUpdate desc:liteServer.TransactionDescr = liteServer.TransactionInfo;
 liteServer.transactionList ids:(vector ton.blockIdExt) transactions:bytes = liteServer.TransactionList;
 liteServer.shardInfo id:ton.blockIdExt shardblk:ton.blockIdExt shard_proof:bytes shard_descr:bytes = liteServer.ShardInfo;
 liteServer.configInfo mode:int32 id:ton.blockIdExt state_proof:bytes config_proof:bytes = liteServer.ConfigInfo;
