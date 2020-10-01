@@ -263,10 +263,8 @@ liteServer.info now:int53 version:int32 capabilities:int64 = liteServer.Info;
 liteServer.currentTime now:int32 = liteServer.CurrentTime;
 //@param state_root_hash    int256
 liteServer.masterchainInfo last:ton.blockIdExt state_root_hash:bytes init:ton.zeroStateIdExt = liteServer.MasterchainInfo;
-liteServer.blockData id:ton.blockIdExt data:bytes = liteServer.BlockData;
-//@param root_hash  int256
-//@param file_hash  int256
-liteServer.blockState id:ton.blockIdExt root_hash:bytes file_hash:bytes data:bytes = liteServer.BlockState;
+liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split:Bool after_split:Bool want_split:Bool want_merge:Bool key_block:Bool vert_seqno_incr:Bool flags:int32 seq_no:int32 vert_seq_no:int32 gen_utime:int32 start_lt:int64 end_lt:int64 gen_validator_list_hash_short:int32 gen_catchain_seqno:int32 min_ref_mc_seqno:int32 prev_key_block_seqno:int32 = liteServer.BlockInfo;
+liteServer.block info:liteServer.blockInfo = liteServer.Block;
 liteServer.blockHeader id:ton.blockIdExt mode:int32 header_proof:bytes = liteServer.BlockHeader;
 //@param node_id_short  int256
 liteServer.signature node_id_short:bytes signature:bytes = liteServer.Signature;
@@ -413,8 +411,7 @@ runTests dir:string = Ok;
 liteServer.getInfo = liteServer.Info;
 liteServer.getTime = liteServer.CurrentTime;
 liteServer.getMasterchainInfo = liteServer.MasterchainInfo;
-liteServer.getBlock id:ton.blockIdExt = liteServer.BlockData;
-liteServer.getState id:ton.blockIdExt = liteServer.BlockState;
+liteServer.getBlock id:ton.blockIdExt = liteServer.Block;
 liteServer.getBlockHeader id:ton.blockIdExt mode:int32 = liteServer.BlockHeader;
 liteServer.getShardInfo id:ton.blockIdExt workchain:int32 shard:int64 exact:Bool = liteServer.ShardInfo;
 liteServer.getAllShardsInfo id:ton.blockIdExt = liteServer.AllShardsInfo;
@@ -423,7 +420,7 @@ liteServer.getOneTransaction id:ton.blockIdExt account:liteServer.accountId lt:i
 liteServer.getTransactions count:int32 account:liteServer.accountId lt:int64 hash:bytes = liteServer.TransactionList;
 //@param lt     int64 if mode & 2
 //@param utime  int32 if mode & 4
-liteServer.lookupBlock mode:int32 id:ton.blockId lt:int64 utime:int32 = liteServer.BlockHeader;
+liteServer.lookupBlock mode:int32 id:ton.blockId lt:int64 utime:int32 = liteServer.Block;
 //@param after  liteServer.transactionId3 if mode & 128
 liteServer.listBlockTransactions id:ton.blockIdExt mode:int32 count:int32 after:liteServer.transactionId3 reverse_order:Bool want_proof:Bool = liteServer.BlockTransactions;
 //@param target_block   ton.blockIdExt if mode & 1

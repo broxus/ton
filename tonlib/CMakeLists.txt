@@ -5,30 +5,38 @@ if (NOT OPENSSL_FOUND)
 endif()
 
 set(TONLIB_SOURCE
+  tonlib/AbiDto.cpp
   tonlib/Client.cpp
   tonlib/Config.cpp
   tonlib/ExtClient.cpp
   tonlib/ExtClientLazy.cpp
   tonlib/ExtClientOutbound.cpp
+  tonlib/GetBlock.cpp
   tonlib/KeyStorage.cpp
   tonlib/KeyValue.cpp
   tonlib/LastBlock.cpp
   tonlib/LastBlockStorage.cpp
   tonlib/LastConfig.cpp
+  tonlib/LiteServerUtils.cpp
   tonlib/Logging.cpp
+  tonlib/Stuff.cpp
   tonlib/TonlibClient.cpp
   tonlib/utils.cpp
 
+  tonlib/AbiDto.h
   tonlib/Client.h
   tonlib/Config.h
   tonlib/ExtClient.h
   tonlib/ExtClientLazy.h
   tonlib/ExtClientOutbound.h
+  tonlib/GetBlock.h
   tonlib/KeyStorage.h
   tonlib/KeyValue.h
   tonlib/LastBlock.h
   tonlib/LastBlockStorage.h
   tonlib/LastConfig.h
+  tonlib/LiteServerUtils.h
+  tonlib/Stuff.h
   tonlib/Logging.h
   tonlib/TonlibCallback.h
   tonlib/TonlibClient.h
