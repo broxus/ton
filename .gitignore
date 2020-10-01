@@ -14,6 +14,6 @@ test/regression-tests.cache/
 .idea/
 gitrevision.hh
 
-example/android/build*/
-example/android/libs/
-example/android/src/com/broxus/ton/TonApi.java
+native-lib/build*/
+native-lib/libs/
+native-lib/src/com/broxus/ton/TonApi.java

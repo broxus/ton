@@ -85,7 +85,12 @@ option(TONLIB_ENABLE_JNI "Use \"ON\" to enable JNI-compatible TonLib API.")
 option(TON_USE_ASAN "Use \"ON\" to enable AddressSanitizer." OFF)
 option(TON_USE_TSAN "Use \"ON\" to enable ThreadSanitizer." OFF)
 option(TON_USE_UBSAN "Use \"ON\" to enable UndefinedBehaviorSanitizer." OFF)
+option(TON_BUILD_NATIVE_LIB "Use \"ON\" to build java library" OFF)
 set(TON_ARCH "native" CACHE STRING "Architecture, will be passed to -march=")
+
+if (TON_BUILD_NATIVE_LIB)
+  set(TONLIB_ENABLE_JNI ON)
+endif()
 
 if (TON_USE_ABSEIL)
   message("Add abseil-cpp")
@@ -402,6 +407,10 @@ if (NOT CMAKE_CROSSCOMPILING)
     set(TDMIME_AUTO tdmime_auto)
   endif()
   add_custom_target(prepare_cross_compiling DEPENDS tl_generate_common tlb_generate_block gen_fif ${TDMIME_AUTO})
+endif()
+
+if (TON_BUILD_NATIVE_LIB)
+  add_subdirectory(native-lib)
 endif()
 
 #TESTS
