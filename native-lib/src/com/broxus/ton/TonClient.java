@@ -4,7 +4,7 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-package drinkless.org.ton;
+package com.broxus.ton;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -17,7 +17,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public final class TonClient implements Runnable {
     static {
-        System.loadLibrary("native-lib");
+        try {
+            TonNativeLib.load();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
     }
     /**
      * Interface for handler for results of queries to tonlib and incoming updates from tonlib.
@@ -133,7 +138,7 @@ public final class TonClient implements Runnable {
      *
      * @param defaultExceptionHandler Default exception handler. If null Exceptions are ignored.
      */
-    public void setDefaultExceptionHandler(Client.ExceptionHandler defaultExceptionHandler) {
+    public void setDefaultExceptionHandler(ExceptionHandler defaultExceptionHandler) {
         this.defaultExceptionHandler = defaultExceptionHandler;
     }
 
@@ -151,12 +156,12 @@ public final class TonClient implements Runnable {
      * Creates new Client.
      *
      * @param updatesHandler          Handler for incoming updates.
-     * @param updatesExceptionHandler Handler for exceptions thrown from updatesHandler. If it is null, exceptions will be iggnored.
-     * @param defaultExceptionHandler Default handler for exceptions thrown from all ResultHandler. If it is null, exceptions will be iggnored.
+     * @param updatesExceptionHandler Handler for exceptions thrown from updatesHandler. If it is null, exceptions will be ignored.
+     * @param defaultExceptionHandler Default handler for exceptions thrown from all ResultHandler. If it is null, exceptions will be ignored.
      * @return created Client
      */
-    public static Client create(ResultHandler updatesHandler, ExceptionHandler updatesExceptionHandler, ExceptionHandler defaultExceptionHandler) {
-        Client client = new Client(updatesHandler, updatesExceptionHandler, defaultExceptionHandler);
+    public static TonClient create(ResultHandler updatesHandler, ExceptionHandler updatesExceptionHandler, ExceptionHandler defaultExceptionHandler) {
+        TonClient client = new TonClient(updatesHandler, updatesExceptionHandler, defaultExceptionHandler);
         new Thread(client, "tonlib thread").start();
         return client;
     }
@@ -171,14 +176,14 @@ public final class TonClient implements Runnable {
                 return;
             }
             if (!stopFlag) {
-                //send(new TonApi.Close(), null);
+                send(new TonApi.Close(), null);
             }
             isClientDestroyed = true;
-            while (!stopFlag) {
-                Thread.yield();
-            }
-            while (handlers.size() != 1) {
-                receiveQueries(300.0);
+            stopFlag = true;
+            Thread.yield();
+
+            while (handlers.size() > 1) {
+                receiveQueries(1.0);
             }
             destroyNativeClient(nativeClientId);
         } finally {
@@ -213,7 +218,7 @@ public final class TonClient implements Runnable {
         }
     }
 
-    private Client(ResultHandler updatesHandler, ExceptionHandler updateExceptionHandler, ExceptionHandler defaultExceptionHandler) {
+    private TonClient(ResultHandler updatesHandler, ExceptionHandler updateExceptionHandler, ExceptionHandler defaultExceptionHandler) {
         nativeClientId = createNativeClient();
         handlers.put(0L, new Handler(updatesHandler, updateExceptionHandler));
         this.defaultExceptionHandler = defaultExceptionHandler;
