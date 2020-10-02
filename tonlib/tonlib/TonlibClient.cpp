@@ -105,6 +105,14 @@ using tonlib_api_ptr = ton::tonlib_api::object_ptr<Type>;
 
 namespace lite_api = ton::lite_api;
 
+static auto to_any_promise(td::Promise<tonlib_api_ptr<tonlib_api::ok>>&& promise) {
+  return promise.wrap([](auto x) { return tonlib_api::make_object<tonlib_api::ok>(); });
+}
+
+static auto to_any_promise(td::Promise<td::Unit>&& promise) {
+  return promise.wrap([](auto x) { return td::Unit(); });
+}
+
 tonlib_api_ptr<tonlib_api::options_configInfo> to_tonlib_api(const TonlibClient::FullConfig& full_config) {
   return tonlib_api::make_object<tonlib_api::options_configInfo>(full_config.wallet_id,
                                                                  full_config.rwallet_init_public_key);

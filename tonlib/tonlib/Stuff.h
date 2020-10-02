@@ -30,14 +30,6 @@ R downcast_call2(O&& o, F&& f, R res = {}) {
   return res;
 }
 
-auto to_any_promise(td::Promise<tonlib_api_ptr<tonlib_api::ok>>&& promise) {
-  return promise.wrap([](auto x) { return tonlib_api::make_object<tonlib_api::ok>(); });
-}
-
-auto to_any_promise(td::Promise<td::Unit>&& promise) {
-  return promise.wrap([](auto x) { return td::Unit(); });
-}
-
 auto status_to_tonlib_api(const td::Status& status) -> tonlib_api_ptr<tonlib_api::error>;
 
 auto to_bits256(td::Slice data, td::Slice name) -> td::Result<td::Bits256>;
