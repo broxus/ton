@@ -46,7 +46,7 @@ unpackedAccountAddress workchain_id:int32 bounceable:Bool testnet:Bool addr:byte
 
 internal.transactionId lt:int64 hash:bytes = internal.TransactionId;
 
-ton.blockId workchain:int32 shard:int64 seqno:int32 = internal.BlockId;
+ton.blockId workchain:int32 shard:int64 seqno:int32 = ton.BlockId;
 //@param root_hash  int256
 //@param file_hash  int256
 ton.blockIdExt workchain:int32 shard:int64 seqno:int32 root_hash:bytes file_hash:bytes = ton.BlockIdExt;
@@ -262,9 +262,9 @@ liteServer.accountId workchain:int32 id:bytes = liteServer.AccountId;
 liteServer.info now:int53 version:int32 capabilities:int64 = liteServer.Info;
 liteServer.currentTime now:int32 = liteServer.CurrentTime;
 //@param state_root_hash    int256
-liteServer.masterchainInfo last:ton.blockIdExt state_root_hash:bytes init:ton.zeroStateIdExt = liteServer.MasterchainInfo;
+liteServer.masterchainInfo last:ton.BlockIdExt state_root_hash:bytes init:ton.zeroStateIdExt = liteServer.MasterchainInfo;
 liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split:Bool after_split:Bool want_split:Bool want_merge:Bool key_block:Bool vert_seqno_incr:Bool flags:int32 seq_no:int32 vert_seq_no:int32 gen_utime:int32 start_lt:int64 end_lt:int64 gen_validator_list_hash_short:int32 gen_catchain_seqno:int32 min_ref_mc_seqno:int32 prev_key_block_seqno:int32 = liteServer.BlockInfo;
-liteServer.block info:liteServer.blockInfo = liteServer.Block;
+liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> = liteServer.Block;
 liteServer.blockHeader id:ton.blockIdExt mode:int32 header_proof:bytes = liteServer.BlockHeader;
 //@param node_id_short  int256
 liteServer.signature node_id_short:bytes signature:bytes = liteServer.Signature;

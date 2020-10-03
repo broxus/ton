@@ -5,6 +5,13 @@
 
 #include "ton/lite-tl.hpp"
 
+#include "block/block.h"
+#include "block/block-parse.h"
+#include "block/block-auto.h"
+#include "vm/boc.h"
+#include "vm/cellops.h"
+#include "vm/cells/MerkleProof.h"
+
 namespace tonlib {
 
 GetBlock::GetBlock(ExtClientRef ext_client_ref, ton::BlockIdExt block_id, td::actor::ActorShared<> parent,
@@ -13,33 +20,104 @@ GetBlock::GetBlock(ExtClientRef ext_client_ref, ton::BlockIdExt block_id, td::ac
   client_.set_client(ext_client_ref);
 }
 
+auto GetBlock::parse_result() -> td::Result<ResultType> {
+  TRY_RESULT(block_header_root, vm::std_boc_deserialize(data_))
+  auto virt_root = vm::MerkleProof::virtualize(block_header_root, 1);
+  if (virt_root.is_null()) {
+    return td::Status::Error("invalid merkle proof");
+  }
+
+  ton::RootHash vhash{virt_root->get_hash().bits()};
+  std::vector<ton::BlockIdExt> prev{};
+  ton::BlockIdExt masterchain_blk_id{};
+  bool after_split = false;
+  if (auto res = block::unpack_block_prev_blk_ext(virt_root, block_id_, prev, masterchain_blk_id, after_split);
+      res.is_error()) {
+    LOG(ERROR) << "failed to unpack block header " << block_id_.to_str() << ": " << res;
+    return td::Status::Error("failed to unpack block header");
+  }
+
+  block::gen::Block::Record blk;
+  if (!tlb::unpack_cell(virt_root, blk)) {
+    return td::Status::Error("failed to unpack block record");
+  }
+
+  block::gen::BlockInfo::Record info;
+  if (!tlb::unpack_cell(blk.info, info)) {
+    return td::Status::Error("failed to unpack block info");
+  }
+
+  std::vector<tonlib_api_ptr<tonlib_api::ton_blockIdExt>> previous_blocks;
+  previous_blocks.reserve(prev.size());
+  for (const auto& id : prev) {
+    previous_blocks.emplace_back(to_tonlib_api(id));
+  }
+
+  std::vector<tonlib_api_ptr<tonlib_api::ton_blockId>> next_blocks;
+  next_blocks.reserve(info.before_split ? 2 : 1);
+  if (info.before_split) {
+    next_blocks.emplace_back(to_tonlib_api(
+        ton::BlockId{block_id_.id.workchain, ton::shard_child(block_id_.id.shard, true), block_id_.id.seqno}));
+    next_blocks.emplace_back(to_tonlib_api(
+        ton::BlockId{block_id_.id.workchain, ton::shard_child(block_id_.id.shard, false), block_id_.id.seqno}));
+  } else {
+    next_blocks.emplace_back(
+        to_tonlib_api(ton::BlockId{block_id_.id.workchain, block_id_.id.shard, block_id_.id.seqno}));
+  }
+
+  auto block_info = tonlib_api::make_object<tonlib_api::liteServer_blockInfo>(
+      info.version, info.not_master, info.after_merge, info.before_split, info.after_split, info.want_split,
+      info.want_merge, info.key_block, info.vert_seqno_incr, info.flags, info.seq_no, info.vert_seq_no, info.gen_utime,
+      info.start_lt, info.end_lt, info.gen_validator_list_hash_short, info.gen_catchain_seqno, info.min_ref_mc_seqno,
+      info.prev_key_block_seqno);
+  return tonlib_api::make_object<tonlib_api::liteServer_block>(to_tonlib_api(block_id_),
+                                                               to_tonlib_api(masterchain_blk_id), std::move(block_info),
+                                                               std::move(previous_blocks), std::move(next_blocks));
+}
+
 void GetBlock::finish_query() {
-  LOG(WARNING) << "Got block data: " << data_.has_value();
-  LOG(WARNING) << "Got shard data: " << shard_data_.has_value();
-  promise_.set_value(nullptr);
+  promise_.set_result(parse_result());
   stop();
 }
 
-void GetBlock::start_up_query() {
+void GetBlock::start_up() {
+  auto block_header_handler = td::PromiseCreator::lambda(
+      [SelfId = actor_id(this)](td::Result<lite_api_ptr<lite_api::liteServer_blockHeader>> R) {
+        if (R.is_error()) {
+          td::actor::send_closure(SelfId, &GetBlock::check, R.move_as_error());
+        } else {
+          td::actor::send_closure(SelfId, &GetBlock::got_block_header, R.move_as_ok());
+        }
+      });
   client_.send_query(lite_api::liteServer_getBlockHeader(ton::create_tl_lite_block_id(block_id_), 0),
-                     [this](lite_api_ptr<lite_api::liteServer_blockHeader>&& block_header) {
-                       got_block_header(std::move(block_header));
-                     });
+                     std::move(block_header_handler));
   pending_queries_ = 1;
 
   if (block_id_.is_masterchain()) {
+    auto all_shards_info_handler = td::PromiseCreator::lambda(
+        [SelfId = actor_id(this)](td::Result<lite_api_ptr<lite_api::liteServer_allShardsInfo>> R) {
+          if (R.is_error()) {
+            td::actor::send_closure(SelfId, &GetBlock::check, R.move_as_error());
+          } else {
+            td::actor::send_closure(SelfId, &GetBlock::got_shard_info, R.move_as_ok());
+          }
+        });
     client_.send_query(lite_api::liteServer_getAllShardsInfo(ton::create_tl_lite_block_id(block_id_)),
-                       [this](lite_api_ptr<lite_api::liteServer_allShardsInfo>&& all_shards_info) {
-                         got_shard_info(std::move(all_shards_info));
-                       });
+                       std::move(all_shards_info_handler));
     pending_queries_++;
   }
 
+  auto block_transactions_handler = td::PromiseCreator::lambda(
+      [SelfId = actor_id(this)](td::Result<lite_api_ptr<lite_api::liteServer_blockTransactions>> R) {
+        if (R.is_error()) {
+          td::actor::send_closure(SelfId, &GetBlock::check, R.move_as_error());
+        } else {
+          td::actor::send_closure(SelfId, &GetBlock::got_transactions, R.move_as_ok());
+        }
+      });
   client_.send_query(lite_api::liteServer_listBlockTransactions(ton::create_tl_lite_block_id(block_id_), 7, 1024,
                                                                 nullptr, false, false),
-                     [this](lite_api_ptr<lite_api::liteServer_blockTransactions>&& block_transactions) {
-                       got_transactions(std::move(block_transactions));
-                     });
+                     std::move(block_transactions_handler));
   pending_queries_++;
 }
 
@@ -69,21 +147,24 @@ void GetBlock::got_transactions(lite_api_ptr<lite_api::liteServer_blockTransacti
     auto last_account = to_bits256(last->account_, "last.account");
 
     if (last_account.is_ok()) {
+      auto block_transactions_handler = td::PromiseCreator::lambda(
+          [SelfId = actor_id(this)](td::Result<lite_api_ptr<lite_api::liteServer_blockTransactions>> R) {
+            if (R.is_error()) {
+              td::actor::send_closure(SelfId, &GetBlock::check, R.move_as_error());
+            } else {
+              td::actor::send_closure(SelfId, &GetBlock::got_transactions, R.move_as_ok());
+            }
+          });
       client_.send_query(
           lite_api::liteServer_listBlockTransactions(
               ton::create_tl_lite_block_id(block_id_), 7 + 128, 1024,
               lite_api::make_object<ton::lite_api::liteServer_transactionId3>(last_account.move_as_ok(), last->lt_),
               false, false),
-          [this](lite_api_ptr<lite_api::liteServer_blockTransactions>&& result) {
-            got_transactions(std::move(result));
-          });
-      return;
+          std::move(block_transactions_handler));
     } else {
-      block_transactions_receive_error_ = last_account.move_as_error();
+      check(last_account.move_as_error());
     }
-  }
-
-  if (!--pending_queries_) {
+  } else if (!--pending_queries_) {
     finish_query();
   }
 }

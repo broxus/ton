@@ -2501,9 +2501,12 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getBlock& reque
   const auto& id = *request.id_;
   TRY_RESULT(root_hash, to_bits256(id.root_hash_, "id.root_hash"))
   TRY_RESULT(file_hash, to_bits256(id.file_hash_, "id.file_hash"))
+  const auto block_id = ton::BlockIdExt(id.workchain_, id.shard_, id.seqno_, root_hash, file_hash);
+  if (!block_id.is_valid_full()) {
+    return td::Status::Error("invalid block id");
+  }
 
   auto actor_id = actor_id_++;
-
   actors_[actor_id] =
       td::actor::create_actor<GetBlock>("GetAccountState", client_.get_client(),
                                         ton::BlockIdExt(id.workchain_, id.shard_, id.seqno_, root_hash, file_hash),

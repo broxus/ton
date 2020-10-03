@@ -281,6 +281,10 @@ auto to_std_address_or_throw(td::Ref<vm::CellSlice> cs) -> td::Result<std::strin
   return block::StdAddress(addr.workchain_id, addr.address).rserialize(true);
 }
 
+auto to_tonlib_api(const ton::BlockId& blk) -> tonlib_api_ptr<tonlib_api::ton_blockId> {
+  return tonlib_api::make_object<tonlib_api::ton_blockId>(blk.workchain, blk.shard, blk.seqno);
+}
+
 auto to_tonlib_api(const ton::BlockIdExt& blk) -> tonlib_api_ptr<tonlib_api::ton_blockIdExt> {
   return tonlib_api::make_object<tonlib_api::ton_blockIdExt>(
       blk.id.workchain, blk.id.shard, blk.id.seqno, blk.root_hash.as_slice().str(), blk.file_hash.as_slice().str());

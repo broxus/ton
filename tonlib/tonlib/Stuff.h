@@ -79,6 +79,7 @@ auto to_balance_or_throw(td::Ref<vm::CellSlice> balance_ref) -> td::Result<td::i
 auto to_std_address(td::Ref<vm::CellSlice> cs) -> td::Result<std::string>;
 auto to_std_address_or_throw(td::Ref<vm::CellSlice> cs) -> td::Result<std::string>;
 
+auto to_tonlib_api(const ton::BlockId& blk) -> tonlib_api_ptr<tonlib_api::ton_blockId>;
 auto to_tonlib_api(const ton::BlockIdExt& blk) -> tonlib_api_ptr<tonlib_api::ton_blockIdExt>;
 auto to_tonlib_api(const lite_api::tonNode_blockIdExt& blk) -> tonlib_api_ptr<tonlib_api::ton_blockIdExt>;
 auto to_tonlib_api(const lite_api::liteServer_signatureSet& set) -> tonlib_api_ptr<tonlib_api::liteServer_signatureSet>;
