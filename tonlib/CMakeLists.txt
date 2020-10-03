@@ -6,6 +6,7 @@ endif()
 
 set(TONLIB_SOURCE
   tonlib/AbiDto.cpp
+  tonlib/AccountState.cpp
   tonlib/Client.cpp
   tonlib/Config.cpp
   tonlib/ExtClient.cpp
@@ -24,6 +25,7 @@ set(TONLIB_SOURCE
   tonlib/utils.cpp
 
   tonlib/AbiDto.h
+  tonlib/AccountState.h
   tonlib/Client.h
   tonlib/Config.h
   tonlib/ExtClient.h
