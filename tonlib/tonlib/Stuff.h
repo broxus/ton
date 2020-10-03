@@ -104,4 +104,6 @@ auto to_lite_api(const tonlib_api::liteServer_accountId& account)
 auto to_lite_api(const tonlib_api::liteServer_transactionId3& transaction)
     -> td::Result<lite_api_ptr<lite_api::liteServer_transactionId3>>;
 
+auto from_lite_api(lite_api::tonNode_blockIdExt& block_id) -> ton::BlockIdExt;
+
 }  // namespace tonlib

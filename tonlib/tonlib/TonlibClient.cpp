@@ -2496,8 +2496,6 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getMasterchainI
 
 td::Status TonlibClient::do_request(const tonlib_api::liteServer_getBlock& request,
                                     td::Promise<object_ptr<tonlib_api::liteServer_block>>&& promise) {
-  using ReturnType = tonlib_api_ptr<tonlib_api::ftabi_decodedOutput>;
-
   const auto& id = *request.id_;
   TRY_RESULT(root_hash, to_bits256(id.root_hash_, "id.root_hash"))
   TRY_RESULT(file_hash, to_bits256(id.file_hash_, "id.file_hash"))
@@ -2507,10 +2505,8 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getBlock& reque
   }
 
   auto actor_id = actor_id_++;
-  actors_[actor_id] =
-      td::actor::create_actor<GetBlock>("GetAccountState", client_.get_client(),
-                                        ton::BlockIdExt(id.workchain_, id.shard_, id.seqno_, root_hash, file_hash),
-                                        actor_shared(this, actor_id), std::move(promise));
+  actors_[actor_id] = td::actor::create_actor<GetBlock>("GetBlock", client_.get_client(), block_id,
+                                                        actor_shared(this, actor_id), std::move(promise));
   return td::Status::OK();
 }
 
@@ -2606,14 +2602,16 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getTransactions
 
 td::Status TonlibClient::do_request(const tonlib_api::liteServer_lookupBlock& request,
                                     td::Promise<object_ptr<tonlib_api::liteServer_block>>&& promise) {
-  client_.send_query(
-      lite_api::liteServer_lookupBlock(request.mode_, to_lite_api(*request.id_), request.lt_, request.utime_),
-      promise.wrap([](lite_api_ptr<lite_api::liteServer_blockHeader>&& block_header) {
-        // TODO:
-        // return tonlib_api::make_object<tonlib_api::liteServer_blockHeader>(
-        //    to_tonlib_api(*block_header->id_), block_header->mode_, block_header->header_proof_.as_slice().str());
-        return nullptr;
-      }));
+  const auto& id = *request.id_;
+  const auto block_id = ton::BlockId(id.workchain_, id.shard_, id.seqno_);
+  if (!block_id.is_valid_full()) {
+    return td::Status::Error("invalid block id");
+  }
+
+  auto actor_id = actor_id_++;
+  actors_[actor_id] =
+      td::actor::create_actor<GetBlock>("GetBlock", client_.get_client(), block_id, request.mode_, request.lt_,
+                                        request.utime_, actor_shared(this, actor_id), std::move(promise));
   return td::Status::OK();
 }
 

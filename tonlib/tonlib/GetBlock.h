@@ -11,17 +11,26 @@
 namespace tonlib {
 
 class GetBlock : public td::actor::Actor {
+  enum class QueryMode { Get, Lookup };
+
  public:
   using ResultType = tonlib_api_ptr<tonlib_api::liteServer_block>;
 
   GetBlock(ExtClientRef ext_client_ref, ton::BlockIdExt block_id, td::actor::ActorShared<> parent,
            td::Promise<ResultType>&& promise);
+  GetBlock(ExtClientRef ext_client_ref, ton::BlockId block_id, int mode, td::int64 lt, td::int32 utime,
+           td::actor::ActorShared<> parent, td::Promise<ResultType>&& promise);
 
+ private:
   auto parse_result() -> td::Result<ResultType>;
   void finish_query();
 
   void start_up() override;
-  void got_block_header(lite_api_ptr<lite_api::liteServer_blockHeader>&& result);
+  void start_up_with_block_id(const ton::BlockIdExt& block_id);
+  void start_up_with_lookup();
+  void proceed_with_block_id(const ton::BlockIdExt& block_id);
+
+  void got_block_header(lite_api_ptr<lite_api::liteServer_blockHeader>&& result, QueryMode query_mode);
   void got_shard_info(lite_api_ptr<lite_api::liteServer_allShardsInfo>&& result);
   void got_transactions(lite_api_ptr<lite_api::liteServer_blockTransactions>&& result);
 
@@ -29,7 +38,12 @@ class GetBlock : public td::actor::Actor {
     check(TonlibError::Cancelled());
   }
 
- private:
+  void check_finished() {
+    if (!--pending_queries_) {
+      finish_query();
+    }
+  }
+
   void check(td::Status status) {
     if (status.is_error()) {
       promise_.set_error(std::move(status));
@@ -37,7 +51,11 @@ class GetBlock : public td::actor::Actor {
     }
   }
 
-  ton::BlockIdExt block_id_;
+  std::optional<ton::BlockIdExt> block_id_{};
+  int mode_{};
+  ton::BlockId block_id_simple_{};
+  td::int64 lt_{};
+  td::int32 utime_{};
 
   td::int32 pending_queries_ = 0;
 
@@ -45,7 +63,7 @@ class GetBlock : public td::actor::Actor {
   td::BufferSlice shard_data_;
 
   std::vector<tonlib_api_ptr<tonlib_api::liteServer_transactionId>> transactions_;
-  td::uint32 trans_req_count_;
+  td::uint32 trans_req_count_{};
 
   td::actor::ActorShared<> parent_;
   td::Promise<ResultType> promise_;

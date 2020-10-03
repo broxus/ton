@@ -20,7 +20,23 @@ GetBlock::GetBlock(ExtClientRef ext_client_ref, ton::BlockIdExt block_id, td::ac
   client_.set_client(ext_client_ref);
 }
 
+GetBlock::GetBlock(ExtClientRef ext_client_ref, ton::BlockId block_id, int mode, td::int64 lt, td::int32 utime,
+                   td::actor::ActorShared<> parent, td::Promise<ResultType>&& promise)
+    : mode_{mode}
+    , block_id_simple_{std::move(block_id)}
+    , lt_{lt}
+    , utime_{utime}
+    , parent_{std::move(parent)}
+    , promise_{std::move(promise)} {
+  client_.set_client(ext_client_ref);
+}
+
 auto GetBlock::parse_result() -> td::Result<ResultType> {
+  if (!block_id_.has_value()) {
+    return td::Status::Error("block not found");
+  }
+  const auto& block_id = *block_id_;
+
   TRY_RESULT(block_header_root, vm::std_boc_deserialize(data_))
   auto virt_root = vm::MerkleProof::virtualize(block_header_root, 1);
   if (virt_root.is_null()) {
@@ -31,9 +47,9 @@ auto GetBlock::parse_result() -> td::Result<ResultType> {
   std::vector<ton::BlockIdExt> prev{};
   ton::BlockIdExt masterchain_blk_id{};
   bool after_split = false;
-  if (auto res = block::unpack_block_prev_blk_ext(virt_root, block_id_, prev, masterchain_blk_id, after_split);
+  if (auto res = block::unpack_block_prev_blk_ext(virt_root, block_id, prev, masterchain_blk_id, after_split);
       res.is_error()) {
-    LOG(ERROR) << "failed to unpack block header " << block_id_.to_str() << ": " << res;
+    LOG(ERROR) << "failed to unpack block header " << block_id.to_str() << ": " << res;
     return td::Status::Error("failed to unpack block header");
   }
 
@@ -57,12 +73,12 @@ auto GetBlock::parse_result() -> td::Result<ResultType> {
   next_blocks.reserve(info.before_split ? 2 : 1);
   if (info.before_split) {
     next_blocks.emplace_back(to_tonlib_api(
-        ton::BlockId{block_id_.id.workchain, ton::shard_child(block_id_.id.shard, true), block_id_.id.seqno}));
+        ton::BlockId{block_id.id.workchain, ton::shard_child(block_id.id.shard, true), block_id.id.seqno + 1}));
     next_blocks.emplace_back(to_tonlib_api(
-        ton::BlockId{block_id_.id.workchain, ton::shard_child(block_id_.id.shard, false), block_id_.id.seqno}));
+        ton::BlockId{block_id.id.workchain, ton::shard_child(block_id.id.shard, false), block_id.id.seqno + 1}));
   } else {
     next_blocks.emplace_back(
-        to_tonlib_api(ton::BlockId{block_id_.id.workchain, block_id_.id.shard, block_id_.id.seqno}));
+        to_tonlib_api(ton::BlockId{block_id.id.workchain, block_id.id.shard, block_id.id.seqno + 1}));
   }
 
   auto block_info = tonlib_api::make_object<tonlib_api::liteServer_blockInfo>(
@@ -70,7 +86,7 @@ auto GetBlock::parse_result() -> td::Result<ResultType> {
       info.want_merge, info.key_block, info.vert_seqno_incr, info.flags, info.seq_no, info.vert_seq_no, info.gen_utime,
       info.start_lt, info.end_lt, info.gen_validator_list_hash_short, info.gen_catchain_seqno, info.min_ref_mc_seqno,
       info.prev_key_block_seqno);
-  return tonlib_api::make_object<tonlib_api::liteServer_block>(to_tonlib_api(block_id_),
+  return tonlib_api::make_object<tonlib_api::liteServer_block>(to_tonlib_api(block_id),
                                                                to_tonlib_api(masterchain_blk_id), std::move(block_info),
                                                                std::move(previous_blocks), std::move(next_blocks));
 }
@@ -81,19 +97,46 @@ void GetBlock::finish_query() {
 }
 
 void GetBlock::start_up() {
+  if (block_id_.has_value()) {
+    start_up_with_block_id(*block_id_);
+  } else {
+    start_up_with_lookup();
+  }
+}
+
+void GetBlock::start_up_with_block_id(const ton::BlockIdExt& block_id) {
   auto block_header_handler = td::PromiseCreator::lambda(
       [SelfId = actor_id(this)](td::Result<lite_api_ptr<lite_api::liteServer_blockHeader>> R) {
         if (R.is_error()) {
           td::actor::send_closure(SelfId, &GetBlock::check, R.move_as_error());
         } else {
-          td::actor::send_closure(SelfId, &GetBlock::got_block_header, R.move_as_ok());
+          td::actor::send_closure(SelfId, &GetBlock::got_block_header, R.move_as_ok(), QueryMode::Get);
         }
       });
-  client_.send_query(lite_api::liteServer_getBlockHeader(ton::create_tl_lite_block_id(block_id_), 0),
+  client_.send_query(lite_api::liteServer_getBlockHeader(ton::create_tl_lite_block_id(block_id), 0),
                      std::move(block_header_handler));
   pending_queries_ = 1;
 
-  if (block_id_.is_masterchain()) {
+  proceed_with_block_id(block_id);
+}
+
+void GetBlock::start_up_with_lookup() {
+  auto block_header_handler = td::PromiseCreator::lambda(
+      [SelfId = actor_id(this)](td::Result<lite_api_ptr<lite_api::liteServer_blockHeader>> R) {
+        if (R.is_error()) {
+          td::actor::send_closure(SelfId, &GetBlock::check, R.move_as_error());
+        } else {
+          td::actor::send_closure(SelfId, &GetBlock::got_block_header, R.move_as_ok(), QueryMode::Lookup);
+        }
+      });
+  client_.send_query(
+      lite_api::liteServer_lookupBlock(mode_, ton::create_tl_lite_block_id_simple(block_id_simple_), lt_, utime_),
+      std::move(block_header_handler));
+  pending_queries_ = 1;
+}
+
+void GetBlock::proceed_with_block_id(const ton::BlockIdExt& block_id) {
+  if (block_id.is_masterchain()) {
     auto all_shards_info_handler = td::PromiseCreator::lambda(
         [SelfId = actor_id(this)](td::Result<lite_api_ptr<lite_api::liteServer_allShardsInfo>> R) {
           if (R.is_error()) {
@@ -102,7 +145,7 @@ void GetBlock::start_up() {
             td::actor::send_closure(SelfId, &GetBlock::got_shard_info, R.move_as_ok());
           }
         });
-    client_.send_query(lite_api::liteServer_getAllShardsInfo(ton::create_tl_lite_block_id(block_id_)),
+    client_.send_query(lite_api::liteServer_getAllShardsInfo(ton::create_tl_lite_block_id(block_id)),
                        std::move(all_shards_info_handler));
     pending_queries_++;
   }
@@ -115,27 +158,35 @@ void GetBlock::start_up() {
           td::actor::send_closure(SelfId, &GetBlock::got_transactions, R.move_as_ok());
         }
       });
-  client_.send_query(lite_api::liteServer_listBlockTransactions(ton::create_tl_lite_block_id(block_id_), 7, 1024,
+  client_.send_query(lite_api::liteServer_listBlockTransactions(ton::create_tl_lite_block_id(block_id), 7, 1024,
                                                                 nullptr, false, false),
                      std::move(block_transactions_handler));
   pending_queries_++;
 }
 
-void GetBlock::got_block_header(lite_api_ptr<lite_api::liteServer_blockHeader>&& result) {
-  data_ = std::move(result->header_proof_);
-  if (!--pending_queries_) {
-    finish_query();
+void GetBlock::got_block_header(lite_api_ptr<lite_api::liteServer_blockHeader>&& result, QueryMode query_mode) {
+  if (query_mode == QueryMode::Lookup) {
+    const auto block_id = from_lite_api(*result->id_);
+    block_id_ = block_id;
+    proceed_with_block_id(block_id);
   }
+
+  data_ = std::move(result->header_proof_);
+  check_finished();
 }
 
 void GetBlock::got_shard_info(lite_api_ptr<lite_api::liteServer_allShardsInfo>&& result) {
   shard_data_ = std::move(result->data_);
-  if (!--pending_queries_) {
-    finish_query();
-  }
+  check_finished();
 }
 
 void GetBlock::got_transactions(lite_api_ptr<lite_api::liteServer_blockTransactions>&& result) {
+  if (!block_id_.has_value()) {
+    check(td::Status::Error("block not found"));
+    return;
+  }
+  const auto& block_id = *block_id_;
+
   trans_req_count_ = result->req_count_;
 
   for (auto&& transaction_id : result->ids_) {
@@ -157,15 +208,15 @@ void GetBlock::got_transactions(lite_api_ptr<lite_api::liteServer_blockTransacti
           });
       client_.send_query(
           lite_api::liteServer_listBlockTransactions(
-              ton::create_tl_lite_block_id(block_id_), 7 + 128, 1024,
+              ton::create_tl_lite_block_id(block_id), 7 + 128, 1024,
               lite_api::make_object<ton::lite_api::liteServer_transactionId3>(last_account.move_as_ok(), last->lt_),
               false, false),
           std::move(block_transactions_handler));
     } else {
       check(last_account.move_as_error());
     }
-  } else if (!--pending_queries_) {
-    finish_query();
+  } else {
+    check_finished();
   }
 }
 

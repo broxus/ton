@@ -495,4 +495,9 @@ auto to_lite_api(const tonlib_api::liteServer_transactionId3& transaction)
   return lite_api::make_object<lite_api::liteServer_transactionId3>(account, transaction.lt_);
 }
 
+auto from_lite_api(lite_api::tonNode_blockIdExt& block_id) -> ton::BlockIdExt {
+  return ton::BlockIdExt(block_id.workchain_, block_id.shard_, block_id.seqno_, block_id.root_hash_,
+                         block_id.file_hash_);
+}
+
 }  // namespace tonlib
