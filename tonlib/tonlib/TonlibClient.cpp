@@ -2522,31 +2522,6 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getBlockHeader&
   return td::Status::OK();
 }
 
-td::Status TonlibClient::do_request(const tonlib_api::liteServer_getShardInfo& request,
-                                    td::Promise<object_ptr<tonlib_api::liteServer_shardInfo>>&& promise) {
-  TRY_RESULT(id, to_lite_api(*request.id_))
-  client_.send_query(
-      lite_api::liteServer_getShardInfo(std::move(id), request.workchain_, request.shard_, request.exact_),
-      promise.wrap([](lite_api_ptr<lite_api::liteServer_shardInfo>&& shard_info) {
-        return tonlib_api::make_object<tonlib_api::liteServer_shardInfo>(
-            to_tonlib_api(*shard_info->id_), to_tonlib_api(*shard_info->shardblk_),
-            shard_info->shard_proof_.as_slice().str(), shard_info->shard_descr_.as_slice().str());
-      }));
-  return td::Status::OK();
-}
-
-td::Status TonlibClient::do_request(const tonlib_api::liteServer_getAllShardsInfo& request,
-                                    td::Promise<object_ptr<tonlib_api::liteServer_allShardsInfo>>&& promise) {
-  TRY_RESULT(id, to_lite_api(*request.id_))
-  client_.send_query(lite_api::liteServer_getAllShardsInfo(std::move(id)),
-                     promise.wrap([](lite_api_ptr<lite_api::liteServer_allShardsInfo>&& shards_info) {
-                       return tonlib_api::make_object<tonlib_api::liteServer_allShardsInfo>(
-                           to_tonlib_api(*shards_info->id_), shards_info->proof_.as_slice().str(),
-                           shards_info->data_.as_slice().str());
-                     }));
-  return td::Status::OK();
-}
-
 td::Status TonlibClient::do_request(const tonlib_api::liteServer_getOneTransaction& request,
                                     td::Promise<object_ptr<tonlib_api::liteServer_transaction>>&& promise) {
   TRY_RESULT(id, to_lite_api(*request.id_))
