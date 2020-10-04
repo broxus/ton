@@ -178,7 +178,7 @@ void GetBlock::proceed_with_block_id(const ton::BlockIdExt& block_id) {
     auto all_shards_info_handler = td::PromiseCreator::lambda(
         [SelfId = actor_id(this)](td::Result<lite_api_ptr<lite_api::liteServer_allShardsInfo>> R) {
           if (R.is_error()) {
-            td::actor::send_closure(SelfId, &GetBlock::check, R.move_as_error());
+            td::actor::send_closure(SelfId, &GetBlock::failed_to_get_shard_info, R.move_as_error());
           } else {
             td::actor::send_closure(SelfId, &GetBlock::got_shard_info, R.move_as_ok());
           }
@@ -255,6 +255,13 @@ void GetBlock::got_transactions(lite_api_ptr<lite_api::liteServer_blockTransacti
     }
   } else {
     check_finished();
+  }
+}
+
+void GetBlock::failed_to_get_shard_info(td::Status error) {
+  LOG(WARNING) << error;
+  if (!--pending_queries_) {
+    finish_query();
   }
 }
 

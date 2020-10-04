@@ -34,6 +34,8 @@ class GetBlock : public td::actor::Actor {
   void got_shard_info(lite_api_ptr<lite_api::liteServer_allShardsInfo>&& result);
   void got_transactions(lite_api_ptr<lite_api::liteServer_blockTransactions>&& result);
 
+  void failed_to_get_shard_info(td::Status error);
+
   void hangup() override {
     check(TonlibError::Cancelled());
   }
