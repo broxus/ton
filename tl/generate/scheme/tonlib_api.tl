@@ -265,8 +265,6 @@ liteServer.currentTime now:int32 = liteServer.CurrentTime;
 liteServer.masterchainInfo last:ton.BlockIdExt state_root_hash:bytes init:ton.zeroStateIdExt = liteServer.MasterchainInfo;
 liteServer.shardHash workchain:int32 id:int64 top_block_id:ton.BlockIdExt start_lt:int64 end_lt:int64 before_split:Bool before_merge:Bool want_split:Bool want_merge:Bool next_catchain_seqno:int32 next_validator_shard:int64 min_ref_mc_seqno:int32 gen_utime:int32 fees_collected:bytes funds_collected:bytes = liteServer.ShardHash;
 liteServer.allShardsInfo min_shard_gen_utime:int32 max_shard_gen_utime:int32 shards:vector<liteServer.ShardHash> = liteServer.AllShardsInfo;
-liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split:Bool after_split:Bool want_split:Bool want_merge:Bool key_block:Bool vert_seqno_incr:Bool flags:int32 seq_no:int32 vert_seq_no:int32 gen_utime:int32 start_lt:int64 end_lt:int64 gen_validator_list_hash_short:int32 gen_catchain_seqno:int32 min_ref_mc_seqno:int32 prev_key_block_seqno:int32 = liteServer.BlockInfo;
-liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> shards:liteServer.AllShardsInfo = liteServer.Block;
 liteServer.blockHeader id:ton.blockIdExt mode:int32 header_proof:bytes = liteServer.BlockHeader;
 //@param node_id_short  int256
 liteServer.signature node_id_short:bytes signature:bytes = liteServer.Signature;
@@ -313,6 +311,8 @@ liteServer.transactionDescrMergeInstall aborted:Bool destroyed:Bool = liteServer
 //@param total_fees         int256
 liteServer.transaction workchain:int32 account:bytes hash:bytes lt:int64 prev_trans_hash:bytes prev_trans_lt:int64 now:int32 outmsg_cnt:int32 orig_status:int32 end_status:int32 in_msg:liteServer.Message out_msgs:vector<liteServer.Message> total_fees:bytes hash_update:liteServer.TransactionHashUpdate desc:liteServer.TransactionDescr = liteServer.Transaction;
 liteServer.transactionList ids:vector<ton.blockIdExt> transactions:vector<liteServer.Transaction> = liteServer.TransactionList;
+liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split:Bool after_split:Bool want_split:Bool want_merge:Bool key_block:Bool vert_seqno_incr:Bool flags:int32 seq_no:int32 vert_seq_no:int32 gen_utime:int32 start_lt:int64 end_lt:int64 gen_validator_list_hash_short:int32 gen_catchain_seqno:int32 min_ref_mc_seqno:int32 prev_key_block_seqno:int32 = liteServer.BlockInfo;
+liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> shards:liteServer.AllShardsInfo transactions:vector<liteServer.TransactionId> = liteServer.Block;
 liteServer.configInfo mode:int32 id:ton.blockIdExt state_proof:bytes config_proof:bytes = liteServer.ConfigInfo;
 
 ---functions---

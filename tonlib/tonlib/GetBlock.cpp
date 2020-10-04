@@ -126,7 +126,7 @@ auto GetBlock::parse_result() -> td::Result<ResultType> {
 
   return tonlib_api::make_object<tonlib_api::liteServer_block>(
       to_tonlib_api(block_id), to_tonlib_api(masterchain_blk_id), std::move(block_info), std::move(previous_blocks),
-      std::move(next_blocks), std::move(all_shards_info));
+      std::move(next_blocks), std::move(all_shards_info), std::move(transactions_));
 }
 
 void GetBlock::finish_query() {
