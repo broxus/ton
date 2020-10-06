@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.0.2 FATAL_ERROR)
 
 set(FTABI_SOURCE
   ftabi/Abi.cpp
-  ftabi/Abi.hpp)
+  ftabi/utils.cpp
+
+  ftabi/Abi.h
+  ftabi/utils.h)
 
 add_library(ftabi STATIC ${FTABI_SOURCE})
 

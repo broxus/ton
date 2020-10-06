@@ -641,6 +641,17 @@ class Function : public td::CntObject {
 
   auto make_copy() const -> Function* final;
 
+  auto name() const -> const std::string& {
+    return name_;
+  }
+
+  auto set_header(HeaderParams header) {
+    header_ = std::move(header);
+  }
+  auto set_header(HeaderParams&& header) {
+    header_ = std::move(header);
+  }
+
   auto has_input() const -> bool {
     return !inputs_.empty();
   }

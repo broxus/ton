@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ftabi/Abi.hpp"
+#include "ftabi/utils.h"
 
 #include "tonlib/Stuff.h"
 

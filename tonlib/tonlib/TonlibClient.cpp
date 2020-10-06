@@ -56,7 +56,7 @@
 #include "td/utils/tests.h"
 #include "td/utils/port/path.h"
 
-#include "ftabi/Abi.hpp"
+#include "ftabi/utils.h"
 
 #include "common/util.h"
 
