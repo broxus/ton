@@ -61,6 +61,9 @@ auto get_account_address(const tonlib_api::pchan_initialAccountState& pchan_stat
 auto get_account_address(const tonlib_api::rwallet_initialAccountState& rwallet_state, td::int32 revision,
                          ton::WorkchainId workchain_id) -> td::Result<block::StdAddress>;
 
+auto compute_last_blocks(std::vector<tonlib_api_ptr<tonlib_api::ton_blockId>>&& blocks)
+    -> std::vector<tonlib_api_ptr<tonlib_api::ton_blockId>>;
+
 auto public_key_from_bytes(td::Slice bytes) -> td::Result<block::PublicKey>;
 
 auto create_account_state(ton::tl_object_ptr<ton::lite_api::liteServer_accountState> from) -> block::AccountState;

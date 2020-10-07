@@ -973,6 +973,7 @@ bool TonlibClient::is_static_request(td::int32 id) {
     case tonlib_api::decrypt::ID:
     case tonlib_api::kdf::ID:
     case tonlib_api::msg_decryptWithProof::ID:
+    case tonlib_api::computeLastBlockIds::ID:
     case tonlib_api::ftabi_computeFunctionId::ID:
     case tonlib_api::ftabi_computeFunctionSignature::ID:
     case tonlib_api::ftabi_createFunction::ID:
@@ -3276,6 +3277,11 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
                      }));
 }
 
+tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(tonlib_api::computeLastBlockIds& request) {
+  auto top_blocks = compute_last_blocks(std::move(request.top_blocks_));
+  return tonlib_api::make_object<tonlib_api::ton_blockIds>(std::move(top_blocks));
+}
+
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_computeFunctionId& request) {
   if (request.signature_->data_.empty()) {
     return status_to_tonlib_api(TonlibError::EmptyField("signature"));
@@ -3505,6 +3511,11 @@ td::Status TonlibClient::do_request(const tonlib_api::kdf& request, P&&) {
 }
 template <class P>
 td::Status TonlibClient::do_request(const tonlib_api::msg_decryptWithProof& request, P&&) {
+  UNREACHABLE();
+  return TonlibError::Internal();
+}
+template <class P>
+td::Status TonlibClient::do_request(const tonlib_api::computeLastBlockIds& request, P&&) {
   UNREACHABLE();
   return TonlibError::Internal();
 }

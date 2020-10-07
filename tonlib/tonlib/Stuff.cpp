@@ -3,6 +3,7 @@
 #include "tonlib/TonlibError.h"
 
 #include "ton/lite-tl.hpp"
+#include "ton/ton-shard.h"
 
 #include "td/utils/overloaded.h"
 
@@ -12,6 +13,8 @@
 #include "smc-envelope/SmartContractCode.h"
 
 #include "common/util.h"
+
+#include <list>
 
 namespace tonlib {
 
@@ -129,6 +132,78 @@ auto get_account_address(const tonlib_api::rwallet_initialAccountState& rwallet_
                          ton::WorkchainId workchain_id) -> td::Result<block::StdAddress> {
   TRY_RESULT(init_data, to_init_data(rwallet_state));
   return ton::RestrictedWallet::create(init_data, revision)->get_address(workchain_id);
+}
+
+auto compute_last_blocks(std::vector<tonlib_api_ptr<tonlib_api::ton_blockId>>&& blocks)
+    -> std::vector<tonlib_api_ptr<tonlib_api::ton_blockId>> {
+  using BlockId = tonlib_api_ptr<tonlib_api::ton_blockId>;
+
+  if (blocks.empty()) {
+    return {};
+  }
+
+  // Sort by workchain, seqno and level
+  std::sort(blocks.begin(), blocks.end(), [](const BlockId& left, const BlockId& right) {
+    return left->workchain_ > right->workchain_ || left->seqno_ > right->seqno_ ||
+           td::lower_bit64(left->shard_) < td::lower_bit64(right->shard_);
+  });
+
+  std::vector<tonlib_api_ptr<tonlib_api::ton_blockId>> top_blocks{};
+
+  // Graph node in helper trees
+  struct Item {
+    const BlockId::element_type* block{};
+    td::int32 child_count{};
+  };
+
+  // Helper trees
+  std::list<std::list<Item>> leaves;
+
+  // Process each block
+  auto current_workchain = blocks.front()->workchain_;
+  for (auto& block : blocks) {
+    // Reset leaves for each new workchain
+    if (block->workchain_ != current_workchain) {
+      leaves.clear();
+    }
+
+    bool is_leaf = true;
+
+    // Try to find child in helper trees
+    for (auto& leaf : leaves) {
+      for (auto it = leaf.begin(); it != leaf.end(); ++it) {
+        if (!ton::shard_is_parent(block->shard_, it->block->shard_)) {
+          continue;
+        }
+        // If child found
+        const auto child_it = it;
+        // Insert current block right after it
+        leaf.insert(++it, Item{.block = block.get(), .child_count = 0});
+        // Remove child from tree if all it's parents are found
+        if (++child_it->child_count == 2) {
+          leaf.erase(child_it);
+        }
+        // Mark as parent and proceed to next block
+        is_leaf = false;
+        break;
+      }
+      if (!is_leaf) {
+        break;
+      }
+    }
+
+    // If no children are found
+    if (is_leaf) {
+      auto* block_ptr = block.get();
+
+      // Add workers task
+      top_blocks.emplace_back(std::move(block));
+      // Create leaf tree
+      leaves.emplace_back(std::list{Item{.block = block_ptr, .child_count = 0}});
+    }
+  }
+
+  return top_blocks;
 }
 
 auto public_key_from_bytes(td::Slice bytes) -> td::Result<block::PublicKey> {

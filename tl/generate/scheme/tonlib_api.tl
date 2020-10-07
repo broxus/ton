@@ -47,6 +47,7 @@ unpackedAccountAddress workchain_id:int32 bounceable:Bool testnet:Bool addr:byte
 internal.transactionId lt:int64 hash:bytes = internal.TransactionId;
 
 ton.blockId workchain:int32 shard:int64 seqno:int32 = ton.BlockId;
+ton.blockIds ids:vector<ton.BlockId> = ton.BlockIds;
 //@param root_hash  int256
 //@param file_hash  int256
 ton.blockIdExt workchain:int32 shard:int64 seqno:int32 root_hash:bytes file_hash:bytes = ton.BlockIdExt;
@@ -366,6 +367,8 @@ guessAccount public_key:string rwallet_init_public_key:string = AccountRevisionL
 
 getAccountState account_address:accountAddress = FullAccountState;
 createQuery private_key:InputKey address:accountAddress timeout:int32 action:Action initial_account_state:InitialAccountState = query.Info;
+
+computeLastBlockIds top_blocks:vector<ton.BlockId> = ton.BlockIds;
 
 findTransaction account_address:accountAddress message_id:bytes after:int32 = TransactionSearchResult;
 
