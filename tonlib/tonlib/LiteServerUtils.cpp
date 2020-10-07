@@ -1,5 +1,7 @@
 #include "LiteServerUtils.h"
 
+#include "crypto/block/mc-config.h"
+
 namespace tonlib {
 
 auto parse_grams(td::Ref<vm::CellSlice>& grams) -> td::Result<std::string> {
@@ -249,6 +251,54 @@ auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Ce
       tonlib_api::make_object<tonlib_api::liteServer_transactionHashUpdate>(hash_update.old_hash.as_slice().str(),
                                                                             hash_update.new_hash.as_slice().str()),
       std::move(transaction_descr));
+}
+
+auto to_tonlib_api(const block::ValidatorDescr& validator) -> tonlib_api_ptr<tonlib_api::liteServer_validator> {
+  return tonlib_api::make_object<tonlib_api::liteServer_validator>(
+      validator.pubkey.as_slice().str(), validator.adnl_addr.as_slice().str(), validator.weight, validator.cum_weight);
+}
+
+auto to_tonlib_api(const block::ValidatorSet& vset) -> tonlib_api_ptr<tonlib_api::liteServer_validatorSet> {
+  std::vector<tonlib_api_ptr<tonlib_api::liteServer_validator>> list;
+  list.reserve(vset.list.size());
+  for (const auto& item : vset.list) {
+    list.emplace_back(to_tonlib_api(item));
+  }
+  return tonlib_api::make_object<tonlib_api::liteServer_validatorSet>(vset.utime_since, vset.utime_until, vset.total,
+                                                                      vset.main, vset.total_weight, std::move(list));
+}
+
+auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice config_proof)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configInfo>> {
+  TRY_RESULT(state_proof_ref, vm::std_boc_deserialize(state_proof))
+  TRY_RESULT(config_proof_ref, vm::std_boc_deserialize(config_proof))
+  TRY_RESULT(state, block::check_extract_state_proof(blkid, state_proof, config_proof))
+
+  TRY_RESULT(config, block::ConfigInfo::extract_from_state(state, block::ConfigInfo::needShardHashes))
+
+  enum { PREV_VSET = 32, CURR_VSET = 34, NEXT_VSET = 36 };
+
+  tonlib_api_ptr<tonlib_api::liteServer_validatorSet> prev_vset{};
+  tonlib_api_ptr<tonlib_api::liteServer_validatorSet> curr_vset{};
+  tonlib_api_ptr<tonlib_api::liteServer_validatorSet> next_vset{};
+
+  if (auto param = config->get_config_param(PREV_VSET); param.not_null()) {
+    TRY_RESULT(vset, block::ConfigInfo::unpack_validator_set(param))
+    prev_vset = to_tonlib_api(*vset);
+  }
+
+  if (auto param = config->get_config_param(CURR_VSET); param.not_null()) {
+    TRY_RESULT(vset, block::ConfigInfo::unpack_validator_set(param))
+    curr_vset = to_tonlib_api(*vset);
+  }
+
+  if (auto param = config->get_config_param(NEXT_VSET); param.not_null()) {
+    TRY_RESULT(vset, block::ConfigInfo::unpack_validator_set(param))
+    next_vset = to_tonlib_api(*vset);
+  }
+
+  return tonlib_api::make_object<tonlib_api::liteServer_configInfo>(to_tonlib_api(blkid), std::move(prev_vset),
+                                                                    std::move(curr_vset), std::move(next_vset));
 }
 
 }  // namespace tonlib

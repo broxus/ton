@@ -314,7 +314,9 @@ liteServer.transaction workchain:int32 account:bytes hash:bytes lt:int64 prev_tr
 liteServer.transactionList ids:vector<ton.blockIdExt> transactions:vector<liteServer.Transaction> = liteServer.TransactionList;
 liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split:Bool after_split:Bool want_split:Bool want_merge:Bool key_block:Bool vert_seqno_incr:Bool flags:int32 seq_no:int32 vert_seq_no:int32 gen_utime:int32 start_lt:int64 end_lt:int64 gen_validator_list_hash_short:int32 gen_catchain_seqno:int32 min_ref_mc_seqno:int32 prev_key_block_seqno:int32 = liteServer.BlockInfo;
 liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> shards:liteServer.AllShardsInfo transactions:vector<liteServer.Transaction> = liteServer.Block;
-liteServer.configInfo mode:int32 id:ton.blockIdExt state_proof:bytes config_proof:bytes = liteServer.ConfigInfo;
+liteServer.validator pubkey:bytes adnl_addr:bytes weight:int64 cum_weight:int64 = liteServer.Validator;
+liteServer.validatorSet utime_since:int32 utime_until:int32 total:int32 main:int32 total_weight:int64 list:vector<liteServer.Validator> = liteServer.ValidatorSet;
+liteServer.configInfo id:ton.blockIdExt prev_vset:liteServer.ValidatorSet curr_vset:liteServer.ValidatorSet next_vset:liteServer.ValidatorSet = liteServer.ConfigInfo;
 
 ---functions---
 
@@ -426,7 +428,7 @@ liteServer.lookupBlock mode:int32 id:ton.blockId lt:int64 utime:int32 = liteServ
 liteServer.listBlockTransactions id:ton.blockIdExt mode:int32 count:int32 after:liteServer.transactionId3 reverse_order:Bool want_proof:Bool = liteServer.BlockTransactions;
 //@param target_block   ton.blockIdExt if mode & 1
 liteServer.getBlockProof mode:int32 known_block:ton.blockIdExt target_block:ton.blockIdExt = liteServer.PartialBlockProof;
-liteServer.getConfigAll mode:int32 id:ton.blockIdExt = liteServer.ConfigInfo;
+liteServer.getConfigAll id:ton.blockIdExt = liteServer.ConfigInfo;
 liteServer.getConfigParams mode:int32 id:ton.blockIdExt param_list:(vector int32) = liteServer.ConfigInfo;
 
 //@description Sets new log stream for internal logging of tonlib. This is an offline method. Can be called before authorization. Can be called synchronously @log_stream New log stream

@@ -19,4 +19,7 @@ auto parse_message(td::Ref<vm::Cell>&& msg) -> td::Result<tonlib_api_ptr<tonlib_
 auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Cell>&& list)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_transaction>>;
 
+auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice config_proof)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configInfo>>;
+
 }  // namespace tonlib

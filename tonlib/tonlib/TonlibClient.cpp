@@ -2639,11 +2639,10 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getBlockProof& 
 td::Status TonlibClient::do_request(const tonlib_api::liteServer_getConfigAll& request,
                                     td::Promise<object_ptr<tonlib_api::liteServer_configInfo>>&& promise) {
   TRY_RESULT(id, to_lite_api(*request.id_))
-  client_.send_query(lite_api::liteServer_getConfigAll(request.mode_, std::move(id)),
+  client_.send_query(lite_api::liteServer_getConfigAll(0x4000, std::move(id)),
                      promise.wrap([](lite_api_ptr<lite_api::liteServer_configInfo>&& config_info) {
-                       return tonlib_api::make_object<tonlib_api::liteServer_configInfo>(
-                           config_info->mode_, to_tonlib_api(*config_info->id_),
-                           config_info->state_proof_.as_slice().str(), config_info->config_proof_.as_slice().str());
+                       return parse_config(ton::create_block_id(config_info->id_), config_info->state_proof_.as_slice(),
+                                           config_info->config_proof_.as_slice());
                      }));
   return td::Status::OK();
 }
@@ -2653,9 +2652,8 @@ td::Status TonlibClient::do_request(tonlib_api::liteServer_getConfigParams& requ
   TRY_RESULT(id, to_lite_api(*request.id_))
   client_.send_query(lite_api::liteServer_getConfigParams(request.mode_, std::move(id), std::move(request.param_list_)),
                      promise.wrap([](lite_api_ptr<lite_api::liteServer_configInfo>&& config_info) {
-                       return tonlib_api::make_object<tonlib_api::liteServer_configInfo>(
-                           config_info->mode_, to_tonlib_api(*config_info->id_),
-                           config_info->state_proof_.as_slice().str(), config_info->config_proof_.as_slice().str());
+                       // TODO: parse individual params
+                       return tonlib_api::make_object<tonlib_api::liteServer_configInfo>();
                      }));
   return td::Status::OK();
 }
