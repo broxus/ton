@@ -312,7 +312,7 @@ liteServer.transactionDescrMergeInstall aborted:Bool destroyed:Bool = liteServer
 liteServer.transaction workchain:int32 account:bytes hash:bytes lt:int64 prev_trans_hash:bytes prev_trans_lt:int64 now:int32 outmsg_cnt:int32 orig_status:int32 end_status:int32 in_msg:liteServer.Message out_msgs:vector<liteServer.Message> total_fees:bytes hash_update:liteServer.TransactionHashUpdate desc:liteServer.TransactionDescr = liteServer.Transaction;
 liteServer.transactionList ids:vector<ton.blockIdExt> transactions:vector<liteServer.Transaction> = liteServer.TransactionList;
 liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split:Bool after_split:Bool want_split:Bool want_merge:Bool key_block:Bool vert_seqno_incr:Bool flags:int32 seq_no:int32 vert_seq_no:int32 gen_utime:int32 start_lt:int64 end_lt:int64 gen_validator_list_hash_short:int32 gen_catchain_seqno:int32 min_ref_mc_seqno:int32 prev_key_block_seqno:int32 = liteServer.BlockInfo;
-liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> shards:liteServer.AllShardsInfo transactions:vector<liteServer.TransactionId> = liteServer.Block;
+liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> shards:liteServer.AllShardsInfo transactions:vector<liteServer.Transaction> = liteServer.Block;
 liteServer.configInfo mode:int32 id:ton.blockIdExt state_proof:bytes config_proof:bytes = liteServer.ConfigInfo;
 
 ---functions---

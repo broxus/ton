@@ -11,8 +11,6 @@
 namespace tonlib {
 
 class GetBlock : public td::actor::Actor {
-  enum class QueryMode { Get, Lookup };
-
  public:
   using ResultType = tonlib_api_ptr<tonlib_api::liteServer_block>;
 
@@ -30,9 +28,9 @@ class GetBlock : public td::actor::Actor {
   void start_up_with_lookup();
   void proceed_with_block_id(const ton::BlockIdExt& block_id);
 
-  void got_block_header(lite_api_ptr<lite_api::liteServer_blockHeader>&& result, QueryMode query_mode);
+  void got_block_header(lite_api_ptr<lite_api::liteServer_blockHeader>&& result);
+  void got_block_data(lite_api_ptr<lite_api::liteServer_blockData>&& result);
   void got_shard_info(lite_api_ptr<lite_api::liteServer_allShardsInfo>&& result);
-  void got_transactions(lite_api_ptr<lite_api::liteServer_blockTransactions>&& result);
 
   void failed_to_get_shard_info(td::Status error);
 
@@ -48,6 +46,7 @@ class GetBlock : public td::actor::Actor {
 
   void check(td::Status status) {
     if (status.is_error()) {
+      LOG(ERROR) << status.error().message();
       promise_.set_error(std::move(status));
       stop();
     }
@@ -61,11 +60,8 @@ class GetBlock : public td::actor::Actor {
 
   td::int32 pending_queries_ = 0;
 
-  td::BufferSlice data_;
+  td::BufferSlice block_data_;
   td::BufferSlice shard_data_;
-
-  std::vector<tonlib_api_ptr<tonlib_api::liteServer_transactionId>> transactions_;
-  td::uint32 trans_req_count_{};
 
   td::actor::ActorShared<> parent_;
   td::Promise<ResultType> promise_;
