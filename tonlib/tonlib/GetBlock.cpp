@@ -17,7 +17,7 @@ namespace tonlib {
 
 GetBlock::GetBlock(ExtClientRef ext_client_ref, ton::BlockIdExt block_id, td::actor::ActorShared<> parent,
                    td::Promise<tonlib_api_ptr<tonlib_api::liteServer_block>>&& promise)
-    : block_id_(std::move(block_id)), parent_(std::move(parent)), promise_(std::move(promise)) {
+    : block_id_(std::move(block_id)), mode_{0x1000u}, parent_(std::move(parent)), promise_(std::move(promise)) {
   client_.set_client(ext_client_ref);
 }
 
@@ -206,9 +206,9 @@ void GetBlock::start_up_with_lookup() {
           td::actor::send_closure(SelfId, &GetBlock::got_block_header, R.move_as_ok());
         }
       });
-  client_.send_query(
-      lite_api::liteServer_lookupBlock(mode_, ton::create_tl_lite_block_id_simple(block_id_simple_), lt_, utime_),
-      std::move(block_header_handler));
+  client_.send_query(lite_api::liteServer_lookupBlock(
+                         mode_ & 0b0111u, ton::create_tl_lite_block_id_simple(block_id_simple_), lt_, utime_),
+                     std::move(block_header_handler));
   pending_queries_ = 1;
 }
 
@@ -225,7 +225,7 @@ void GetBlock::proceed_with_block_id(const ton::BlockIdExt& block_id) {
                      std::move(block_data_handler));
   pending_queries_++;
 
-  if (block_id.is_masterchain()) {
+  if ((mode_ & 0b1000u) && block_id.is_masterchain()) {
     auto all_shards_info_handler = td::PromiseCreator::lambda(
         [SelfId = actor_id(this)](td::Result<lite_api_ptr<lite_api::liteServer_allShardsInfo>> R) {
           if (R.is_error()) {
