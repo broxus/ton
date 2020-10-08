@@ -297,7 +297,7 @@ liteServer.messageInfoInt ihr_disabled:Bool bounce:Bool bounced:Bool src:liteSer
 liteServer.messageInfoExtIn src:liteServer.MessageAddressExt dest:liteServer.MessageAddressInt import_fee:bytes = liteServer.MessageInfo;
 liteServer.messageInfoExtOut src:liteServer.MessageAddressInt dest:liteServer.MessageAddressExt created_lt:int64 created_at:int32 = liteServer.MessageInfo;
 //@param bytes              int256
-liteServer.message hash:bytes info:liteServer.MessageInfo has_init:Bool has_body:Bool = liteServer.Message;
+liteServer.message hash:bytes info:liteServer.MessageInfo init:bytes body:bytes = liteServer.Message;
 //@param old_hash           int256
 //@param new_hash           int256
 liteServer.transactionHashUpdate old_hash:bytes new_hash:bytes = liteServer.TransactionHashUpdate;
