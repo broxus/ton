@@ -1532,7 +1532,7 @@ struct ToRawTransactions {
         return tonlib_api::make_object<tonlib_api::raw_message>(
             tonlib_api::make_object<tonlib_api::accountAddress>(src),
             tonlib_api::make_object<tonlib_api::accountAddress>(std::move(dest)), balance, fwd_fee, ihr_fee, created_lt,
-            std::move(body_hash), get_data(src));
+            msg_info.bounce, msg_info.bounced, std::move(body_hash), get_data(src));
       }
       case block::gen::CommonMsgInfo::ext_in_msg_info: {
         block::gen::CommonMsgInfo::Record_ext_in_msg_info msg_info;
@@ -1542,8 +1542,8 @@ struct ToRawTransactions {
         TRY_RESULT(dest, to_std_address(msg_info.dest));
         return tonlib_api::make_object<tonlib_api::raw_message>(
             tonlib_api::make_object<tonlib_api::accountAddress>(),
-            tonlib_api::make_object<tonlib_api::accountAddress>(std::move(dest)), 0, 0, 0, 0, std::move(body_hash),
-            get_data(""));
+            tonlib_api::make_object<tonlib_api::accountAddress>(std::move(dest)), 0, 0, 0, 0, false, false,
+            std::move(body_hash), get_data(""));
       }
       case block::gen::CommonMsgInfo::ext_out_msg_info: {
         block::gen::CommonMsgInfo::Record_ext_out_msg_info msg_info;
@@ -1553,7 +1553,8 @@ struct ToRawTransactions {
         TRY_RESULT(src, to_std_address(msg_info.src));
         return tonlib_api::make_object<tonlib_api::raw_message>(
             tonlib_api::make_object<tonlib_api::accountAddress>(src),
-            tonlib_api::make_object<tonlib_api::accountAddress>(), 0, 0, 0, 0, std::move(body_hash), get_data(src));
+            tonlib_api::make_object<tonlib_api::accountAddress>(), 0, 0, 0, 0, false, false, std::move(body_hash),
+            get_data(src));
       }
     }
 
@@ -1564,8 +1565,22 @@ struct ToRawTransactions {
     return TRY_VM(to_raw_message_or_throw(std::move(cell)));
   }
 
+  template <typename T>
+  td::Status get_additional_info(vm::CellSlice& td_cs, const char* type, bool& aborted, bool& destroyed) {
+    T record;
+    if (!tlb::unpack(td_cs, record)) {
+      return td::Status::Error(PSLICE() << "Failed to unpack " << type);
+    }
+    aborted = record.aborted;
+    destroyed = record.destroyed;
+    return td::Status::OK();
+  }
+
   td::Result<tonlib_api_ptr<tonlib_api::raw_transaction>> to_raw_transaction_or_throw(block::Transaction::Info&& info) {
     std::string data;
+
+    auto aborted = false;
+    auto destroyed = false;
 
     tonlib_api_ptr<tonlib_api::raw_message> in_msg;
     std::vector<tonlib_api_ptr<tonlib_api::raw_message>> out_msgs;
@@ -1578,12 +1593,31 @@ struct ToRawTransactions {
         return td::Status::Error("Failed to unpack Transaction");
       }
 
-      TRY_RESULT_ASSIGN(fees, to_balance(trans.total_fees));
-      //LOG(ERROR) << fees;
+      auto td_cs = vm::load_cell_slice(trans.description);
+      int tag = block::gen::t_TransactionDescr.get_tag(td_cs);
+      using Trans = block::gen::TransactionDescr;
+      switch (tag) {
+        case block::gen::TransactionDescr::trans_ord: {
+          TRY_STATUS(get_additional_info<Trans::Record_trans_ord>(td_cs, "ordinary transaction", aborted, destroyed))
+          break;
+        }
+        case block::gen::TransactionDescr::trans_tick_tock: {
+          TRY_STATUS(get_additional_info<Trans::Record_trans_tick_tock>(td_cs, "ticktock", aborted, destroyed))
+          break;
+        }
+        case block::gen::TransactionDescr::trans_split_prepare: {
+          TRY_STATUS(get_additional_info<Trans::Record_trans_split_prepare>(td_cs, "split prepare", aborted, destroyed))
+          break;
+        }
+        case block::gen::TransactionDescr::trans_merge_install: {
+          TRY_STATUS(get_additional_info<Trans::Record_trans_merge_install>(td_cs, "merge install", aborted, destroyed))
+          break;
+        }
+        default:
+          break;
+      }
 
-      //std::ostringstream outp;
-      //block::gen::t_Transaction.print_ref(outp, info.transaction);
-      //LOG(INFO) << outp.str();
+      TRY_RESULT_ASSIGN(fees, to_balance(trans.total_fees));
 
       auto is_just = trans.r1.in_msg->prefetch_long(1);
       if (is_just == trans.r1.in_msg->fetch_long_eof) {
@@ -1614,7 +1648,7 @@ struct ToRawTransactions {
         info.now, data,
         tonlib_api::make_object<tonlib_api::internal_transactionId>(info.prev_trans_lt,
                                                                     info.prev_trans_hash.as_slice().str()),
-        fees, storage_fee, fees - storage_fee, std::move(in_msg), std::move(out_msgs));
+        aborted, destroyed, fees, storage_fee, fees - storage_fee, std::move(in_msg), std::move(out_msgs));
   }
 
   td::Result<tonlib_api_ptr<tonlib_api::raw_transaction>> to_raw_transaction(block::Transaction::Info&& info) {
