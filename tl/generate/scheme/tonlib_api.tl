@@ -316,7 +316,18 @@ liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split
 liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> shards:liteServer.AllShardsInfo transactions:vector<liteServer.Transaction> = liteServer.Block;
 liteServer.validator pubkey:bytes adnl_addr:bytes weight:int64 cum_weight:int64 = liteServer.Validator;
 liteServer.validatorSet utime_since:int32 utime_until:int32 total:int32 main:int32 total_weight:int64 list:vector<liteServer.Validator> = liteServer.ValidatorSet;
-liteServer.configInfo id:ton.blockIdExt prev_vset:liteServer.ValidatorSet curr_vset:liteServer.ValidatorSet next_vset:liteServer.ValidatorSet = liteServer.ConfigInfo;
+
+liteServer.currencyCollectionItem currency:int32 value:bytes = liteServer.CurrencyCollectionItem;
+liteServer.configMintPrice mint_new_price:bytes mint_add_price:bytes = liteServer.ConfigMintPrice;
+liteServer.configToMint currency_collection:vector<liteServer.CurrencyCollectionItem> = liteServer.ConfigToMint;
+liteServer.configGlobalVersion version:int32 capabilities:int64 = liteServer.ConfigGlobalVersion;
+liteServer.configParams ids:vector<int32> = liteServer.ConfigParams;
+liteServer.configProposalSetup min_tot_rounds:int32 max_tot_rounds:int32 min_wins:int32 max_losses:int32 min_store_sec:int32 max_store_sec:int32 bit_price:int32 cell_price:int32 = liteServer.ConfigProposalSetup;
+liteServer.configVotingSetup normals_params:liteServer.ConfigProposalSetup critical_params:liteServer.ConfigProposalSetup = liteServer.ConfigVotingSetup;
+liteServer.configWorkchainFormat vm_version:int32 vm_mode:int64 = liteServer.ConfigWorkchainFormat;
+liteServer.configWorkchainInfo enabled_since:int32 actual_min_split:int32 min_split:int32 max_split:int32 basic:Bool active:Bool accept_msgs:Bool flags:int32 zerostate_root_hash:bytes zerostate_file_hash:bytes version:int32 format:liteServer.ConfigWorkchainFormat = liteServer.ConfigWorkchainInfo;
+liteServer.configWorkchains workchains:vector<liteServer.ConfigWorkchainInfo> = liteServer.ConfigWorkchains;
+liteServer.configInfo id:ton.blockIdExt config_addr:liteServer.AccountId elector_addr:liteServer.AccountId minter_addr:liteServer.AccountId fee_collector_addr:liteServer.AccountId dns_root_addr:liteServer.AccountId mint_price:liteServer.ConfigMintPrice to_mint:liteServer.configToMint global_version:liteServer.ConfigGlobalVersion mandatory_params:liteServer.ConfigParams critical_params:liteServer.ConfigParams config_voting_setup:liteServer.ConfigVotingSetup workchains:liteServer.ConfigWorkchains prev_vset:liteServer.ValidatorSet prev_temp_vset:liteServer.ValidatorSet curr_vset:liteServer.ValidatorSet cur_temp_vset:liteServer.ValidatorSet next_vset:liteServer.ValidatorSet next_temp_vset:liteServer.ValidatorSet = liteServer.ConfigInfo;
 
 ---functions---
 
