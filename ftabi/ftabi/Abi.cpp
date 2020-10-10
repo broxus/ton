@@ -1049,7 +1049,7 @@ auto decode_output_id(SliceData&& data) -> td::Result<uint32_t> {
   if (!data.write().fetch_long_bool(32, output_id)) {
     return td::Status::Error("failed to fetch output id");
   }
-  return output_id;
+  return static_cast<uint32_t>(output_id);
 }
 
 auto decode_params(SliceData&& data, const std::vector<ParamRef>& params) -> td::Result<std::vector<ValueRef>> {

@@ -85,6 +85,18 @@ struct Value : public td::CntObject {
     return param_->type_signature() == expected->type_signature();
   }
 
+  template <typename T>
+  auto as() -> T& {
+    static_assert(std::is_base_of_v<Value, T>);
+    return *dynamic_cast<T*>(this);
+  }
+
+  template <typename T>
+  auto as() const -> const T& {
+    static_assert(std::is_base_of_v<Value, T>);
+    return *dynamic_cast<const T*>(this);
+  }
+
   virtual auto serialize() const -> td::Result<std::vector<BuilderData>> = 0;
   virtual auto deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> = 0;
   virtual auto to_string() const -> std::string {
@@ -105,6 +117,12 @@ struct ValueInt : Value {
   auto to_tonlib_api() const -> ApiValue final;
   auto make_copy() const -> Value* final {
     return new ValueInt{param_, value};
+  }
+
+  template <typename T>
+  auto get() const -> T {
+    static_assert(std::numeric_limits<T>::is_integer);
+    return static_cast<T>(value.to_long());
   }
 
   td::BigInt256 value;
