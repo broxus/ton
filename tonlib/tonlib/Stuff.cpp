@@ -547,6 +547,11 @@ auto from_tonlib_api(tonlib_api::tvm_StackEntry& entry) -> td::Result<vm::StackE
           }));
 }
 
+auto to_lite_api(const block::StdAddress& addr) -> lite_api_ptr<lite_api::liteServer_accountId> {
+  return tonlib_api::make_object<lite_api::liteServer_accountId>(  //
+      addr.workchain, addr.addr);
+}
+
 auto to_lite_api(const tonlib_api::ton_blockId& blk) -> lite_api_ptr<lite_api::tonNode_blockId> {
   return lite_api::make_object<lite_api::tonNode_blockId>(blk.workchain_, blk.shard_, blk.seqno_);
 }

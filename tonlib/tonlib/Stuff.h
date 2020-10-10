@@ -100,6 +100,8 @@ auto from_tonlib_api(tonlib_api::InputKey& input_key) -> td::Result<KeyStorage::
 auto from_tonlib_api(tonlib_api::inputKeyRegular& input_key) -> td::Result<KeyStorage::InputKey>;
 auto from_tonlib_api(tonlib_api::tvm_StackEntry& entry) -> td::Result<vm::StackEntry>;
 
+auto to_lite_api(const block::StdAddress& addr) -> lite_api_ptr<lite_api::liteServer_accountId>;
+
 auto to_lite_api(const tonlib_api::ton_blockId& blk) -> lite_api_ptr<lite_api::tonNode_blockId>;
 auto to_lite_api(const tonlib_api::ton_blockIdExt& blk) -> td::Result<lite_api_ptr<lite_api::tonNode_blockIdExt>>;
 auto to_lite_api(const tonlib_api::liteServer_accountId& account)

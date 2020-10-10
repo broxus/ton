@@ -58,13 +58,13 @@ auto parse_param(tonlib_api::ftabi_Param& param) -> td::Result<ftabi::ParamRef> 
             return ftabi::ParamRef{ftabi::ParamGram(param.name_)};
           },
           [](const tonlib_api::ftabi_paramTime& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamTime(param.name_)};
+            return ftabi::ParamRef{ftabi::ParamTime{}};
           },
           [](const tonlib_api::ftabi_paramExpire& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamExpire(param.name_)};
+            return ftabi::ParamRef{ftabi::ParamExpire{}};
           },
           [](const tonlib_api::ftabi_paramPublicKey& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamPublicKey(param.name_)};
+            return ftabi::ParamRef{ftabi::ParamPublicKey{}};
           }));
 }
 

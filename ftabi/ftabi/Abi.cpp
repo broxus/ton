@@ -139,7 +139,8 @@ auto ValueInt::to_tonlib_api() const -> ApiValue {
   } else {
     td::BufferSlice bytes(32);
     CHECK(value.export_bytes(bytes.as_slice().ubegin(), bytes.size(), value.sgn()))
-    return tonlib_api::make_object<tonlib_api::ftabi_valueBigInt>(std::move(param_->to_tonlib_api()), bytes.as_slice().str());
+    return tonlib_api::make_object<tonlib_api::ftabi_valueBigInt>(std::move(param_->to_tonlib_api()),
+                                                                  bytes.as_slice().str());
   }
 }
 
@@ -1334,8 +1335,14 @@ static auto prepare_vm_c7(ton::UnixTime now, ton::LogicalTime lt, td::Ref<vm::Ce
   return vm::make_tuple_ref(std::move(tuple));
 }
 
-auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, td::Ref<Function>&& function,
-                    td::Ref<FunctionCall>&& function_call) -> td::Result<std::vector<ValueRef>> {
+auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
+                    FunctionCallRef&& function_call) -> td::Result<std::vector<ValueRef>> {
+  TRY_RESULT(message_body, function->encode_input(function_call))
+  return run_smc_method(address, std::move(info), std::move(function), std::move(message_body));
+}
+
+auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
+                    td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>> {
   try {
     if (info.root.is_null()) {
       LOG(ERROR) << "account state of " << address.workchain << ":" << address.addr.to_hex() << " is empty";
@@ -1374,16 +1381,9 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
     CHECK(tlb::csr_unpack(store.state, state_init));
 
     // encode message and it's body
-    TRY_RESULT(message_body, function->encode_input(function_call));
 
-    td::Ref<vm::Cell> message_body_ref;
-    if (function_call->body_as_ref) {
-      message_body_ref = vm::CellBuilder{}.store_ref(message_body).finalize();
-    } else {
-      message_body_ref = message_body;
-    }
-    auto message = ton::GenericAccount::create_ext_message(block::StdAddress{address.workchain, address.addr}, {},
-                                                           std::move(message_body_ref));
+    auto message =
+        ton::GenericAccount::create_ext_message(block::StdAddress{address.workchain, address.addr}, {}, message_body);
 
     auto message_body_cs = vm::load_cell_slice_ref(message_body);
 
@@ -1398,7 +1398,7 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
     // create vm
     LOG(DEBUG) << "creating VM";
 
-    vm::init_op_cp0(true);  // enable vm debug
+    vm::init_op_cp0();
 
     vm::VmState vm{state_init.code->prefetch_ref(),
                    std::move(stack),

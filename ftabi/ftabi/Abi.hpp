@@ -483,7 +483,7 @@ struct ValueTime : Value {
 struct ParamTime : Param {
   using ValueType = ValueTime;
 
-  explicit ParamTime(const std::string& name) : Param{name, ParamType::Time} {
+  explicit ParamTime() : Param{"time", ParamType::Time} {
   }
   auto type_signature() const -> std::string final {
     return "time";
@@ -495,7 +495,7 @@ struct ParamTime : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamTime{name_};
+    return new ParamTime{};
   }
 };
 
@@ -513,7 +513,7 @@ struct ValueExpire : Value {
 struct ParamExpire : Param {
   using ValueType = ValueExpire;
 
-  explicit ParamExpire(const std::string& name) : Param{name, ParamType::Expire} {
+  explicit ParamExpire() : Param{"expire", ParamType::Expire} {
   }
   auto type_signature() const -> std::string final {
     return "expire";
@@ -523,7 +523,7 @@ struct ParamExpire : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamExpire{name_};
+    return new ParamExpire{};
   }
 };
 
@@ -541,7 +541,7 @@ struct ValuePublicKey : Value {
 struct ParamPublicKey : Param {
   using ValueType = ValuePublicKey;
 
-  explicit ParamPublicKey(const std::string& name) : Param{name, ParamType::PublicKey} {
+  explicit ParamPublicKey() : Param{"pubkey", ParamType::PublicKey} {
   }
   auto type_signature() const -> std::string final {
     return "pubkey";
@@ -551,7 +551,7 @@ struct ParamPublicKey : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamPublicKey{name_};
+    return new ParamPublicKey{};
   }
 };
 
@@ -664,7 +664,12 @@ class Function : public td::CntObject {
   uint32_t output_id_ = 0;
 };
 
-auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, td::Ref<Function>&& function,
-                    td::Ref<FunctionCall>&& function_call) -> td::Result<std::vector<ValueRef>>;
+using FunctionRef = td::Ref<Function>;
+using FunctionCallRef = td::Ref<FunctionCall>;
+
+auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
+                    FunctionCallRef&& function_call) -> td::Result<std::vector<ValueRef>>;
+auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
+                    td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>>;
 
 }  // namespace ftabi
