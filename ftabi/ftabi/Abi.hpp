@@ -587,7 +587,13 @@ template <typename P, typename... Args>
 static auto make_value(P&& param, Args&&... args) -> ValueRef {
   using V = typename P::ValueType;
   static_assert(std::is_base_of_v<Param, P> && std::is_base_of_v<Value, V>);
-  return ValueRef{V{ParamRef{param}, std::move(args)...}};
+  return ValueRef{V{ParamRef{param}, std::forward<Args>(args)...}};
+}
+
+template <typename V, typename... Args>
+static auto make_value(const ParamRef& param, Args&&... args) -> ValueRef {
+  static_assert(std::is_base_of_v<Value, V>);
+  return ValueRef{V{param, std::forward<Args>(args)...}};
 }
 
 template <typename... Values>
@@ -602,7 +608,7 @@ static auto make_header(Values&&... values) -> HeaderValues {
 template <typename... Args>
 static auto make_params(Args&&... args) -> std::vector<ParamRef> {
   static_assert((std::is_base_of_v<Param, Args> && ...));
-  return std::vector<ParamRef>{std::move(ParamRef{args})...};
+  return std::vector<ParamRef>{ParamRef{args}...};
 }
 
 auto check_params(const std::vector<ValueRef>& values, const std::vector<ParamRef>& params) -> bool;
