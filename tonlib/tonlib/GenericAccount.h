@@ -24,7 +24,7 @@ class GenericAccount {
  public:
   static td::Ref<vm::Cell> get_init_state(td::Ref<vm::Cell> code, td::Ref<vm::Cell> data) noexcept;
   static block::StdAddress get_address(ton::WorkchainId workchain_id, const td::Ref<vm::Cell>& init_state) noexcept;
-  static td::Ref<vm::Cell> create_ext_message(const block::StdAddress& address, td::Ref<vm::Cell> new_state,
-                                              td::Ref<vm::Cell> body) noexcept;
+  static td::Ref<vm::Cell> create_ext_message(const block::StdAddress& address, const td::Ref<vm::Cell>& new_state,
+                                              const td::Ref<vm::Cell>& body) noexcept;
 };
 }  // namespace tonlib

@@ -56,6 +56,7 @@ td::Ref<vm::Cell> GenericAccount::get_init_state(const td::Ref<vm::Cell>& code,
       .store_ref(std::move(data))
       .finalize();
 }
+
 block::StdAddress GenericAccount::get_address(ton::WorkchainId workchain_id,
                                               const td::Ref<vm::Cell>& init_state) noexcept {
   return block::StdAddress(workchain_id, init_state->get_hash().bits(), true /*bounce*/);
@@ -76,9 +77,10 @@ void GenericAccount::store_int_message(vm::CellBuilder& cb, const block::StdAddr
   cb.store_zeroes(9 + 64 + 32);
 }
 
-td::Ref<vm::Cell> GenericAccount::create_ext_message(const block::StdAddress& address, td::Ref<vm::Cell> new_state,
-                                                     td::Ref<vm::Cell> body) noexcept {
-  block::gen::Message::Record message;
+td::Ref<vm::Cell> GenericAccount::create_ext_message(const block::StdAddress& address, const td::Ref<vm::Cell>& new_state,
+                                                     const td::Ref<vm::Cell>& body) noexcept {
+  vm::CellBuilder message{};
+
   /*info*/ {
     block::gen::CommonMsgInfo::Record_ext_in_msg_info info;
     /* src */
@@ -97,31 +99,73 @@ td::Ref<vm::Cell> GenericAccount::create_ext_message(const block::StdAddress& ad
       info.import_fee = cb.as_cellslice_ref();
     }
 
-    tlb::csr_pack(message.info, info);
-  }
-  /* init */ {
-    if (new_state.not_null()) {
-      // Just(Left(new_state))
-      message.init = vm::CellBuilder()
-                         .store_ones(1)
-                         .store_zeroes(1)
-                         .append_cellslice(vm::load_cell_slice(new_state))
-                         .as_cellslice_ref();
-    } else {
-      message.init = vm::CellBuilder().store_zeroes(1).as_cellslice_ref();
-      CHECK(message.init.not_null());
-    }
-  }
-  /* body */ {
-    message.body = vm::CellBuilder().store_zeroes(1).append_cellslice(vm::load_cell_slice_ref(body)).as_cellslice_ref();
+    vm::Ref<vm::CellSlice> info_cs;
+    CHECK(tlb::csr_pack(info_cs, info) && message.append_cellslice_bool(info_cs))
   }
 
-  td::Ref<vm::Cell> res;
-  tlb::type_pack_cell(res, block::gen::t_Message_Any, message);
-  CHECK(res.not_null());
+  // prepare init
+  td::Ref<vm::CellSlice> init_cs{};
+  if (new_state.not_null()) {
+    message.store_ones(1);
+    init_cs = vm::load_cell_slice_ref(new_state);
+  } else {
+    message.store_zeroes(1);
+    init_cs = vm::CellBuilder{}.as_cellslice_ref();
+  }
+
+  // prepare body
+  td::Ref<vm::CellSlice> body_cs{};
+  if (body.not_null()) {
+    body_cs = vm::load_cell_slice_ref(body);
+  } else {
+    body_cs = vm::CellBuilder{}.as_cellslice_ref();
+  }
+
+  // calculate layout
+  bool init_as_ref, body_as_ref;
+  if (message.size() + init_cs->size() + body_cs->size() <= vm::Cell::max_bits &&
+      message.size_refs() + init_cs->size_refs() + body_cs->size_refs() <= vm::Cell::max_refs) {
+    // add fits in one cell
+    body_as_ref = false;
+    init_as_ref = false;
+  } else {
+    if (message.size() + init_cs->size() <= vm::Cell::max_bits &&
+        message.size_refs() + init_cs->size_refs() + 1 <= vm::Cell::max_refs) {  // + body cell ref
+      // header & state fit
+      init_as_ref = false;
+      body_as_ref = true;
+    } else if (message.size() + body_cs->size() <= vm::Cell::max_bits &&
+               message.size_refs() + body_cs->size_refs() + 1 <= vm::Cell::max_refs) {  // + init cell ref
+      // header & body fit
+      init_as_ref = true;
+      body_as_ref = false;
+    } else {
+      // only header fit
+      init_as_ref = true;
+      body_as_ref = true;
+    }
+  }
+
+  if (new_state.not_null()) {
+    if (init_as_ref) {
+      message.store_ones(1).store_ref(new_state);
+    } else {
+      message.store_zeroes(1).append_cellslice(init_cs);
+    }
+  }
+
+  if (body_as_ref && body.not_null()) {
+    message.store_ones(1).store_ref(body);
+  } else {
+    message.store_zeroes(1).append_cellslice(body_cs);
+  }
+
+  auto res = message.finalize();
+  CHECK(res.not_null())
 
   return res;
 }
+
 td::Result<td::Ed25519::PublicKey> GenericAccount::get_public_key(const SmartContract& sc) {
   auto answer = sc.run_get_method("get_public_key");
   if (!answer.success) {
@@ -147,6 +191,7 @@ td::Result<td::uint32> GenericAccount::get_seqno(const SmartContract& sc) {
     return static_cast<td::uint32>(answer.stack.write().pop_long_range(std::numeric_limits<td::uint32>::max()));
   }());
 }
+
 td::Result<td::uint32> GenericAccount::get_wallet_id(const SmartContract& sc) {
   return TRY_VM([&]() -> td::Result<td::uint32> {
     auto answer = sc.run_get_method("wallet_id");
