@@ -1266,30 +1266,19 @@ static auto unpack_internal_address_opt(vm::CellSlice& cs, td::optional<block::S
   return success;
 }
 
-static auto unpack_message(td::Ref<vm::Cell>& msg) -> td::Result<td::Ref<vm::Cell>> {
-  if (msg.is_null()) {
-    return td::Status::Error("message not found");
-  }
-
-  auto cs = vm::load_cell_slice(msg);
-
+auto unpack_result_message_body(vm::CellSlice& cs) -> td::Result<td::Ref<vm::CellSlice>> {
+  td::Ref<vm::CellSlice> init;
   td::optional<block::StdAddress> src_address;
-  const auto success = cs.fetch_ulong(2) == 3                                     // skip tag
-                       && unpack_internal_address_opt(cs, src_address)            // skip src
-                       && block::gen::t_MsgAddressExt.validate_skip(nullptr, cs)  // skip dst
-                       && cs.advance(64 + 32);                                    // skip created_lt and created_at
-  if (!success) {
+  auto has_valid_header = cs.fetch_ulong(2) == 3                                     //
+                          && unpack_internal_address_opt(cs, src_address)            //
+                          && block::gen::t_MsgAddressExt.validate_skip(nullptr, cs)  //
+                          && cs.advance(64 + 32);
+  if (!has_valid_header) {
     return td::Status::Error("failed to fetch message header");
   }
 
-  bool has_init;
-  if (!cs.fetch_bool_to(has_init)) {
+  if (!block::gen::t_Maybe_Either_StateInit_Ref_StateInit.fetch_to(cs, init)) {
     return td::Status::Error("failed to fetch init state");
-  }
-
-  if (has_init) {
-    // TODO: validate init
-    return td::Status::Error("init state is not supported yet");
   }
 
   bool body_in_reference;
@@ -1302,13 +1291,13 @@ static auto unpack_message(td::Ref<vm::Cell>& msg) -> td::Result<td::Ref<vm::Cel
     if (!cs.fetch_ref_to(cell)) {
       return td::Status::Error("failed to fetch body cell");
     } else {
-      return std::move(cell);
+      return vm::load_cell_slice_ref(cell);
     }
   } else {
     if (cs.empty()) {
-      return {};
+      return vm::CellBuilder{}.as_cellslice_ref();
     } else {
-      return vm::CellBuilder{}.append_cellslice(cs).finalize();
+      return vm::CellBuilder{}.append_cellslice(cs).as_cellslice_ref();
     }
   }
 }
@@ -1382,7 +1371,7 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
 
     // encode message and it's body
 
-    auto message =
+    auto ext_in_message =
         ton::GenericAccount::create_ext_message(block::StdAddress{address.workchain, address.addr}, {}, message_body);
 
     auto message_body_cs = vm::load_cell_slice_ref(message_body);
@@ -1391,7 +1380,7 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
     auto stack = td::make_ref<vm::Stack>();
     stack.write().push(vm::StackEntry{balance.grams});
     stack.write().push_smallint(0);
-    stack.write().push_cell(message);
+    stack.write().push_cell(ext_in_message);
     stack.write().push_cellslice(message_body_cs);
     stack.write().push_smallint(-1);
 
@@ -1439,7 +1428,7 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
     }
 
     // process output messages
-    if (vm.get_committed_state().committed) {
+    if (function->has_output() && vm.get_committed_state().committed) {
       auto actions_cs = vm::load_cell_slice(vm.get_committed_state().c5);
 
       while (actions_cs.size_refs()) {
@@ -1450,14 +1439,14 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
         if (actions_cs.fetch_ulong_bool(32, magic) && magic == 0x0ec3c86du && actions_cs.size_refs() == 1) {
           td::Ref<vm::Cell> msg;
           CHECK(actions_cs.fetch_ref_to(msg))
-          auto parsed_body = unpack_message(msg).move_as_ok();
-          auto parsed_body_cs = vm::load_cell_slice_ref(parsed_body);
 
-          std::ostringstream mss;
-          vm::load_cell_slice(parsed_body).print_rec(mss);
-          LOG(DEBUG) << "Processing message: " << mss.str();
+          auto msg_cs = vm::load_cell_slice(msg);
+          if (msg_cs.prefetch_ulong(2) != 3) {
+            continue;
+          }
 
-          TRY_RESULT(result, function->decode_output(std::move(parsed_body_cs)));
+          TRY_RESULT(body, unpack_result_message_body(msg_cs))
+          TRY_RESULT(result, function->decode_output(std::move(body)))
           return result;
         } else {
           LOG(ERROR) << "Failed to read message";
