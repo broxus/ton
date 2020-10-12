@@ -57,7 +57,7 @@ auto parse_msg_address_int(td::Ref<vm::CellSlice>& addr)
       if (!tlb::unpack(addr.write(), info)) {
         return td::Status::Error("failed to unpack internal std message address");
       }
-      if (info.anycast->prefetch_ulong(1) == 0) {
+      if (info.anycast.write().fetch_long(1) == 0) {
         return tonlib_api::make_object<tonlib_api::liteServer_messageAddressIntStd>(info.workchain_id,
                                                                                     info.address.as_slice().str());
       } else {
@@ -71,7 +71,7 @@ auto parse_msg_address_int(td::Ref<vm::CellSlice>& addr)
       if (!tlb::unpack(addr.write(), info)) {
         return td::Status::Error("failed to unpack internal var message address");
       }
-      if (info.anycast.is_null()) {
+      if (info.anycast.write().fetch_long(1) == 0) {
         return tonlib_api::make_object<tonlib_api::liteServer_messageAddressIntVar>(
             info.workchain_id, info.addr_len,
             td::Slice(info.address->bits().get_byte_ptr(), info.address->byte_size()).str());
