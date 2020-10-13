@@ -300,6 +300,14 @@ if (NOT CMAKE_CROSSCOMPILING AND TDUTILS_MIME_TYPE)
   add_dependencies(tdutils tdmime_auto)
 endif()
 
+if (TON_USE_GDB)
+  target_compile_definitions(tdutils PUBLIC TON_USE_GDB)
+endif()
+
+if (TON_USE_STACKTRACE)
+  target_compile_definitions(tdutils PUBLIC TON_USE_STACKTRACE)
+endif()
+
 if (DEFINED CMAKE_THREAD_LIBS_INIT)
   target_link_libraries(tdutils PUBLIC ${CMAKE_THREAD_LIBS_INIT})
 endif()

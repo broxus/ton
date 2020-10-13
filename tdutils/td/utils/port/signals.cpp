@@ -320,9 +320,7 @@ static void block_stdin() {
 static void default_failure_signal_handler(int sig) {
   signal_safe_write_signal_number(sig);
 
-  Stacktrace::PrintOptions options;
-  options.use_gdb = true;
-  Stacktrace::print_to_stderr(options);
+  Stacktrace::print_to_stderr();
 
   block_stdin();
   _Exit(EXIT_FAILURE);

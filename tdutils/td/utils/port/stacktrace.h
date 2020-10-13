@@ -22,8 +22,21 @@ namespace td {
 
 class Stacktrace {
  public:
+#ifdef TON_USE_GDB
+  constexpr static bool GDB_ENABLED_BY_DEFAULT = true;
+#else
+  constexpr static bool GDB_ENABLED_BY_DEFAULT = false;
+#endif
+
+#ifdef TON_USE_STACKTRACE
+  constexpr static bool STACKTRACE_ENABLED_BY_DEFAULT = true;
+#else
+  constexpr static bool STACKTRACE_ENABLED_BY_DEFAULT = false;
+#endif
+
   struct PrintOptions {
-    bool use_gdb = false;
+    bool use_gdb = GDB_ENABLED_BY_DEFAULT;
+    bool print_stacktrace = STACKTRACE_ENABLED_BY_DEFAULT;
     PrintOptions() {
     }
   };

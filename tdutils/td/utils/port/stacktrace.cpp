@@ -123,7 +123,9 @@ void Stacktrace::print_to_stderr(const PrintOptions &options) {
   if (options.use_gdb) {
     print_backtrace_gdb();
   }
-  print_backtrace();
+  if (options.print_stacktrace) {
+    print_backtrace();
+  }
 }
 
 }  // namespace td

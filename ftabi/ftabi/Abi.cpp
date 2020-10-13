@@ -487,8 +487,7 @@ auto ValueMap::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceDat
   for (const auto& item : dictionary) {
     TRY_RESULT(value, param_value.default_value())
     SliceData cloned{item.second};
-    TRY_RESULT(deserialized, value.write().deserialize(std::move(cloned), true));
-    LOG(WARNING) << value->to_string();
+    TRY_RESULT(deserialized, value.write().deserialize(std::move(cloned), true))
   }
 
   // TODO: implement deserialization
@@ -1401,7 +1400,7 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
     vm.set_c7(prepare_vm_c7(info.gen_utime, info.gen_lt, my_addr, balance));
 
     // execute
-    LOG(INFO) << "starting VM to run method of smart contract " << address.workchain << ":" << address.addr.to_hex();
+    LOG(DEBUG) << "starting VM to run method of smart contract " << address.workchain << ":" << address.addr.to_hex();
 
     int exit_code;
     try {
@@ -1423,7 +1422,6 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
     LOG(DEBUG) << "VM terminated with exit code " << exit_code;
 
     if (exit_code != 0) {
-      LOG(ERROR) << "VM terminated with error code " << exit_code;
       return td::Status::Error(PSLICE() << "VM terminated with non-zero exit code " << exit_code);
     }
 

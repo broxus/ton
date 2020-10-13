@@ -86,6 +86,8 @@ option(TON_USE_ASAN "Use \"ON\" to enable AddressSanitizer." OFF)
 option(TON_USE_TSAN "Use \"ON\" to enable ThreadSanitizer." OFF)
 option(TON_USE_UBSAN "Use \"ON\" to enable UndefinedBehaviorSanitizer." OFF)
 option(TON_BUILD_NATIVE_LIB "Use \"ON\" to build java library" OFF)
+option(TON_USE_GDB "Use \"ON\" to print gdb output on failure." ON)
+option(TON_USE_STACKTRACE "Use \"ON\" to print stacktrace on failure." ON)
 set(TON_ARCH "native" CACHE STRING "Architecture, will be passed to -march=")
 
 if (TON_BUILD_NATIVE_LIB)
