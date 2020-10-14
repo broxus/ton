@@ -1326,11 +1326,12 @@ static auto prepare_vm_c7(ton::UnixTime now, ton::LogicalTime lt, td::Ref<vm::Ce
 auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
                     FunctionCallRef&& function_call) -> td::Result<std::vector<ValueRef>> {
   TRY_RESULT(message_body, function->encode_input(function_call))
-  return run_smc_method(address, std::move(info), std::move(function), std::move(message_body));
+  return run_smc_method(address, std::move(info), std::move(function), {}, std::move(message_body));
 }
 
 auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
-                    td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>> {
+                    td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
+    -> td::Result<std::vector<ValueRef>> {
   try {
     if (info.root.is_null()) {
       LOG(ERROR) << "account state of " << address.workchain << ":" << address.addr.to_hex() << " is empty";
@@ -1370,8 +1371,8 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
 
     // encode message and it's body
 
-    auto ext_in_message =
-        ton::GenericAccount::create_ext_message(block::StdAddress{address.workchain, address.addr}, {}, message_body);
+    auto ext_in_message = ton::GenericAccount::create_ext_message(block::StdAddress{address.workchain, address.addr},
+                                                                  message_state_init, message_body);
 
     auto message_body_cs = vm::load_cell_slice_ref(message_body);
 

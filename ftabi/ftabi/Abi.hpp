@@ -696,6 +696,7 @@ auto unpack_result_message_body(vm::CellSlice& cs) -> td::Result<td::Ref<vm::Cel
 auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
                     FunctionCallRef&& function_call) -> td::Result<std::vector<ValueRef>>;
 auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
-                    td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>>;
+                    td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
+    -> td::Result<std::vector<ValueRef>>;
 
 }  // namespace ftabi
