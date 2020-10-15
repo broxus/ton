@@ -134,21 +134,21 @@ auto parse_message_info(td::Ref<vm::CellSlice>& msg) -> td::Result<tonlib_api_pt
   }
 }
 
-auto parse_optional_cs(td::Ref<vm::CellSlice>&& cs) -> td::Result<td::BufferSlice> {
+auto parse_optional_cs(td::Ref<vm::CellSlice>&& cs) -> td::Result<std::string> {
   if (cs.is_null()) {
     return std::string{};
   }
   if (cs->prefetch_long(1) == 0) {
     cs.write().advance(1);
     TRY_RESULT(data, vm::std_boc_serialize(vm::CellBuilder{}.append_cellslice(cs).finalize()))
-    return data;
+    return data.as_slice().str();
   } else {
     auto ref = cs->prefetch_ref();
     if (ref.is_null()) {
       return std::string{};
     }
     TRY_RESULT(data, vm::std_boc_serialize(ref))
-    return data;
+    return data.as_slice().str();
   }
 }
 
@@ -163,7 +163,7 @@ auto parse_message(td::Ref<vm::Cell>&& msg) -> td::Result<tonlib_api_ptr<tonlib_
   TRY_RESULT(body, parse_optional_cs(std::move(message.body)))
 
   return tonlib_api::make_object<tonlib_api::liteServer_message>(msg->get_hash().as_slice().str(), std::move(info),
-                                                                 init.as_slice().str(), body.as_slice().str());
+                                                                 init, body);
 }
 
 auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Cell>&& list)
