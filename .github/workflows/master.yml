@@ -1,0 +1,46 @@
+on: [ push, pull_request ]
+
+name: master
+
+jobs:
+  check:
+    name: Build native-lib
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Setup Dependencies
+        run: |
+          for apt_file in `grep -lr microsoft /etc/apt/sources.list.d/`; do sudo rm $apt_file; done
+          sudo apt-get update -y -qq
+          sudo apt-get install -y \
+            build-essential \
+            wget \
+            libssl-dev \
+            zlib1g-dev \
+            ccache \
+            openjdk-8-jdk \
+            git
+          wget -qO- "https://cmake.org/files/v3.18/cmake-3.18.4-Linux-x86_64.tar.gz" | sudo tar --strip-components=1 -xz -C /usr/local
+
+      - name: Configure Project
+        run: |
+          git submodule update third-party/crc32c
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTON_USE_ROCKSDB=OFF \
+            -DTON_USE_ABSEIL=OFF \
+            -DTON_BUILD_NATIVE_LIB=ON \
+            -DTON_ONLY_TONLIB=ON \
+            -DTON_ARCH="" \
+            -DTON_USE_GDB=OFF \
+            -DTON_USE_STACKTRACE=OFF
+
+      - name: Build Project
+        working-directory: ./build
+        run: |
+          cmake --build . --target prepare_cross_compiling -- -j2
+          cmake --build . --target native-lib -- -j2
+          cmake --build . --target tl_generate_java -- -j2
