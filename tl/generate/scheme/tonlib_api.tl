@@ -301,7 +301,12 @@ liteServer.message hash:bytes info:liteServer.MessageInfo init:bytes body:bytes 
 //@param old_hash           int256
 //@param new_hash           int256
 liteServer.transactionHashUpdate old_hash:bytes new_hash:bytes = liteServer.TransactionHashUpdate;
-liteServer.transactionDescrOrdinary credit_first:Bool aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
+//@param code               -1 -> success, 0 -> no elections or wrong sender workchain, 1 -> invalid signature, 2 -> stake is too small relative to others, 3 -> invalid election id, 4 -> already sent stake with different pubkey, 5 -> stake is too small, 6 -> max-factor < 1
+//@param pubkey             int256
+//@param adnl_addr          int256
+liteServer.transactionAdditionalInfoStakeSend status:int32 pubkey:bytes elect_time:int32 max_factor:int32 adnl_addr:bytes = liteServer.TransactionAdditionalInfo;
+liteServer.transactionAdditionalInfoStakeRecover success:Bool = liteServer.TransactionAdditionalInfo;
+liteServer.transactionDescrOrdinary credit_first:Bool aborted:Bool destroyed:Bool additional:liteServer.TransactionAdditionalInfo = liteServer.TransactionDescr;
 liteServer.transactionDescrTickTock is_tock:Bool aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
 liteServer.transactionDescrSplitPrepare aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
 liteServer.transactionDescrSplitInstall installed:Bool = liteServer.TransactionDescr;
@@ -316,7 +321,131 @@ liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split
 liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> shards:liteServer.AllShardsInfo transactions:vector<liteServer.Transaction> = liteServer.Block;
 liteServer.validator pubkey:bytes adnl_addr:bytes weight:int64 cum_weight:int64 = liteServer.Validator;
 liteServer.validatorSet utime_since:int32 utime_until:int32 total:int32 main:int32 total_weight:int64 list:vector<liteServer.Validator> = liteServer.ValidatorSet;
-liteServer.configInfo id:ton.blockIdExt prev_vset:liteServer.ValidatorSet curr_vset:liteServer.ValidatorSet next_vset:liteServer.ValidatorSet = liteServer.ConfigInfo;
+
+liteServer.currencyCollectionItem currency:int32 value:bytes = liteServer.CurrencyCollectionItem;
+liteServer.configMintPrice mint_new_price:bytes mint_add_price:bytes = liteServer.ConfigMintPrice;
+liteServer.configToMint currency_collection:vector<liteServer.CurrencyCollectionItem> = liteServer.ConfigToMint;
+liteServer.configGlobalVersion version:int32 capabilities:int64 = liteServer.ConfigGlobalVersion;
+liteServer.configParams ids:vector<int32> = liteServer.ConfigParams;
+liteServer.configProposalSetup min_tot_rounds:int32 max_tot_rounds:int32 min_wins:int32 max_losses:int32 min_store_sec:int32 max_store_sec:int32 bit_price:int32 cell_price:int32 = liteServer.ConfigProposalSetup;
+liteServer.configVotingSetup normals_params:liteServer.ConfigProposalSetup critical_params:liteServer.ConfigProposalSetup = liteServer.ConfigVotingSetup;
+liteServer.configWorkchainFormat vm_version:int32 vm_mode:int64 = liteServer.ConfigWorkchainFormat;
+liteServer.configWorkchainInfo enabled_since:int32 actual_min_split:int32 min_split:int32 max_split:int32 basic:Bool active:Bool accept_msgs:Bool flags:int32 zerostate_root_hash:bytes zerostate_file_hash:bytes version:int32 format:liteServer.ConfigWorkchainFormat = liteServer.ConfigWorkchainInfo;
+liteServer.configWorkchains workchains:vector<liteServer.ConfigWorkchainInfo> = liteServer.ConfigWorkchains;
+//@param deposit            int256
+//@param bit_price          int256
+//@param cell_price         int256
+liteServer.configComplaintPricing deposit:bytes bit_price:bytes cell_price:bytes = liteServer.ConfigComplaintPricing;
+//@param masterchain_block_fee  int256
+//@param basechain_block_fee    int256
+liteServer.configBlockCreateFees masterchain_block_fee:bytes basechain_block_fee:bytes = liteServer.ConfigBlockCreateFees;
+liteServer.configValidatorsTimings validators_elected_for:int32 elections_start_before:int32 elections_end_before:int32 stake_held_for:int32 = liteServer.ConfigValidatorsTimings;
+liteServer.configValidatorsQuantityLimits max_validators:int32 max_main_validators:int32 min_validators:int32 = liteServer.ConfigValidatorsQuantityLimits;
+//@param min_stake          int256
+//@param max_stake          int256
+//@param min_total_stake    int256
+liteServer.configValidatorsStakeLimits min_stake:bytes max_stake:bytes min_total_stake:bytes max_stake_factor:int32 = liteServer.ConfigValidatorsStakeLimits;
+liteServer.configStoragePrice utime_since:int32 bit_price_ps:int64 cell_price_ps:int64 mc_bit_price_ps:int64 mc_cell_price_ps:int64 = liteServer.ConfigStoragePrice;
+liteServer.configStoragePrices prices:vector<liteServer.ConfigStoragePrice> = liteServer.ConfigStoragePrices;
+liteServer.configGasPrices
+    gas_price:int64
+    gas_limit:int64
+    gas_credit:int64
+    block_gas_limit:int64
+    freeze_due_limit:int64
+    delete_due_limit:int64 = liteServer.ConfigGasLimitsPrices;
+liteServer.configGasPricesExt
+    gas_price:int64
+    gas_limit:int64
+    special_gas_limit:int64
+    gas_credit:int64
+    block_gas_limit:int64
+    freeze_due_limit:int64
+    delete_due_limit:int64 = liteServer.ConfigGasLimitsPrices;
+liteServer.configGasFlatPfx
+    flat_gas_limit:int64
+    flat_gas_price:int64
+    other:liteServer.ConfigGasLimitsPrices = liteServer.ConfigGasLimitsPrices;
+liteServer.configParamLimits underload:int32 soft_limit:int32 hard_limit:int32 = liteServer.ConfigParamLimits;
+liteServer.configBlockLimits
+    bytes:liteServer.ConfigParamLimits
+    gas:liteServer.ConfigParamLimits
+    lt_delta:liteServer.ConfigParamLimits = liteServer.ConfigBlockLimits;
+liteServer.configMsgForwardPrices
+    lump_price:int64
+    bit_price:int64
+    cell_price:int64
+    ihr_price_factor:int64
+    first_frac:int32
+    next_frac:int32 = liteServer.ConfigMsgForwardPrices;
+liteServer.configCatchainConfigRegular
+    mc_catchain_lifetime:int32
+    shard_catchain_lifetime:int32
+    shard_validators_lifetime:int32
+    shard_validators_num:int32 = liteServer.ConfigCatchainConfig;
+liteServer.configCatchainConfigNew
+    flags:int32
+    shuffle_mc_validators:Bool
+    mc_catchain_lifetime:int32
+    shard_catchain_lifetime:int32
+    shard_validators_lifetime:int32
+    shard_validators_num:int32 = liteServer.ConfigCatchainConfig;
+liteServer.configConsensusConfigRegular
+    round_candidates:int32
+    next_candidate_delay_ms:int32
+    consensus_timeout_ms:int32
+    fast_attempts:int32
+    attempt_duration:int32
+    catchain_max_deps:int32
+    max_block_bytes:int32
+    max_collated_bytes:int32 = liteServer.ConfigConsensusConfig;
+liteServer.configConsensusConfigNew
+    flags:int32
+    new_catchain_ids:Bool
+    round_candidates:int32
+    next_candidate_delay_ms:int32
+    consensus_timeout_ms:int32
+    fast_attempts:int32
+    attempt_duration:int32
+    catchain_max_deps:int32
+    max_block_bytes:int32
+    max_collated_bytes:int32 = liteServer.ConfigConsensusConfig;
+liteServer.configFundamentalSmcAddresses addresses:vector<bytes> = liteServer.ConfigFundamentalSmcAddresses;
+liteServer.configInfo
+    id:ton.blockIdExt
+    config_addr:liteServer.AccountId
+    elector_addr:liteServer.AccountId
+    minter_addr:liteServer.AccountId
+    fee_collector_addr:liteServer.AccountId
+    dns_root_addr:liteServer.AccountId
+    mint_price:liteServer.ConfigMintPrice
+    to_mint:liteServer.configToMint
+    global_version:liteServer.ConfigGlobalVersion
+    mandatory_params:liteServer.ConfigParams
+    critical_params:liteServer.ConfigParams
+    config_voting_setup:liteServer.ConfigVotingSetup
+    workchains:liteServer.ConfigWorkchains
+    complaint_pricing:liteServer.ConfigComplaintPricing
+    block_create_fees:liteServer.ConfigBlockCreateFees
+    validators_timings:liteServer.ConfigValidatorsTimings
+    validators_quantity_limits:liteServer.ConfigValidatorsQuantityLimits
+    validators_stake_limits:liteServer.ConfigValidatorsStakeLimits
+    storage_prices:liteServer.ConfigStoragePrices
+    masterchain_gas_prices:liteServer.ConfigGasLimitsPrices
+    basechain_gas_prices:liteServer.ConfigGasLimitsPrices
+    masterchain_block_limits:liteServer.ConfigBlockLimits
+    basechain_block_limits:liteServer.ConfigBlockLimits
+    masterchain_msg_forward_prices:liteServer.ConfigMsgForwardPrices
+    basechain_msg_forward_prices:liteServer.ConfigMsgForwardPrices
+    catchain_config:liteServer.ConfigCatchainConfig
+    consensus_config:liteServer.ConfigConsensusConfig
+    fundamental_smc_addresses:liteServer.ConfigFundamentalSmcAddresses
+    prev_vset:liteServer.ValidatorSet
+    prev_temp_vset:liteServer.ValidatorSet
+    curr_vset:liteServer.ValidatorSet
+    cur_temp_vset:liteServer.ValidatorSet
+    next_vset:liteServer.ValidatorSet
+    next_temp_vset:liteServer.ValidatorSet = liteServer.ConfigInfo;
 
 ---functions---
 
