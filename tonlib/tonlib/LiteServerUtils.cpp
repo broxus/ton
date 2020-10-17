@@ -812,6 +812,23 @@ auto parse_config_consensus_config(td::Ref<vm::Cell>&& cell)
   }
 }
 
+auto parse_config_fundamental_smc_addresses(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configFundamentalSmcAddresses>> {
+  ConfigParam::Record_cons31 value;
+  if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{31}, value)) {
+    return td::Status::Error("failed to unpack fundamental smc addresses");
+  }
+
+  std::vector<std::string> addresses;
+
+  vm::Dictionary fundamental_smc_addr{value.fundamental_smc_addr, 256};
+  for (const auto& item : fundamental_smc_addr) {
+    addresses.emplace_back(std::string(reinterpret_cast<const char*>(item.first.get_byte_ptr()), 32));
+  }
+
+  return tonlib_api::make_object<tonlib_api::liteServer_configFundamentalSmcAddresses>(std::move(addresses));
+}
+
 template <typename T>
 auto parse_config_param(block::Config& config, int param, td::Result<tonlib_api_ptr<T>> (*f)(td::Ref<vm::Cell>&&))
     -> td::Result<tonlib_api_ptr<T>> {
@@ -905,6 +922,8 @@ auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice
              parse_config_param(*config, BASECHAIN_MSG_FORWARD_PRICES, parse_config_msg_forward_prices))
   TRY_RESULT(catchain_config, parse_config_param(*config, CATCHAIN_CONFIG, parse_config_catchain_config))
   TRY_RESULT(consensus_config, parse_config_param(*config, CONSENSUS_CONFIG, parse_config_consensus_config))
+  TRY_RESULT(fundamental_smc_addresses,
+             parse_config_param(*config, FUNDAMENTAL_SMC_ADDR, parse_config_fundamental_smc_addresses))
 
   // Validators
   TRY_RESULT(prev_vset, parse_config_param(*config, PREV_VSET, parse_config_vset))
@@ -924,8 +943,8 @@ auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice
       std::move(storage_prices), std::move(masterchain_gas_prices), std::move(basechain_gas_prices),
       std::move(masterchain_block_limits), std::move(basechain_block_limits), std::move(masterchain_msg_forward_prices),
       std::move(basechain_msg_forward_prices), std::move(catchain_config), std::move(consensus_config),
-      std::move(prev_vset), std::move(prev_temp_vset), std::move(curr_vset), std::move(curr_temp_vset),
-      std::move(next_vset), std::move(next_temp_vset));
+      std::move(fundamental_smc_addresses), std::move(prev_vset), std::move(prev_temp_vset), std::move(curr_vset),
+      std::move(curr_temp_vset), std::move(next_vset), std::move(next_temp_vset));
 }
 
 }  // namespace tonlib

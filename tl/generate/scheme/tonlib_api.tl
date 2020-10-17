@@ -410,6 +410,7 @@ liteServer.configConsensusConfigNew
     catchain_max_deps:int32
     max_block_bytes:int32
     max_collated_bytes:int32 = liteServer.ConfigConsensusConfig;
+liteServer.configFundamentalSmcAddresses addresses:vector<bytes> = liteServer.ConfigFundamentalSmcAddresses;
 liteServer.configInfo
     id:ton.blockIdExt
     config_addr:liteServer.AccountId
@@ -438,6 +439,7 @@ liteServer.configInfo
     basechain_msg_forward_prices:liteServer.ConfigMsgForwardPrices
     catchain_config:liteServer.ConfigCatchainConfig
     consensus_config:liteServer.ConfigConsensusConfig
+    fundamental_smc_addresses:liteServer.ConfigFundamentalSmcAddresses
     prev_vset:liteServer.ValidatorSet
     prev_temp_vset:liteServer.ValidatorSet
     curr_vset:liteServer.ValidatorSet
