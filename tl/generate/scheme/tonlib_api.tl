@@ -345,6 +345,39 @@ liteServer.configValidatorsQuantityLimits max_validators:int32 max_main_validato
 //@param max_stake          int256
 //@param min_total_stake    int256
 liteServer.configValidatorsStakeLimits min_stake:bytes max_stake:bytes min_total_stake:bytes max_stake_factor:int32 = liteServer.ConfigValidatorsStakeLimits;
+liteServer.configStoragePrice utime_since:int32 bit_price_ps:int64 cell_price_ps:int64 mc_bit_price_ps:int64 mc_cell_price_ps:int64 = liteServer.ConfigStoragePrice;
+liteServer.configStoragePrices prices:vector<liteServer.ConfigStoragePrice> = liteServer.ConfigStoragePrices;
+liteServer.configGasPrices
+    gas_price:int64
+    gas_limit:int64
+    gas_credit:int64
+    block_gas_limit:int64
+    freeze_due_limit:int64
+    delete_due_limit:int64 = liteServer.ConfigGasLimitsPrices;
+liteServer.configGasPricesExt
+    gas_price:int64
+    gas_limit:int64
+    special_gas_limit:int64
+    gas_credit:int64
+    block_gas_limit:int64
+    freeze_due_limit:int64
+    delete_due_limit:int64 = liteServer.ConfigGasLimitsPrices;
+liteServer.configGasFlatPfx
+    flat_gas_limit:int64
+    flat_gas_price:int64
+    other:liteServer.ConfigGasLimitsPrices = liteServer.ConfigGasLimitsPrices;
+liteServer.configParamLimits underload:int32 soft_limit:int32 hard_limit:int32 = liteServer.ConfigParamLimits;
+liteServer.configBlockLimits
+    bytes:liteServer.ConfigParamLimits
+    gas:liteServer.ConfigParamLimits
+    lt_delta:liteServer.ConfigParamLimits = liteServer.ConfigBlockLimits;
+liteServer.configMsgForwardPrices
+    lump_price:int64
+    bit_price:int64
+    cell_price:int64
+    ihr_price_factor:int64
+    first_frac:int32
+    next_frac:int32 = liteServer.ConfigMsgForwardPrices;
 liteServer.configInfo
     id:ton.blockIdExt
     config_addr:liteServer.AccountId
@@ -364,6 +397,13 @@ liteServer.configInfo
     validators_timings:liteServer.ConfigValidatorsTimings
     validators_quantity_limits:liteServer.ConfigValidatorsQuantityLimits
     validators_stake_limits:liteServer.ConfigValidatorsStakeLimits
+    storage_prices:liteServer.ConfigStoragePrices
+    masterchain_gas_prices:liteServer.ConfigGasLimitsPrices
+    basechain_gas_prices:liteServer.ConfigGasLimitsPrices
+    masterchain_block_limits:liteServer.ConfigBlockLimits
+    basechain_block_limits:liteServer.ConfigBlockLimits
+    masterchain_msg_forward_prices:liteServer.ConfigMsgForwardPrices
+    basechain_msg_forward_prices:liteServer.ConfigMsgForwardPrices
     prev_vset:liteServer.ValidatorSet
     prev_temp_vset:liteServer.ValidatorSet
     curr_vset:liteServer.ValidatorSet

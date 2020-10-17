@@ -638,6 +638,111 @@ auto parse_config_validators_stake_limits(td::Ref<vm::Cell>&& cell)
       min_stake, max_stake, min_total_stake, validators_stake_limits.max_stake_factor);
 }
 
+auto parse_config_storage_prices(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configStoragePrices>> {
+  ConfigParam::Record_cons18 storage_prices_value;
+  if (cell.is_null()) {
+    return td::Status::Error("failed to unpack storage prices");
+  }
+
+  std::vector<tonlib_api_ptr<tonlib_api::liteServer_configStoragePrice>> prices;
+
+  vm::Dictionary storage_prices{cell, 32};
+  for (const auto& item : storage_prices) {
+    block::gen::StoragePrices::Record storage_price;
+    if (!tlb::csr_unpack(item.second, storage_price)) {
+      return td::Status::Error("failed to unpack storage price");
+    }
+    prices.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_configStoragePrice>(
+        storage_price.utime_since, storage_price.bit_price_ps, storage_price.cell_price_ps,
+        storage_price.mc_bit_price_ps, storage_price.mc_cell_price_ps));
+  }
+
+  return tonlib_api::make_object<tonlib_api::liteServer_configStoragePrices>(std::move(prices));
+}
+
+auto parse_config_gas_prices(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_ConfigGasLimitsPrices>> {
+  if (cell.is_null()) {
+    return td::Status::Error("failed to unpack gas limits prices");
+  }
+  auto cs = vm::load_cell_slice(cell);
+
+  const auto tag = block::gen::t_GasLimitsPrices.get_tag(cs);
+  switch (tag) {
+    case block::gen::GasLimitsPrices::gas_prices: {
+      block::gen::GasLimitsPrices::Record_gas_prices gas_prices;
+      if (!tlb::unpack(cs, gas_prices)) {
+        return td::Status::Error("failed to unpack gas prices");
+      }
+      return tonlib_api::make_object<tonlib_api::liteServer_configGasPrices>(
+          gas_prices.gas_price, gas_prices.gas_limit, gas_prices.gas_credit, gas_prices.block_gas_limit,
+          gas_prices.freeze_due_limit, gas_prices.delete_due_limit);
+    }
+    case block::gen::GasLimitsPrices::gas_prices_ext: {
+      block::gen::GasLimitsPrices::Record_gas_prices_ext gas_prices_ext;
+      if (!tlb::unpack(cs, gas_prices_ext)) {
+        return td::Status::Error("failed to unpack gas prices ext");
+      }
+      return tonlib_api::make_object<tonlib_api::liteServer_configGasPricesExt>(
+          gas_prices_ext.gas_price, gas_prices_ext.gas_limit, gas_prices_ext.special_gas_limit,
+          gas_prices_ext.gas_credit, gas_prices_ext.block_gas_limit, gas_prices_ext.freeze_due_limit,
+          gas_prices_ext.delete_due_limit);
+    }
+    case block::gen::GasLimitsPrices::gas_flat_pfx: {
+      block::gen::GasLimitsPrices::Record_gas_flat_pfx gas_flat_pfx;
+      if (!tlb::unpack(cs, gas_flat_pfx)) {
+        return td::Status::Error("failed to unpack gas flat pfx");
+      }
+
+      tonlib_api_ptr<tonlib_api::liteServer_ConfigGasLimitsPrices> other{};
+      if (gas_flat_pfx.other.not_null()) {
+        auto other_cell = vm::CellBuilder{}.append_cellslice(gas_flat_pfx.other).finalize();
+        TRY_RESULT_ASSIGN(other, parse_config_gas_prices(std::move(other_cell)))
+      }
+
+      return tonlib_api::make_object<tonlib_api::liteServer_configGasFlatPfx>(
+          gas_flat_pfx.flat_gas_limit, gas_flat_pfx.flat_gas_price, std::move(other));
+    }
+    default:
+      return td::Status::Error("failed to unpack gas limits prices");
+  }
+}
+
+auto parse_config_param_limits(td::Ref<vm::CellSlice>&& cs)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configParamLimits>> {
+  block::gen::ParamLimits::Record param_limits;
+  if (cs.is_null() || !tlb::csr_unpack(cs, param_limits)) {
+    return td::Status::Error("failed to unpack param limits");
+  }
+  return tonlib_api::make_object<tonlib_api::liteServer_configParamLimits>(
+      param_limits.underload, param_limits.soft_limit, param_limits.hard_limit);
+}
+
+auto parse_config_block_limits(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configBlockLimits>> {
+  block::gen::BlockLimits::Record block_limits;
+  if (cell.is_null() || !tlb::unpack_cell(cell, block_limits)) {
+    return td::Status::Error("failed to unpack block limits");
+  }
+  TRY_RESULT(bytes, parse_config_param_limits(std::move(block_limits.bytes)))
+  TRY_RESULT(gas, parse_config_param_limits(std::move(block_limits.gas)))
+  TRY_RESULT(lt_delta, parse_config_param_limits(std::move(block_limits.lt_delta)))
+  return tonlib_api::make_object<tonlib_api::liteServer_configBlockLimits>(std::move(bytes), std::move(gas),
+                                                                           std::move(lt_delta));
+}
+
+auto parse_config_msg_forward_prices(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configMsgForwardPrices>> {
+  block::gen::MsgForwardPrices::Record msg_forward_prices;
+  if (cell.is_null() || !tlb::unpack_cell(cell, msg_forward_prices)) {
+    return td::Status::Error("failed to unpack msg forward prices");
+  }
+  return tonlib_api::make_object<tonlib_api::liteServer_configMsgForwardPrices>(
+      msg_forward_prices.lump_price, msg_forward_prices.bit_price, msg_forward_prices.cell_price,
+      msg_forward_prices.ihr_price_factor, msg_forward_prices.first_frac, msg_forward_prices.next_frac);
+}
+
 template <typename T>
 auto parse_config_param(block::Config& config, int param, td::Result<tonlib_api_ptr<T>> (*f)(td::Ref<vm::Cell>&&))
     -> td::Result<tonlib_api_ptr<T>> {
@@ -671,11 +776,11 @@ auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice
     STORAGE_PRICES = 18,
 
     MASTERCHAIN_GAS_PRICES = 20,
-    GAS_PRICES = 21,
+    BASECHAIN_GAS_PRICES = 21,
     MASTERCHAIN_BLOCK_LIMITS = 22,
-    BLOCK_LIMITS = 23,
+    BASECHAIN_BLOCK_LIMITS = 23,
     MASTERCHAIN_MSG_FORWARD_PRICES = 24,
-    MSG_FORWARD_PRICES = 25,
+    BASECHAIN_MSG_FORWARD_PRICES = 25,
 
     CATCHAIN_CONFIG = 28,
     CONSENSUS_CONFIG = 29,
@@ -720,6 +825,15 @@ auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice
              parse_config_param(*config, VALIDATORS_QUANTITY_LIMITS, parse_config_validators_quantity_limits))
   TRY_RESULT(validators_stake_limits,
              parse_config_param(*config, VALIDATORS_STAKE_LIMITS, parse_config_validators_stake_limits))
+  TRY_RESULT(storage_prices, parse_config_param(*config, STORAGE_PRICES, parse_config_storage_prices))
+  TRY_RESULT(masterchain_gas_prices, parse_config_param(*config, MASTERCHAIN_GAS_PRICES, parse_config_gas_prices))
+  TRY_RESULT(basechain_gas_prices, parse_config_param(*config, BASECHAIN_GAS_PRICES, parse_config_gas_prices))
+  TRY_RESULT(masterchain_block_limits, parse_config_param(*config, MASTERCHAIN_BLOCK_LIMITS, parse_config_block_limits))
+  TRY_RESULT(basechain_block_limits, parse_config_param(*config, BASECHAIN_BLOCK_LIMITS, parse_config_block_limits))
+  TRY_RESULT(masterchain_msg_forward_prices,
+             parse_config_param(*config, MASTERCHAIN_MSG_FORWARD_PRICES, parse_config_msg_forward_prices))
+  TRY_RESULT(basechain_msg_forward_prices,
+             parse_config_param(*config, BASECHAIN_MSG_FORWARD_PRICES, parse_config_msg_forward_prices))
 
   // Validators
   TRY_RESULT(prev_vset, parse_config_param(*config, PREV_VSET, parse_config_vset))
@@ -729,14 +843,17 @@ auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice
   TRY_RESULT(next_vset, parse_config_param(*config, NEXT_VSET, parse_config_vset))
   TRY_RESULT(next_temp_vset, parse_config_param(*config, NEXT_TEMP_VSET, parse_config_vset))
 
+  // ugh
   return tonlib_api::make_object<tonlib_api::liteServer_configInfo>(
       to_tonlib_api(blkid), std::move(config_addr), std::move(elector_addr), std::move(minter_addr),
       std::move(fee_collector_addr), std::move(dns_root_addr), std::move(mint_price), std::move(to_mint),
       std::move(global_version), std::move(mandatory_params), std::move(critical_params),
       std::move(config_voting_setup), std::move(workchains), std::move(complaint_pricing), std::move(block_create_fees),
       std::move(validators_timings), std::move(validators_quantity_limits), std::move(validators_stake_limits),
-      std::move(prev_vset), std::move(prev_temp_vset), std::move(curr_vset), std::move(curr_temp_vset),
-      std::move(next_vset), std::move(next_temp_vset));
+      std::move(storage_prices), std::move(masterchain_gas_prices), std::move(basechain_gas_prices),
+      std::move(masterchain_block_limits), std::move(basechain_block_limits), std::move(masterchain_msg_forward_prices),
+      std::move(basechain_msg_forward_prices), std::move(prev_vset), std::move(prev_temp_vset), std::move(curr_vset),
+      std::move(curr_temp_vset), std::move(next_vset), std::move(next_temp_vset));
 }
 
 }  // namespace tonlib
