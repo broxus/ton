@@ -477,8 +477,8 @@ auto parse_to_mint(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<tonlib
       return td::Status::Error("failed to unpack currency value");
     }
     TRY_RESULT(currency_value, to_tonlib_api(value.value))
-    items.emplace_back(
-        tonlib_api::make_object<tonlib_api::liteServer_currencyCollectionItem>(item.first.get_int(32), currency_value));
+    items.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_currencyCollectionItem>(
+        static_cast<td::int32>(item.first.get_int(32)), currency_value));
   }
 
   return tonlib_api::make_object<tonlib_api::liteServer_configToMint>(std::move(items));
@@ -573,6 +573,71 @@ auto parse_config_workchains(td::Ref<vm::Cell>&& cell)
   return tonlib_api::make_object<tonlib_api::liteServer_configWorkchains>(std::move(result));
 }
 
+auto parse_config_complaint_pricing(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configComplaintPricing>> {
+  block::gen::ComplaintPricing::Record complaint_pricing;
+  ConfigParam::Record_cons13 complaint_pricing_value;
+  if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{13}, complaint_pricing_value) ||
+      !tlb::csr_unpack(complaint_pricing_value.x, complaint_pricing)) {
+    return td::Status::Error("failed to unpack config complaint pricing");
+  }
+
+  TRY_RESULT(deposit, parse_grams(complaint_pricing.deposit))
+  TRY_RESULT(bit_price, parse_grams(complaint_pricing.bit_price))
+  TRY_RESULT(cell_price, parse_grams(complaint_pricing.cell_price))
+  return tonlib_api::make_object<tonlib_api::liteServer_configComplaintPricing>(deposit, bit_price, cell_price);
+}
+
+auto parse_config_block_create_fees(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configBlockCreateFees>> {
+  block::gen::BlockCreateFees::Record block_create_fees;
+  ConfigParam::Record_cons14 block_create_fees_value;
+  if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{14}, block_create_fees_value) ||
+      !tlb::csr_unpack(block_create_fees_value.x, block_create_fees)) {
+    return td::Status::Error("failed to unpack block create fees");
+  }
+
+  TRY_RESULT(masterchain_block_fee, parse_grams(block_create_fees.masterchain_block_fee))
+  TRY_RESULT(basechain_block_fee, parse_grams(block_create_fees.basechain_block_fee))
+  return tonlib_api::make_object<tonlib_api::liteServer_configBlockCreateFees>(masterchain_block_fee,
+                                                                               basechain_block_fee);
+}
+
+auto parse_config_validators_timings(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configValidatorsTimings>> {
+  ConfigParam::Record_cons15 validators_timings;
+  if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{15}, validators_timings)) {
+    return td::Status::Error("failed to unpack validators timings");
+  }
+  return tonlib_api::make_object<tonlib_api::liteServer_configValidatorsTimings>(
+      validators_timings.validators_elected_for, validators_timings.elections_start_before,
+      validators_timings.elections_end_before, validators_timings.stake_held_for);
+}
+
+auto parse_config_validators_quantity_limits(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configValidatorsQuantityLimits>> {
+  ConfigParam::Record_cons16 validators_quantity_limits;
+  if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{16}, validators_quantity_limits)) {
+    return td::Status::Error("failed to unpack validators quantity limits");
+  }
+  return tonlib_api::make_object<tonlib_api::liteServer_configValidatorsQuantityLimits>(
+      validators_quantity_limits.max_validators, validators_quantity_limits.max_main_validators,
+      validators_quantity_limits.min_validators);
+}
+
+auto parse_config_validators_stake_limits(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configValidatorsStakeLimits>> {
+  ConfigParam::Record_cons17 validators_stake_limits;
+  if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{17}, validators_stake_limits)) {
+    return td::Status::Error("failed to unpack validators stake limits");
+  }
+  TRY_RESULT(min_stake, parse_grams(validators_stake_limits.min_stake))
+  TRY_RESULT(max_stake, parse_grams(validators_stake_limits.max_stake))
+  TRY_RESULT(min_total_stake, parse_grams(validators_stake_limits.min_total_stake))
+  return tonlib_api::make_object<tonlib_api::liteServer_configValidatorsStakeLimits>(
+      min_stake, max_stake, min_total_stake, validators_stake_limits.max_stake_factor);
+}
+
 template <typename T>
 auto parse_config_param(block::Config& config, int param, td::Result<tonlib_api_ptr<T>> (*f)(td::Ref<vm::Cell>&&))
     -> td::Result<tonlib_api_ptr<T>> {
@@ -648,6 +713,13 @@ auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice
   TRY_RESULT(critical_params, parse_config_param(*config, CRITICAL_PARAMS, parse_integer_array))
   TRY_RESULT(config_voting_setup, parse_config_param(*config, CONFIG_VOTING_SETUP, parse_config_voting_setup))
   TRY_RESULT(workchains, parse_config_param(*config, WORKCHAINS, parse_config_workchains))
+  TRY_RESULT(complaint_pricing, parse_config_param(*config, COMPLAINT_PRICING, parse_config_complaint_pricing))
+  TRY_RESULT(block_create_fees, parse_config_param(*config, BLOCK_CREATE_FEES, parse_config_block_create_fees))
+  TRY_RESULT(validators_timings, parse_config_param(*config, VALIDATORS_TIMINGS, parse_config_validators_timings))
+  TRY_RESULT(validators_quantity_limits,
+             parse_config_param(*config, VALIDATORS_QUANTITY_LIMITS, parse_config_validators_quantity_limits))
+  TRY_RESULT(validators_stake_limits,
+             parse_config_param(*config, VALIDATORS_STAKE_LIMITS, parse_config_validators_stake_limits))
 
   // Validators
   TRY_RESULT(prev_vset, parse_config_param(*config, PREV_VSET, parse_config_vset))
@@ -661,8 +733,10 @@ auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice
       to_tonlib_api(blkid), std::move(config_addr), std::move(elector_addr), std::move(minter_addr),
       std::move(fee_collector_addr), std::move(dns_root_addr), std::move(mint_price), std::move(to_mint),
       std::move(global_version), std::move(mandatory_params), std::move(critical_params),
-      std::move(config_voting_setup), std::move(workchains), std::move(prev_vset), std::move(prev_temp_vset),
-      std::move(curr_vset), std::move(curr_temp_vset), std::move(next_vset), std::move(next_temp_vset));
+      std::move(config_voting_setup), std::move(workchains), std::move(complaint_pricing), std::move(block_create_fees),
+      std::move(validators_timings), std::move(validators_quantity_limits), std::move(validators_stake_limits),
+      std::move(prev_vset), std::move(prev_temp_vset), std::move(curr_vset), std::move(curr_temp_vset),
+      std::move(next_vset), std::move(next_temp_vset));
 }
 
 }  // namespace tonlib

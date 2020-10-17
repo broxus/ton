@@ -332,7 +332,44 @@ liteServer.configVotingSetup normals_params:liteServer.ConfigProposalSetup criti
 liteServer.configWorkchainFormat vm_version:int32 vm_mode:int64 = liteServer.ConfigWorkchainFormat;
 liteServer.configWorkchainInfo enabled_since:int32 actual_min_split:int32 min_split:int32 max_split:int32 basic:Bool active:Bool accept_msgs:Bool flags:int32 zerostate_root_hash:bytes zerostate_file_hash:bytes version:int32 format:liteServer.ConfigWorkchainFormat = liteServer.ConfigWorkchainInfo;
 liteServer.configWorkchains workchains:vector<liteServer.ConfigWorkchainInfo> = liteServer.ConfigWorkchains;
-liteServer.configInfo id:ton.blockIdExt config_addr:liteServer.AccountId elector_addr:liteServer.AccountId minter_addr:liteServer.AccountId fee_collector_addr:liteServer.AccountId dns_root_addr:liteServer.AccountId mint_price:liteServer.ConfigMintPrice to_mint:liteServer.configToMint global_version:liteServer.ConfigGlobalVersion mandatory_params:liteServer.ConfigParams critical_params:liteServer.ConfigParams config_voting_setup:liteServer.ConfigVotingSetup workchains:liteServer.ConfigWorkchains prev_vset:liteServer.ValidatorSet prev_temp_vset:liteServer.ValidatorSet curr_vset:liteServer.ValidatorSet cur_temp_vset:liteServer.ValidatorSet next_vset:liteServer.ValidatorSet next_temp_vset:liteServer.ValidatorSet = liteServer.ConfigInfo;
+//@param deposit            int256
+//@param bit_price          int256
+//@param cell_price         int256
+liteServer.configComplaintPricing deposit:bytes bit_price:bytes cell_price:bytes = liteServer.ConfigComplaintPricing;
+//@param masterchain_block_fee  int256
+//@param basechain_block_fee    int256
+liteServer.configBlockCreateFees masterchain_block_fee:bytes basechain_block_fee:bytes = liteServer.ConfigBlockCreateFees;
+liteServer.configValidatorsTimings validators_elected_for:int32 elections_start_before:int32 elections_end_before:int32 stake_held_for:int32 = liteServer.ConfigValidatorsTimings;
+liteServer.configValidatorsQuantityLimits max_validators:int32 max_main_validators:int32 min_validators:int32 = liteServer.ConfigValidatorsQuantityLimits;
+//@param min_stake          int256
+//@param max_stake          int256
+//@param min_total_stake    int256
+liteServer.configValidatorsStakeLimits min_stake:bytes max_stake:bytes min_total_stake:bytes max_stake_factor:int32 = liteServer.ConfigValidatorsStakeLimits;
+liteServer.configInfo
+    id:ton.blockIdExt
+    config_addr:liteServer.AccountId
+    elector_addr:liteServer.AccountId
+    minter_addr:liteServer.AccountId
+    fee_collector_addr:liteServer.AccountId
+    dns_root_addr:liteServer.AccountId
+    mint_price:liteServer.ConfigMintPrice
+    to_mint:liteServer.configToMint
+    global_version:liteServer.ConfigGlobalVersion
+    mandatory_params:liteServer.ConfigParams
+    critical_params:liteServer.ConfigParams
+    config_voting_setup:liteServer.ConfigVotingSetup
+    workchains:liteServer.ConfigWorkchains
+    complaint_pricing:liteServer.ConfigComplaintPricing
+    block_create_fees:liteServer.ConfigBlockCreateFees
+    validators_timings:liteServer.ConfigValidatorsTimings
+    validators_quantity_limits:liteServer.ConfigValidatorsQuantityLimits
+    validators_stake_limits:liteServer.ConfigValidatorsStakeLimits
+    prev_vset:liteServer.ValidatorSet
+    prev_temp_vset:liteServer.ValidatorSet
+    curr_vset:liteServer.ValidatorSet
+    cur_temp_vset:liteServer.ValidatorSet
+    next_vset:liteServer.ValidatorSet
+    next_temp_vset:liteServer.ValidatorSet = liteServer.ConfigInfo;
 
 ---functions---
 
