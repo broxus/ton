@@ -45,3 +45,11 @@ jobs:
           cmake --build . --target prepare_cross_compiling -- -j2
           cmake --build . --target native-lib -- -j2
           cmake --build . --target tl_generate_java -- -j2
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: native-lib
+          path: |
+            build/native-lib/libnative-lib.so
+            native-lib/src/com/broxus/ton/TonApi.java
