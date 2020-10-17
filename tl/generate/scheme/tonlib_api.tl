@@ -378,6 +378,38 @@ liteServer.configMsgForwardPrices
     ihr_price_factor:int64
     first_frac:int32
     next_frac:int32 = liteServer.ConfigMsgForwardPrices;
+liteServer.configCatchainConfigRegular
+    mc_catchain_lifetime:int32
+    shard_catchain_lifetime:int32
+    shard_validators_lifetime:int32
+    shard_validators_num:int32 = liteServer.ConfigCatchainConfig;
+liteServer.configCatchainConfigNew
+    flags:int32
+    shuffle_mc_validators:Bool
+    mc_catchain_lifetime:int32
+    shard_catchain_lifetime:int32
+    shard_validators_lifetime:int32
+    shard_validators_num:int32 = liteServer.ConfigCatchainConfig;
+liteServer.configConsensusConfigRegular
+    round_candidates:int32
+    next_candidate_delay_ms:int32
+    consensus_timeout_ms:int32
+    fast_attempts:int32
+    attempt_duration:int32
+    catchain_max_deps:int32
+    max_block_bytes:int32
+    max_collated_bytes:int32 = liteServer.ConfigConsensusConfig;
+liteServer.configConsensusConfigNew
+    flags:int32
+    new_catchain_ids:Bool
+    round_candidates:int32
+    next_candidate_delay_ms:int32
+    consensus_timeout_ms:int32
+    fast_attempts:int32
+    attempt_duration:int32
+    catchain_max_deps:int32
+    max_block_bytes:int32
+    max_collated_bytes:int32 = liteServer.ConfigConsensusConfig;
 liteServer.configInfo
     id:ton.blockIdExt
     config_addr:liteServer.AccountId
@@ -404,6 +436,8 @@ liteServer.configInfo
     basechain_block_limits:liteServer.ConfigBlockLimits
     masterchain_msg_forward_prices:liteServer.ConfigMsgForwardPrices
     basechain_msg_forward_prices:liteServer.ConfigMsgForwardPrices
+    catchain_config:liteServer.ConfigCatchainConfig
+    consensus_config:liteServer.ConfigConsensusConfig
     prev_vset:liteServer.ValidatorSet
     prev_temp_vset:liteServer.ValidatorSet
     curr_vset:liteServer.ValidatorSet

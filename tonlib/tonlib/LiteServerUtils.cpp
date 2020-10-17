@@ -743,6 +743,75 @@ auto parse_config_msg_forward_prices(td::Ref<vm::Cell>&& cell)
       msg_forward_prices.ihr_price_factor, msg_forward_prices.first_frac, msg_forward_prices.next_frac);
 }
 
+auto parse_config_catchain_config(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_ConfigCatchainConfig>> {
+  if (cell.is_null()) {
+    return td::Status::Error("failed to unpack catchain config");
+  }
+  auto cs = vm::load_cell_slice(cell);
+
+  const auto tag = block::gen::t_CatchainConfig.get_tag(cs);
+  switch (tag) {
+    case block::gen::CatchainConfig::catchain_config: {
+      block::gen::CatchainConfig::Record_catchain_config catchain_config;
+      if (!tlb::unpack(cs, catchain_config)) {
+        return td::Status::Error("failed to unpack catchain config regular");
+      }
+      return tonlib_api::make_object<tonlib_api::liteServer_configCatchainConfigRegular>(
+          catchain_config.mc_catchain_lifetime, catchain_config.shard_catchain_lifetime,
+          catchain_config.shard_validators_lifetime, catchain_config.shard_validators_num);
+    }
+    case block::gen::CatchainConfig::catchain_config_new: {
+      block::gen::CatchainConfig::Record_catchain_config_new catchain_config_new;
+      if (!tlb::unpack(cs, catchain_config_new)) {
+        return td::Status::Error("failed to unpack catchain config new");
+      }
+      return tonlib_api::make_object<tonlib_api::liteServer_configCatchainConfigNew>(
+          catchain_config_new.flags, catchain_config_new.shuffle_mc_validators,
+          catchain_config_new.mc_catchain_lifetime, catchain_config_new.shard_catchain_lifetime,
+          catchain_config_new.shard_validators_lifetime, catchain_config_new.shard_validators_num);
+    }
+    default:
+      return td::Status::Error("failed to unpack catchain config");
+  }
+}
+
+auto parse_config_consensus_config(td::Ref<vm::Cell>&& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_ConfigConsensusConfig>> {
+  if (cell.is_null()) {
+    return td::Status::Error("failed to unpack consensus config");
+  }
+  auto cs = vm::load_cell_slice(cell);
+
+  const auto tag = block::gen::t_ConsensusConfig.get_tag(cs);
+  switch (tag) {
+    case block::gen::ConsensusConfig::consensus_config: {
+      block::gen::ConsensusConfig::Record_consensus_config consensus_config;
+      if (!tlb::unpack(cs, consensus_config)) {
+        return td::Status::Error("failed to unpack consensus config regular");
+      }
+      return tonlib_api::make_object<tonlib_api::liteServer_configConsensusConfigRegular>(
+          consensus_config.round_candidates, consensus_config.next_candidate_delay_ms,
+          consensus_config.consensus_timeout_ms, consensus_config.fast_attempts, consensus_config.attempt_duration,
+          consensus_config.catchain_max_deps, consensus_config.max_block_bytes, consensus_config.max_collated_bytes);
+    }
+    case block::gen::ConsensusConfig::consensus_config_new: {
+      block::gen::ConsensusConfig::Record_consensus_config_new consensus_config_new;
+      if (!tlb::unpack(cs, consensus_config_new)) {
+        return td::Status::Error("failed to unpack consensus config new");
+      }
+      return tonlib_api::make_object<tonlib_api::liteServer_configConsensusConfigNew>(
+          consensus_config_new.flags, consensus_config_new.new_catchain_ids, consensus_config_new.round_candidates,
+          consensus_config_new.next_candidate_delay_ms, consensus_config_new.consensus_timeout_ms,
+          consensus_config_new.fast_attempts, consensus_config_new.attempt_duration,
+          consensus_config_new.catchain_max_deps, consensus_config_new.max_block_bytes,
+          consensus_config_new.max_collated_bytes);
+    }
+    default:
+      return td::Status::Error("failed to unpack consensus config");
+  }
+}
+
 template <typename T>
 auto parse_config_param(block::Config& config, int param, td::Result<tonlib_api_ptr<T>> (*f)(td::Ref<vm::Cell>&&))
     -> td::Result<tonlib_api_ptr<T>> {
@@ -834,6 +903,8 @@ auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice
              parse_config_param(*config, MASTERCHAIN_MSG_FORWARD_PRICES, parse_config_msg_forward_prices))
   TRY_RESULT(basechain_msg_forward_prices,
              parse_config_param(*config, BASECHAIN_MSG_FORWARD_PRICES, parse_config_msg_forward_prices))
+  TRY_RESULT(catchain_config, parse_config_param(*config, CATCHAIN_CONFIG, parse_config_catchain_config))
+  TRY_RESULT(consensus_config, parse_config_param(*config, CONSENSUS_CONFIG, parse_config_consensus_config))
 
   // Validators
   TRY_RESULT(prev_vset, parse_config_param(*config, PREV_VSET, parse_config_vset))
@@ -852,8 +923,9 @@ auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice
       std::move(validators_timings), std::move(validators_quantity_limits), std::move(validators_stake_limits),
       std::move(storage_prices), std::move(masterchain_gas_prices), std::move(basechain_gas_prices),
       std::move(masterchain_block_limits), std::move(basechain_block_limits), std::move(masterchain_msg_forward_prices),
-      std::move(basechain_msg_forward_prices), std::move(prev_vset), std::move(prev_temp_vset), std::move(curr_vset),
-      std::move(curr_temp_vset), std::move(next_vset), std::move(next_temp_vset));
+      std::move(basechain_msg_forward_prices), std::move(catchain_config), std::move(consensus_config),
+      std::move(prev_vset), std::move(prev_temp_vset), std::move(curr_vset), std::move(curr_temp_vset),
+      std::move(next_vset), std::move(next_temp_vset));
 }
 
 }  // namespace tonlib
