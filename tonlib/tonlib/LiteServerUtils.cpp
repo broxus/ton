@@ -166,6 +166,153 @@ auto parse_message(td::Ref<vm::Cell>&& msg) -> td::Result<tonlib_api_ptr<tonlib_
                                                                  init, body);
 }
 
+auto check_special_addr(const tonlib_api::liteServer_messageAddressIntStd* addr, char byte) -> bool {
+  if (addr->workchain_ != ton::masterchainId) {
+    return false;
+  }
+  for (const auto& c : addr->address_) {
+    if (c != byte) {
+      return false;
+    }
+  }
+  return true;
+}
+
+auto check_internal_message(const tonlib_api_ptr<tonlib_api::liteServer_message>& msg)
+    -> std::tuple<const tonlib_api::liteServer_messageInfoInt*, const tonlib_api::liteServer_messageAddressIntStd*,
+                  const tonlib_api::liteServer_messageAddressIntStd*> {
+  if (msg == nullptr || msg->info_ == nullptr || msg->info_->get_id() != tonlib_api::liteServer_messageInfoInt::ID) {
+    return std::make_tuple(nullptr, nullptr, nullptr);
+  }
+  const auto* msg_info = reinterpret_cast<const tonlib_api::liteServer_messageInfoInt*>(msg->info_.get());
+  if (msg_info->src_->get_id() != tonlib_api::liteServer_messageAddressIntStd::ID ||
+      msg_info->dest_->get_id() != tonlib_api::liteServer_messageAddressIntStd::ID) {
+    return std::make_tuple(nullptr, nullptr, nullptr);
+  }
+  const auto* src = reinterpret_cast<const tonlib_api::liteServer_messageAddressIntStd*>(msg_info->src_.get());
+  const auto* dest = reinterpret_cast<const tonlib_api::liteServer_messageAddressIntStd*>(msg_info->dest_.get());
+  return std::make_tuple(msg_info, src, dest);
+}
+
+enum SpecialMessageId {
+  StakeSendRequest = 0x4e73744bu,
+  StakeSendResponseSuccess = 0xf374484cu,
+  StakeSendResponseError = 0xee6f454c,
+  StakeRecoverRequest = 0x47657424u,
+  StakeRecoverResponseSuccess = 0xf96f7324u,
+  StakeRecoverResponseError = 0xfffffffeu,
+};
+
+auto check_special_transaction(const tonlib_api_ptr<tonlib_api::liteServer_message>& msg_in,
+                               const std::vector<tonlib_api_ptr<tonlib_api::liteServer_message>>& msgs_out)
+    -> tonlib_api_ptr<tonlib_api::liteServer_TransactionAdditionalInfo> {
+  const auto [msg_in_info, msg_in_src, msg_in_dst] = check_internal_message(msg_in);
+  if (!msg_in_info || !msg_in_src || !msg_in_dst || msgs_out.size() != 1) {
+    return nullptr;
+  }
+
+  const auto& msg_out = msgs_out[0];
+  const auto [msg_out_info, msg_out_src, msg_out_dst] = check_internal_message(msg_out);
+  if (!msg_out_info || !msg_out_src || !msg_out_dst) {
+    return nullptr;
+  }
+
+  constexpr auto elector_addr_byte = 0x33;   // -1:3333...333
+  constexpr auto emission_addr_byte = 0x00;  // -1:0000...000
+  constexpr auto special_addr_byte = 0x35;   // -1:5555...555
+
+  if (!check_special_addr(msg_in_dst, elector_addr_byte) || check_special_addr(msg_in_src, emission_addr_byte) ||
+      check_special_addr(msg_in_dst, special_addr_byte)) {
+    return nullptr;
+  }
+
+  auto msg_in_body_r = vm::std_boc_deserialize(msg_in->body_);
+  if (msg_in_body_r.is_error()) {
+    return nullptr;
+  }
+  auto msg_in_body = vm::load_cell_slice_ref(msg_in_body_r.move_as_ok());
+
+  const auto msg_in_id = msg_in_body->prefetch_ulong(32);
+  if (msg_in_id != SpecialMessageId::StakeSendRequest && msg_in_id != SpecialMessageId::StakeRecoverRequest) {
+    return nullptr;
+  }
+
+  auto msg_out_body_r = vm::std_boc_deserialize(msg_out->body_);
+  if (msg_out_body_r.is_error()) {
+    return nullptr;
+  }
+  auto msg_out_body = vm::load_cell_slice_ref(msg_out_body_r.move_as_ok());
+
+  const auto msg_out_id = msg_out_body->prefetch_ulong(32);
+  if (msg_in_id == SpecialMessageId::StakeSendRequest && (msg_out_id == SpecialMessageId::StakeSendResponseSuccess ||
+                                                          msg_out_id == SpecialMessageId::StakeSendResponseError)) {
+    return parse_stake_send_transaction(std::move(msg_in_body), std::move(msg_out_body));
+  } else if (msg_in_id == SpecialMessageId::StakeRecoverRequest &&
+             (msg_out_id == SpecialMessageId::StakeRecoverResponseSuccess ||
+              msg_out_id == SpecialMessageId::StakeRecoverResponseError)) {
+    return parse_stake_recover_transaction(std::move(msg_in_body), std::move(msg_out_body));
+  } else {
+    return nullptr;
+  }
+}
+
+auto parse_stake_send_transaction(td::Ref<vm::CellSlice>&& msg_in, td::Ref<vm::CellSlice>&& msg_out)
+    -> tonlib_api_ptr<tonlib_api::liteServer_transactionAdditionalInfoStakeSend> {
+  auto& msg_in_body = msg_in.write();
+  auto& msg_out_body = msg_out.write();
+
+  td::Bits256 validator_pubkey{}, adnl_addr{};
+  td::uint32 stake_at{}, max_factor{};
+  unsigned long long query_id{};
+  const auto msg_in_valid = msg_in_body.advance(32) &&                      //
+                            msg_in_body.fetch_ulong_bool(64, query_id) &&   //
+                            msg_in_body.fetch_bits_to(validator_pubkey) &&  //
+                            msg_in_body.fetch_uint_to(32, stake_at) &&      //
+                            msg_in_body.fetch_uint_to(32, max_factor) &&    //
+                            msg_in_body.fetch_bits_to(adnl_addr);
+  if (!msg_in_valid) {
+    return nullptr;
+  }
+
+  td::uint32 msg_out_id{};
+  unsigned long long response_query_id{};
+  if (!msg_out_body.fetch_uint_to(32, msg_out_id) || !msg_out_body.fetch_ulong_bool(64, response_query_id) ||
+      query_id != response_query_id) {
+    return nullptr;
+  }
+
+  td::int32 status;
+  if (msg_out_id == SpecialMessageId::StakeSendResponseSuccess) {
+    status = -1;
+  } else if (msg_out_id != SpecialMessageId::StakeSendResponseError || msg_out_body.fetch_int_to(32, status)) {
+    return nullptr;
+  }
+
+  return tonlib_api::make_object<tonlib_api::liteServer_transactionAdditionalInfoStakeSend>(
+      status, validator_pubkey.as_slice().str(), stake_at, max_factor, adnl_addr.as_slice().str());
+}
+
+auto parse_stake_recover_transaction(td::Ref<vm::CellSlice>&& msg_in, td::Ref<vm::CellSlice>&& msg_out)
+    -> tonlib_api_ptr<tonlib_api::liteServer_transactionAdditionalInfoStakeRecover> {
+  auto& msg_in_body = msg_in.write();
+  auto& msg_out_body = msg_out.write();
+
+  unsigned long long query_id{};
+  if (!msg_in_body.advance(32) || !msg_in_body.fetch_ulong_bool(64, query_id)) {
+    return nullptr;
+  }
+
+  td::uint32 msg_out_id{};
+  unsigned long long response_query_id{};
+  if (!msg_out_body.fetch_uint_to(32, msg_out_id) || !msg_out_body.fetch_ulong_bool(64, response_query_id) ||
+      query_id != response_query_id) {
+    return nullptr;
+  }
+  const auto success = msg_out_id == SpecialMessageId::StakeRecoverResponseSuccess;
+
+  return tonlib_api::make_object<tonlib_api::liteServer_transactionAdditionalInfoStakeRecover>(success);
+}
+
 auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Cell>&& list)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_transaction>> {
   block::gen::Transaction::Record trans;
@@ -208,8 +355,10 @@ auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Ce
       if (!tlb::unpack(td_cs, record)) {
         return td::Status::Error("failed to unpack ordinary transaction");
       }
+      auto additional_info = check_special_transaction(in_msg, out_msgs);
+
       transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrOrdinary>(
-          record.credit_first, record.aborted, record.destroyed);
+          record.credit_first, record.aborted, record.destroyed, std::move(additional_info));
       break;
     }
     case block::gen::TransactionDescr::trans_tick_tock: {

@@ -301,7 +301,12 @@ liteServer.message hash:bytes info:liteServer.MessageInfo init:bytes body:bytes 
 //@param old_hash           int256
 //@param new_hash           int256
 liteServer.transactionHashUpdate old_hash:bytes new_hash:bytes = liteServer.TransactionHashUpdate;
-liteServer.transactionDescrOrdinary credit_first:Bool aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
+//@param code               -1 -> success, 0 -> no elections or wrong sender workchain, 1 -> invalid signature, 2 -> stake is too small relative to others, 3 -> invalid election id, 4 -> already sent stake with different pubkey, 5 -> stake is too small, 6 -> max-factor < 1
+//@param pubkey             int256
+//@param adnl_addr          int256
+liteServer.transactionAdditionalInfoStakeSend status:int32 pubkey:bytes elect_time:int32 max_factor:int32 adnl_addr:bytes = liteServer.TransactionAdditionalInfo;
+liteServer.transactionAdditionalInfoStakeRecover success:Bool = liteServer.TransactionAdditionalInfo;
+liteServer.transactionDescrOrdinary credit_first:Bool aborted:Bool destroyed:Bool additional:liteServer.TransactionAdditionalInfo = liteServer.TransactionDescr;
 liteServer.transactionDescrTickTock is_tock:Bool aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
 liteServer.transactionDescrSplitPrepare aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
 liteServer.transactionDescrSplitInstall installed:Bool = liteServer.TransactionDescr;
