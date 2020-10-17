@@ -576,11 +576,10 @@ auto parse_config_workchains(td::Ref<vm::Cell>&& cell)
 template <typename T>
 auto parse_config_param(block::Config& config, int param, td::Result<tonlib_api_ptr<T>> (*f)(td::Ref<vm::Cell>&&))
     -> td::Result<tonlib_api_ptr<T>> {
-  tonlib_api_ptr<T> result{};
   if (auto param_ref = config.get_config_param(param); param_ref.not_null()) {
-    TRY_RESULT_ASSIGN(result, (*f)(std::move(param_ref)))
+    return (*f)(std::move(param_ref));
   }
-  return result;
+  return nullptr;
 }
 
 auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice config_proof)
