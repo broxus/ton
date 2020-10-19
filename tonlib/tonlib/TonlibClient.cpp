@@ -236,7 +236,6 @@ class Query {
     td::int64 res = 0;
     std::vector<td::Ref<vm::Cell>> actions;
     int n{0};
-    int max_actions = 20;
     while (true) {
       actions.push_back(list);
       auto cs = load_cell_slice(std::move(list));
@@ -248,9 +247,6 @@ class Query {
       }
       list = cs.prefetch_ref();
       n++;
-      if (n > max_actions) {
-        return td::Status::Error(PSLICE() << "action list too long: more than " << max_actions << " actions");
-      }
     }
     for (int i = n - 1; i >= 0; --i) {
       vm::CellSlice cs = load_cell_slice(actions[i]);
