@@ -313,6 +313,8 @@ class TonlibClient : public td::actor::Actor {
                         td::Promise<object_ptr<tonlib_api::liteServer_currentTime>>&& promise);
   td::Status do_request(const tonlib_api::liteServer_getMasterchainInfo& masterchain_info,
                         td::Promise<object_ptr<tonlib_api::liteServer_masterchainInfo>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getState& request,
+                        td::Promise<object_ptr<tonlib_api::liteServer_blockState>>&& promise);
   td::Status do_request(const tonlib_api::liteServer_getBlock& block_data,
                         td::Promise<object_ptr<tonlib_api::liteServer_block>>&& promise);
   td::Status do_request(const tonlib_api::liteServer_getBlockHeader& block_header,

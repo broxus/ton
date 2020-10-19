@@ -301,6 +301,13 @@ liteServer.message hash:bytes info:liteServer.MessageInfo init:bytes body:bytes 
 //@param cells              int256
 //@param bits               int256
 liteServer.storageUsedShort cells:bytes bits:bytes = liteServer.StorageUsedShort;
+//@param cells          int256
+//@param bits           int256
+//@param public_cells   int256
+liteServer.storageUsed
+    cells:bytes
+    bits:bytes
+    public_cells:bytes = liteServer.StorageUsed;
 liteServer.currencyCollectionItem currency:int32 value:bytes = liteServer.CurrencyCollectionItem;
 //@param grams              int256
 liteServer.currencyCollection grams:bytes other:vector<liteServer.currencyCollectionItem> = liteServer.CurrencyCollection;
@@ -438,6 +445,28 @@ liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split
 liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> shards:liteServer.AllShardsInfo transactions:vector<liteServer.Transaction> = liteServer.Block;
 liteServer.validator pubkey:bytes adnl_addr:bytes weight:int64 cum_weight:int64 = liteServer.Validator;
 liteServer.validatorSet utime_since:int32 utime_until:int32 total:int32 main:int32 total_weight:int64 list:vector<liteServer.Validator> = liteServer.ValidatorSet;
+//@param due_payment    maybe int256 (empty on null)
+liteServer.storageInfo
+    storage_used:liteServer.StorageUsed
+    last_paid:int32
+    has_due_payment:Bool
+    due_payment:bytes = liteServer.StorageInfo;
+liteServer.accountStateUninit = liteServer.AccountState;
+liteServer.accountStateActive = liteServer.AccountState;
+//@param state_hash         int256
+liteServer.accountStateFrozen state_hash:bytes = liteServer.AccountState;
+//@param addr               int256
+//@param last_trans_hash    int256
+liteServer.blockStateAccount
+    addr:liteServer.MessageAddressInt
+    storage_stat:liteServer.StorageInfo
+    last_trans_lt:int64
+    last_trans_hash:bytes
+    balance:liteServer.CurrencyCollection
+    state:liteServer.AccountState
+    valid:Bool
+    is_zero:Bool = liteServer.BlockStateAccount;
+liteServer.blockState accounts:vector<liteServer.BlockStateAccount> = liteServer.BlockState;
 
 liteServer.configMintPrice mint_new_price:bytes mint_add_price:bytes = liteServer.ConfigMintPrice;
 liteServer.configToMint currency_collection:vector<liteServer.CurrencyCollectionItem> = liteServer.ConfigToMint;
@@ -661,6 +690,7 @@ runTests dir:string = Ok;
 liteServer.getInfo = liteServer.Info;
 liteServer.getTime = liteServer.CurrentTime;
 liteServer.getMasterchainInfo = liteServer.MasterchainInfo;
+liteServer.getState id:ton.blockIdExt = liteServer.BlockState;
 liteServer.getBlock id:ton.blockIdExt = liteServer.Block;
 liteServer.getBlockHeader id:ton.blockIdExt mode:int32 = liteServer.BlockHeader;
 liteServer.getOneTransaction id:ton.blockIdExt account:liteServer.accountId lt:int64 = liteServer.Transaction;

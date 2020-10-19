@@ -2525,6 +2525,22 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getMasterchainI
   return td::Status::OK();
 }
 
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getState& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_blockState>>&& promise) {
+  const auto& id = *request.id_;
+  TRY_RESULT(root_hash, to_bits256(id.root_hash_, "id.root_hash"))
+  TRY_RESULT(file_hash, to_bits256(id.file_hash_, "id.file_hash"))
+  const auto block_id = ton::BlockIdExt(id.workchain_, id.shard_, id.seqno_, root_hash, file_hash);
+  if (!block_id.is_valid_full()) {
+    return td::Status::Error("invalid block id");
+  }
+  client_.send_query(lite_api::liteServer_getState(ton::create_tl_lite_block_id(block_id)),
+                     promise.wrap([block_id](lite_api_ptr<lite_api::liteServer_blockState>&& state) {
+                       return parse_shard_state(block_id, state->data_);
+                     }));
+  return td::Status::OK();
+}
+
 td::Status TonlibClient::do_request(const tonlib_api::liteServer_getBlock& request,
                                     td::Promise<object_ptr<tonlib_api::liteServer_block>>&& promise) {
   const auto& id = *request.id_;

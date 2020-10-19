@@ -444,6 +444,24 @@ auto parse_storage_used_short(const td::Ref<vm::CellSlice>& csr)
   return tonlib_api::make_object<tonlib_api::liteServer_storageUsedShort>(cells, bits);
 }
 
+auto parse_storage_used(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_storageUsed>> {
+  td::RefInt256 cells_val, bits_val, public_cells_val;
+  block::gen::StorageUsed::Record record;
+  if (!tlb::csr_unpack(csr, record) ||  //
+      !block::tlb::t_VarUInteger_7.as_integer_to(record.cells, cells_val) ||
+      !block::tlb::t_VarUInteger_7.as_integer_to(record.bits, bits_val) ||
+      !block::tlb::t_VarUInteger_7.as_integer_to(record.public_cells, public_cells_val)) {
+    return td::Status::Error("failed to unpack storage used");
+  }
+
+  TRY_RESULT(cells, to_tonlib_api(cells_val))
+  TRY_RESULT(bits, to_tonlib_api(bits_val))
+  TRY_RESULT(public_cells, to_tonlib_api(public_cells_val))
+
+  return tonlib_api::make_object<tonlib_api::liteServer_storageUsed>(cells, bits, public_cells);
+}
+
 auto parse_action_phase(const td::Ref<vm::CellSlice>& csr)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_transactionActionPhase>> {
   block::gen::TrActionPhase::Record record;
@@ -691,6 +709,105 @@ auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Ce
       tonlib_api::make_object<tonlib_api::liteServer_transactionHashUpdate>(hash_update.old_hash.as_slice().str(),
                                                                             hash_update.new_hash.as_slice().str()),
       std::move(transaction_descr));
+}
+
+auto parse_storage_info(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_storageInfo>> {
+  block::gen::StorageInfo::Record record;
+  if (!tlb::csr_unpack(csr, record)) {
+    return td::Status::Error("failed to unpack storage info");
+  }
+  TRY_RESULT(used, parse_storage_used(record.used))
+
+  bool has_due_payment;
+  CHECK(record.due_payment.write().fetch_bool_to(has_due_payment))
+  std::string due_payment;
+  if (has_due_payment) {
+    TRY_RESULT_ASSIGN(due_payment, parse_grams(record.due_payment))
+  }
+
+  return tonlib_api::make_object<tonlib_api::liteServer_storageInfo>(  //
+      std::move(used), record.last_paid, has_due_payment, due_payment);
+}
+
+auto parse_account_state(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_AccountState>> {
+  const auto type = block::gen::t_AccountState.get_tag(*csr);
+  switch (type) {
+    case block::gen::AccountState::account_uninit: {
+      return tonlib_api::make_object<tonlib_api::liteServer_accountStateUninit>();
+    }
+    case block::gen::AccountState::account_active: {
+      return tonlib_api::make_object<tonlib_api::liteServer_accountStateActive>();
+    }
+    case block::gen::AccountState::account_frozen: {
+      block::gen::AccountState::Record_account_frozen record;
+      if (!tlb::csr_unpack(csr, record)) {
+        return td::Status::Error("failed to unpack account state frozen");
+      }
+      return tonlib_api::make_object<tonlib_api::liteServer_accountStateFrozen>(record.state_hash.as_slice().str());
+    }
+    default:
+      return td::Status::Error("failed to unpack account state");
+  }
+}
+
+auto parse_block_state_account(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_blockStateAccount>> {
+  block::tlb::ShardAccount::Record shard_account;
+  if (!shard_account.unpack(csr)) {
+    return td::Status::Error("failed to unpack shard account");
+  }
+
+  auto account_csr = vm::load_cell_slice(shard_account.account);
+
+  const auto type = block::gen::t_Account.get_tag(account_csr);
+  switch (type) {
+    case block::gen::Account::account_none: {
+      return nullptr;
+    }
+    case block::gen::Account::account: {
+      block::gen::Account::Record_account record;
+      if (!tlb::unpack(account_csr, record)) {
+        return td::Status::Error("failed to unpack account");
+      }
+
+      TRY_RESULT(addr, parse_msg_address_int(record.addr))
+
+      TRY_RESULT(storage_stat, parse_storage_info(record.storage_stat))
+
+      block::gen::AccountStorage::Record account_storage;
+      if (!tlb::csr_unpack(record.storage, account_storage)) {
+        return td::Status::Error("failed to unpack account storage");
+      }
+
+      TRY_RESULT(balance, parse_currency_collection(account_storage.balance))
+      TRY_RESULT(state, parse_account_state(account_storage.state))
+
+      return tonlib_api::make_object<tonlib_api::liteServer_blockStateAccount>(
+          std::move(addr), std::move(storage_stat), account_storage.last_trans_lt,
+          shard_account.last_trans_hash.as_slice().str(), std::move(balance), std::move(state), shard_account.valid,
+          shard_account.is_zero);
+    }
+    default:
+      return td::Status::Error("failed to unpack account");
+  }
+}
+
+auto parse_shard_state(const ton::BlockIdExt& blkid, const td::BufferSlice& data)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_blockState>> {
+  TRY_RESULT(root_cell, vm::std_boc_deserialize(data))
+
+  block::ShardState shard_state;
+  TRY_STATUS(shard_state.unpack_state(blkid, root_cell))
+
+  std::vector<tonlib_api_ptr<tonlib_api::liteServer_blockStateAccount>> accounts;
+  for (const auto& [key, value] : *shard_state.account_dict_) {
+    TRY_RESULT(account, parse_block_state_account(value))
+    accounts.emplace_back(std::move(account));
+  }
+
+  return tonlib_api::make_object<tonlib_api::liteServer_blockState>(std::move(accounts));
 }
 
 auto to_tonlib_api(const block::ValidatorDescr& validator) -> tonlib_api_ptr<tonlib_api::liteServer_validator> {
