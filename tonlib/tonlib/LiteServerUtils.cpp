@@ -313,6 +313,238 @@ auto parse_stake_recover_transaction(td::Ref<vm::CellSlice>&& msg_in, td::Ref<vm
   return tonlib_api::make_object<tonlib_api::liteServer_transactionAdditionalInfoStakeRecover>(success);
 }
 
+auto parse_extra_currency_collection(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<std::vector<tonlib_api_ptr<tonlib_api::liteServer_currencyCollectionItem>>> {
+  block::gen::ExtraCurrencyCollection::Record cc;
+  if (!tlb::csr_unpack(csr, cc)) {
+    return td::Status::Error("failed to unpack extra currency collection");
+  }
+
+  std::vector<tonlib_api_ptr<tonlib_api::liteServer_currencyCollectionItem>> result;
+  vm::Dictionary currencies{cc.dict, 32};
+  block::gen::VarUInteger::Record value;
+  for (const auto& item : currencies) {
+    if (!tlb::csr_type_unpack(item.second, block::gen::t_VarUInteger_32, value)) {
+      return td::Status::Error("failed to unpack currency value");
+    }
+    TRY_RESULT(currency_value, to_tonlib_api(value.value))
+    result.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_currencyCollectionItem>(
+        static_cast<td::int32>(item.first.get_int(32)), currency_value));
+  }
+  return std::move(result);
+}
+
+auto parse_currency_collection(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_currencyCollection>> {
+  block::gen::CurrencyCollection::Record cc;
+  if (!tlb::csr_unpack(csr, cc)) {
+    return td::Status::Error("failed to unpack currency collection");
+  }
+
+  TRY_RESULT(grams, parse_grams(cc.grams))
+  TRY_RESULT(other, parse_extra_currency_collection(cc.other))
+
+  return tonlib_api::make_object<tonlib_api::liteServer_currencyCollection>(grams, std::move(other));
+}
+
+auto parse_storage_phase(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_transactionStoragePhase>> {
+  block::gen::TrStoragePhase::Record record;
+  if (!tlb::csr_unpack(csr, record)) {
+    return td::Status::Error("failed to unpack transaction storage phase");
+  }
+  TRY_RESULT(storage_fees_collected, parse_grams(record.storage_fees_collected))
+  bool has_storage_fees_due;
+  CHECK(record.storage_fees_due.write().fetch_bool_to(has_storage_fees_due))
+  std::string storage_fees_due{};
+  if (has_storage_fees_due) {
+    TRY_RESULT_ASSIGN(storage_fees_due, parse_grams(record.storage_fees_due))
+  }
+  return tonlib_api::make_object<tonlib_api::liteServer_transactionStoragePhase>(
+      storage_fees_collected, has_storage_fees_due, storage_fees_due, record.status_change);
+}
+
+auto parse_credit_phase(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_transactionCreditPhase>> {
+  block::gen::TrCreditPhase::Record record;
+  if (!tlb::csr_unpack(csr, record)) {
+    return td::Status::Error("failed to unpack transaction credit phase");
+  }
+  bool has_due_fees_collected;
+  CHECK(record.due_fees_collected.write().fetch_bool_to(has_due_fees_collected))
+  std::string due_fees_collected{};
+  if (has_due_fees_collected) {
+    TRY_RESULT_ASSIGN(due_fees_collected, parse_grams(record.due_fees_collected))
+  }
+  TRY_RESULT(credit, parse_currency_collection(record.credit))
+  return tonlib_api::make_object<tonlib_api::liteServer_transactionCreditPhase>(  //
+      has_due_fees_collected, due_fees_collected, std::move(credit));
+}
+
+auto parse_compute_phase(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_TransactionComputePhase>> {
+  auto tag = block::gen::t_TrComputePhase.get_tag(*csr);
+  switch (tag) {
+    case block::gen::TrComputePhase::tr_phase_compute_skipped: {
+      block::gen::TrComputePhase::Record_tr_phase_compute_skipped record;
+      if (!tlb::csr_unpack(csr, record)) {
+        return td::Status::Error("failed to unpack transaction skipped compute phase");
+      }
+      return tonlib_api::make_object<tonlib_api::liteServer_transactionComputePhaseSkipped>(record.reason);
+    }
+    case block::gen::TrComputePhase::tr_phase_compute_vm: {
+      block::gen::TrComputePhase::Record_tr_phase_compute_vm record;
+      if (!tlb::csr_unpack(csr, record)) {
+        return td::Status::Error("failed to unpack transaction vm compute phase");
+      }
+
+      TRY_RESULT(gas_fees, parse_grams(record.gas_fees))
+      bool has_gas_credit, has_exit_arg;
+      td::int32 exit_arg{};
+      td::RefInt256 gas_used_val, gas_limit_val, gas_credit_val;
+      if (!block::tlb::t_VarUInteger_7.as_integer_to(record.r1.gas_used, gas_used_val) ||
+          !block::tlb::t_VarUInteger_7.as_integer_to(record.r1.gas_limit, gas_limit_val) ||
+          !record.r1.gas_credit.write().fetch_bool_to(has_gas_credit) ||
+          (has_gas_credit && !block::tlb::t_VarUInteger_3.as_integer_to(record.r1.gas_credit, gas_credit_val)) ||
+          !record.r1.exit_arg.write().fetch_bool_to(has_exit_arg) ||
+          (has_exit_arg && !record.r1.exit_arg.write().fetch_int_to(32, exit_arg))) {
+        return td::Status::Error("failed to unpack transaction vm aux compute phase");
+      }
+
+      TRY_RESULT(gas_used, to_tonlib_api(gas_used_val))
+      TRY_RESULT(gas_limit, to_tonlib_api(gas_limit_val))
+      std::string gas_credit;
+      if (has_gas_credit) {
+        TRY_RESULT_ASSIGN(gas_credit, to_tonlib_api(gas_credit_val))
+      }
+
+      return tonlib_api::make_object<tonlib_api::liteServer_transactionComputePhaseVm>(
+          record.success, record.msg_state_used, record.account_activated, gas_fees, gas_used, gas_limit,
+          has_gas_credit, gas_credit, record.r1.mode, record.r1.exit_code, has_exit_arg, exit_arg, record.r1.vm_steps,
+          record.r1.vm_init_state_hash.as_slice().str(), record.r1.vm_final_state_hash.as_slice().str());
+    }
+    default:
+      return td::Status::Error("failed to unpack transaction compute phase");
+  }
+}
+
+auto parse_storage_used_short(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_storageUsedShort>> {
+  td::RefInt256 cells_val, bits_val;
+  block::gen::StorageUsedShort::Record record;
+  if (!tlb::csr_unpack(csr, record) ||  //
+      !block::tlb::t_VarUInteger_7.as_integer_to(record.cells, cells_val) ||
+      !block::tlb::t_VarUInteger_7.as_integer_to(record.bits, bits_val)) {
+    return td::Status::Error("failed to unpack storage used short");
+  }
+
+  TRY_RESULT(cells, to_tonlib_api(cells_val))
+  TRY_RESULT(bits, to_tonlib_api(bits_val))
+
+  return tonlib_api::make_object<tonlib_api::liteServer_storageUsedShort>(cells, bits);
+}
+
+auto parse_action_phase(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_transactionActionPhase>> {
+  block::gen::TrActionPhase::Record record;
+  if (!tlb::csr_unpack(csr, record)) {
+    return td::Status::Error("failed to unpack transaction action phase");
+  }
+
+  bool has_total_fwd_fees, has_total_action_fees, has_result_arg;
+  td::int32 result_arg{};
+  if (!record.total_fwd_fees.write().fetch_bool_to(has_total_fwd_fees) ||
+      !record.total_action_fees.write().fetch_bool_to(has_total_action_fees) ||
+      !record.result_arg.write().fetch_bool_to(has_result_arg) ||
+      (has_result_arg && !record.result_arg.write().fetch_int_to(32, result_arg))) {
+    return td::Status::Error("failed to unpack transaction action phase");
+  }
+
+  std::string total_fwd_fees, total_action_fees;
+  if (has_total_fwd_fees) {
+    TRY_RESULT_ASSIGN(total_fwd_fees, parse_grams(record.total_fwd_fees))
+  }
+  if (has_total_action_fees) {
+    TRY_RESULT_ASSIGN(total_action_fees, parse_grams(record.total_action_fees))
+  }
+
+  TRY_RESULT(tot_msg_size, parse_storage_used_short(record.tot_msg_size))
+
+  return tonlib_api::make_object<tonlib_api::liteServer_transactionActionPhase>(
+      record.success, record.valid, record.no_funds, record.status_change, has_total_fwd_fees, total_fwd_fees,
+      has_total_action_fees, total_action_fees, record.result_code, has_result_arg, result_arg, record.tot_actions,
+      record.spec_actions, record.skipped_actions, record.msgs_created, record.action_list_hash.as_slice().str(),
+      std::move(tot_msg_size));
+}
+
+auto parse_bounce_phase(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_TransactionBouncePhase>> {
+  const auto tag = block::gen::t_TrBouncePhase.get_tag(*csr);
+  switch (tag) {
+    case block::gen::TrBouncePhase::tr_phase_bounce_negfunds: {
+      block::gen::TrBouncePhase::Record_tr_phase_bounce_negfunds record;
+      if (!tlb::csr_unpack(csr, record)) {
+        return td::Status::Error("failed to unpack transaction negfunds bounce phase");
+      }
+      return tonlib_api::make_object<tonlib_api::liteServer_transactionBouncePhaseNegFunds>();
+    }
+    case block::gen::TrBouncePhase::tr_phase_bounce_nofunds: {
+      block::gen::TrBouncePhase::Record_tr_phase_bounce_nofunds record;
+      if (!tlb::csr_unpack(csr, record)) {
+        return td::Status::Error("failed to unpack transaction nofunds bounce phase");
+      }
+      TRY_RESULT(msg_size, parse_storage_used_short(record.msg_size))
+      TRY_RESULT(req_fwd_fees, parse_grams(record.req_fwd_fees))
+
+      return tonlib_api::make_object<tonlib_api::liteServer_transactionBouncePhaseNoFunds>(  //
+          std::move(msg_size), req_fwd_fees);
+    }
+    case block::gen::TrBouncePhase::tr_phase_bounce_ok: {
+      block::gen::TrBouncePhase::Record_tr_phase_bounce_ok record;
+      if (!tlb::csr_unpack(csr, record)) {
+        return td::Status::Error("failed to unpack transaction ok bounce phase");
+      }
+      TRY_RESULT(msg_size, parse_storage_used_short(record.msg_size))
+      TRY_RESULT(msg_fees, parse_grams(record.msg_fees))
+      TRY_RESULT(fwd_fees, parse_grams(record.fwd_fees))
+
+      return tonlib_api::make_object<tonlib_api::liteServer_transactionBouncePhaseOk>(  //
+          std::move(msg_size), msg_fees, fwd_fees);
+    }
+    default:
+      return td::Status::Error("failed to unpack transaction bounce phase");
+  }
+}
+
+template <typename T>
+auto parse_maybe(td::Result<tonlib_api_ptr<T>> (*f)(const td::Ref<vm::CellSlice>&), td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<T>> {
+  bool has_value;
+  if (!csr.write().fetch_bool_to(has_value)) {
+    return td::Status::Error("failed to fetch maybe");
+  }
+  if (has_value) {
+    return (*f)(csr);
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename T>
+auto parse_maybe_ref(td::Result<tonlib_api_ptr<T>> (*f)(const td::Ref<vm::CellSlice>&), td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<T>> {
+  bool has_value;
+  td::Ref<vm::Cell> ref;
+  if (!csr.write().fetch_bool_to(has_value) || (has_value && !csr.write().fetch_ref_to(ref))) {
+    return td::Status::Error("failed to fetch maybe");
+  }
+  if (has_value) {
+    return (*f)(vm::load_cell_slice_ref(ref));
+  } else {
+    return nullptr;
+  }
+}
+
 auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Cell>&& list)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_transaction>> {
   block::gen::Transaction::Record trans;
@@ -355,10 +587,30 @@ auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Ce
       if (!tlb::unpack(td_cs, record)) {
         return td::Status::Error("failed to unpack ordinary transaction");
       }
+
+      TRY_RESULT(storage_ph, parse_maybe(parse_storage_phase, record.storage_ph))
+      TRY_RESULT(credit_ph, parse_maybe(parse_credit_phase, record.credit_ph))
+      TRY_RESULT(compute_ph, parse_compute_phase(record.compute_ph))
+      TRY_RESULT(action, parse_maybe_ref(parse_action_phase, record.action))
+      TRY_RESULT(bounce, parse_maybe(parse_bounce_phase, record.bounce))
+
       auto additional_info = check_special_transaction(in_msg, out_msgs);
 
       transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrOrdinary>(
-          record.credit_first, record.aborted, record.destroyed, std::move(additional_info));
+          record.credit_first, std::move(storage_ph), std::move(credit_ph), std::move(compute_ph), std::move(action),
+          record.aborted, std::move(bounce), record.destroyed, std::move(additional_info));
+      break;
+    }
+    case block::gen::TransactionDescr::trans_storage: {
+      block::gen::TransactionDescr::Record_trans_storage record;
+      if (!tlb::unpack(td_cs, record)) {
+        return td::Status::Error("failed to unpack storage transaction");
+      }
+
+      TRY_RESULT(storage_ph, parse_storage_phase(record.storage_ph))
+
+      transaction_descr =
+          tonlib_api::make_object<tonlib_api::liteServer_transactionDescrStorage>(std::move(storage_ph));
       break;
     }
     case block::gen::TransactionDescr::trans_tick_tock: {
@@ -366,8 +618,14 @@ auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Ce
       if (!tlb::unpack(td_cs, record)) {
         return td::Status::Error("failed to unpack ticktock transaction");
       }
+
+      TRY_RESULT(storage_ph, parse_storage_phase(record.storage_ph))
+      TRY_RESULT(compute_ph, parse_compute_phase(record.compute_ph))
+      TRY_RESULT(action, parse_maybe_ref(parse_action_phase, record.action))
+
       transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrTickTock>(
-          record.is_tock, record.aborted, record.destroyed);
+          record.is_tock, std::move(storage_ph), std::move(compute_ph), std::move(action), record.aborted,
+          record.destroyed);
       break;
     }
     case block::gen::TransactionDescr::trans_split_prepare: {
@@ -375,8 +633,13 @@ auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Ce
       if (!tlb::unpack(td_cs, record)) {
         return td::Status::Error("failed to unpack split prepare transaction");
       }
+
+      TRY_RESULT(storage_ph, parse_maybe(parse_storage_phase, record.storage_ph))
+      TRY_RESULT(compute_ph, parse_compute_phase(record.compute_ph))
+      TRY_RESULT(action, parse_maybe_ref(parse_action_phase, record.action))
+
       transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrSplitPrepare>(
-          record.aborted, record.destroyed);
+          std::move(storage_ph), std::move(compute_ph), std::move(action), record.aborted, record.destroyed);
       break;
     }
     case block::gen::TransactionDescr::trans_split_install: {
@@ -393,7 +656,11 @@ auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Ce
       if (!tlb::unpack(td_cs, record)) {
         return td::Status::Error("failed to unpack merge prepare transaction");
       }
-      transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrMergePrepare>(record.aborted);
+
+      TRY_RESULT(storage_ph, parse_storage_phase(record.storage_ph))
+
+      transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrMergePrepare>(
+          std::move(storage_ph), record.aborted);
       break;
     }
     case block::gen::TransactionDescr::trans_merge_install: {
@@ -401,8 +668,15 @@ auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Ce
       if (!tlb::unpack(td_cs, record)) {
         return td::Status::Error("failed to unpack merge install transaction");
       }
+
+      TRY_RESULT(storage_ph, parse_maybe(parse_storage_phase, record.storage_ph))
+      TRY_RESULT(credit_ph, parse_maybe(parse_credit_phase, record.credit_ph))
+      TRY_RESULT(compute_ph, parse_compute_phase(record.compute_ph))
+      TRY_RESULT(action, parse_maybe_ref(parse_action_phase, record.action))
+
       transaction_descr = tonlib_api::make_object<tonlib_api::liteServer_transactionDescrMergeInstall>(
-          record.aborted, record.destroyed);
+          std::move(storage_ph), std::move(credit_ph), std::move(compute_ph), std::move(action), record.aborted,
+          record.destroyed);
       break;
     }
     default:
@@ -462,26 +736,14 @@ auto parse_mint_price(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<ton
 }
 
 auto parse_to_mint(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configToMint>> {
-  block::gen::ExtraCurrencyCollection::Record cc;
   ConfigParam::Record_cons7 to_mint_value;
-  if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{7}, to_mint_value) ||
-      !tlb::csr_unpack(to_mint_value.to_mint, cc)) {
+  if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{7}, to_mint_value)) {
     return td::Status::Error("failed to unpack to_mint");
   }
 
-  std::vector<tonlib_api_ptr<tonlib_api::liteServer_currencyCollectionItem>> items;
-  vm::Dictionary currencies{cc.dict, 32};
-  block::gen::VarUInteger::Record value;
-  for (const auto& item : currencies) {
-    if (!tlb::csr_type_unpack(item.second, block::gen::t_VarUInteger_32, value)) {
-      return td::Status::Error("failed to unpack currency value");
-    }
-    TRY_RESULT(currency_value, to_tonlib_api(value.value))
-    items.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_currencyCollectionItem>(
-        static_cast<td::int32>(item.first.get_int(32)), currency_value));
-  }
+  TRY_RESULT(extra_currency_collection, parse_extra_currency_collection(to_mint_value.to_mint))
 
-  return tonlib_api::make_object<tonlib_api::liteServer_configToMint>(std::move(items));
+  return tonlib_api::make_object<tonlib_api::liteServer_configToMint>(std::move(extra_currency_collection));
 }
 
 auto parse_global_version(td::Ref<vm::Cell>&& cell)

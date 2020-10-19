@@ -298,31 +298,147 @@ liteServer.messageInfoExtIn src:liteServer.MessageAddressExt dest:liteServer.Mes
 liteServer.messageInfoExtOut src:liteServer.MessageAddressInt dest:liteServer.MessageAddressExt created_lt:int64 created_at:int32 = liteServer.MessageInfo;
 //@param bytes              int256
 liteServer.message hash:bytes info:liteServer.MessageInfo init:bytes body:bytes = liteServer.Message;
+//@param cells              int256
+//@param bits               int256
+liteServer.storageUsedShort cells:bytes bits:bytes = liteServer.StorageUsedShort;
+liteServer.currencyCollectionItem currency:int32 value:bytes = liteServer.CurrencyCollectionItem;
+//@param grams              int256
+liteServer.currencyCollection grams:bytes other:vector<liteServer.currencyCollectionItem> = liteServer.CurrencyCollection;
 //@param old_hash           int256
 //@param new_hash           int256
 liteServer.transactionHashUpdate old_hash:bytes new_hash:bytes = liteServer.TransactionHashUpdate;
+//@param storage_fees_collected int256
+//@param storage_fees_due       maybe int256 (empty bytes on null)
+liteServer.transactionStoragePhase
+    storage_fees_collected:bytes
+    has_storage_fees_due:Bool
+    storage_fees_due:bytes
+    status_change:int32 = liteServer.TransactionStoragePhase;
+//@param due_fees_collected     maybe int256 (empty bytes on null)
+liteServer.transactionCreditPhase
+    has_due_fees_collected:Bool
+    due_fees_collected:bytes
+    credit:liteServer.CurrencyCollection = liteServer.TransactionCreditPhase;
+//@param reason             0 -> no_state, 1 -> bad_state, 2 -> no_gas
+liteServer.transactionComputePhaseSkipped reason:int32 = liteServer.TransactionComputePhase;
+//@param gas_fees               int256
+//@param gas_used               int256
+//@param gas_limit              int256
+//@param gas_credit             maybe int256 (empty on null)
+//@param vm_init_state_hash     int256
+//@param vm_final_state_hash    int256
+liteServer.transactionComputePhaseVm
+    success:Bool
+    msg_state_used:Bool
+    account_activated:Bool
+    gas_fees:bytes
+    gas_used:bytes
+    gas_limit:bytes
+    has_gas_credit:Bool
+    gas_credit:bytes
+    mode:int32
+    exit_code:int32
+    has_exit_arg:Bool
+    exit_arg:int32
+    vm_steps:int32
+    vm_init_state_hash:bytes
+    vm_final_state_hash:bytes = liteServer.TransactionComputePhase;
+liteServer.transactionActionPhase
+    success:Bool
+    valid:Bool
+    no_funds:Bool
+    status_change:int32
+    has_total_fwd_fees:Bool
+    total_fwd_fees:bytes
+    has_total_action_fees:Bool
+    total_action_fees:bytes
+    result_code:int32
+    has_result_arg:Bool
+    result_arg:int32
+    tot_actions:int32
+    spec_actions:int32
+    skipped_actions:int32
+    msgs_created:int32
+    action_list_hash:bytes
+    tot_msg_size:liteServer.StorageUsedShort = liteServer.TransactionActionPhase;
+liteServer.transactionBouncePhaseNegFunds = liteServer.TransactionBouncePhase;
+//@param req_fwd_fees   int256
+liteServer.transactionBouncePhaseNoFunds
+    msg_size:liteServer.StorageUsedShort
+    req_fwd_fees:bytes = liteServer.TransactionBouncePhase;
+//@param msg_fees       int256
+//@param fwd_fees       int256
+liteServer.transactionBouncePhaseOk
+    msg_size:liteServer.StorageUsedShort
+    msg_fees:bytes
+    fwd_fees:bytes = liteServer.TransactionBouncePhase;
 //@param code               -1 -> success, 0 -> no elections or wrong sender workchain, 1 -> invalid signature, 2 -> stake is too small relative to others, 3 -> invalid election id, 4 -> already sent stake with different pubkey, 5 -> stake is too small, 6 -> max-factor < 1
 //@param pubkey             int256
 //@param adnl_addr          int256
 liteServer.transactionAdditionalInfoStakeSend status:int32 pubkey:bytes elect_time:int32 max_factor:int32 adnl_addr:bytes = liteServer.TransactionAdditionalInfo;
 liteServer.transactionAdditionalInfoStakeRecover success:Bool = liteServer.TransactionAdditionalInfo;
-liteServer.transactionDescrOrdinary credit_first:Bool aborted:Bool destroyed:Bool additional:liteServer.TransactionAdditionalInfo = liteServer.TransactionDescr;
-liteServer.transactionDescrTickTock is_tock:Bool aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
-liteServer.transactionDescrSplitPrepare aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
-liteServer.transactionDescrSplitInstall installed:Bool = liteServer.TransactionDescr;
-liteServer.transactionDescrMergePrepare aborted:Bool = liteServer.TransactionDescr;
-liteServer.transactionDescrMergeInstall aborted:Bool destroyed:Bool = liteServer.TransactionDescr;
+liteServer.transactionDescrOrdinary
+    credit_first:Bool
+    storage_ph:liteServer.TransactionStoragePhase
+    credit_ph:liteServer.TransactionCreditPhase
+    compute_ph:liteServer.TransactionComputePhase
+    action:liteServer.TransactionActionPhase
+    aborted:Bool
+    bounce:liteServer.TransactionBouncePhase
+    destroyed:Bool
+    additional:liteServer.TransactionAdditionalInfo = liteServer.TransactionDescr;
+liteServer.transactionDescrStorage
+    storage_ph:liteServer.TransactionStoragePhase = liteServer.TransactionDescr;
+liteServer.transactionDescrTickTock
+    is_tock:Bool
+    storage_ph:liteServer.TransactionStoragePhase
+    compute_ph:liteServer.TransactionComputePhase
+    action:liteServer.TransactionActionPhase
+    aborted:Bool
+    destroyed:Bool = liteServer.TransactionDescr;
+liteServer.transactionDescrSplitPrepare
+    storage_ph:liteServer.TransactionStoragePhase
+    compute_ph:liteServer.TransactionComputePhase
+    action:liteServer.TransactionActionPhase
+    aborted:Bool
+    destroyed:Bool = liteServer.TransactionDescr;
+liteServer.transactionDescrSplitInstall
+    installed:Bool = liteServer.TransactionDescr;
+liteServer.transactionDescrMergePrepare
+    storage_ph:liteServer.TransactionStoragePhase
+    aborted:Bool = liteServer.TransactionDescr;
+liteServer.transactionDescrMergeInstall
+    storage_ph:liteServer.TransactionStoragePhase
+    credit_ph:liteServer.TransactionCreditPhase
+    compute_ph:liteServer.TransactionComputePhase
+    action:liteServer.TransactionActionPhase
+    aborted:Bool
+    destroyed:Bool = liteServer.TransactionDescr;
 //@param account            int256
 //@param prev_trans_hash    int256
 //@param total_fees         int256
-liteServer.transaction workchain:int32 account:bytes hash:bytes lt:int64 prev_trans_hash:bytes prev_trans_lt:int64 now:int32 outmsg_cnt:int32 orig_status:int32 end_status:int32 in_msg:liteServer.Message out_msgs:vector<liteServer.Message> total_fees:bytes hash_update:liteServer.TransactionHashUpdate desc:liteServer.TransactionDescr = liteServer.Transaction;
+liteServer.transaction
+    workchain:int32
+    account:bytes
+    hash:bytes
+    lt:int64
+    prev_trans_hash:bytes
+    prev_trans_lt:int64
+    now:int32
+    outmsg_cnt:int32
+    orig_status:int32
+    end_status:int32
+    in_msg:liteServer.Message
+    out_msgs:vector<liteServer.Message>
+    total_fees:bytes
+    hash_update:liteServer.TransactionHashUpdate
+    desc:liteServer.TransactionDescr = liteServer.Transaction;
 liteServer.transactionList ids:vector<ton.blockIdExt> transactions:vector<liteServer.Transaction> = liteServer.TransactionList;
 liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split:Bool after_split:Bool want_split:Bool want_merge:Bool key_block:Bool vert_seqno_incr:Bool flags:int32 seq_no:int32 vert_seq_no:int32 gen_utime:int32 start_lt:int64 end_lt:int64 gen_validator_list_hash_short:int32 gen_catchain_seqno:int32 min_ref_mc_seqno:int32 prev_key_block_seqno:int32 = liteServer.BlockInfo;
 liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> shards:liteServer.AllShardsInfo transactions:vector<liteServer.Transaction> = liteServer.Block;
 liteServer.validator pubkey:bytes adnl_addr:bytes weight:int64 cum_weight:int64 = liteServer.Validator;
 liteServer.validatorSet utime_since:int32 utime_until:int32 total:int32 main:int32 total_weight:int64 list:vector<liteServer.Validator> = liteServer.ValidatorSet;
 
-liteServer.currencyCollectionItem currency:int32 value:bytes = liteServer.CurrencyCollectionItem;
 liteServer.configMintPrice mint_new_price:bytes mint_add_price:bytes = liteServer.ConfigMintPrice;
 liteServer.configToMint currency_collection:vector<liteServer.CurrencyCollectionItem> = liteServer.ConfigToMint;
 liteServer.configGlobalVersion version:int32 capabilities:int64 = liteServer.ConfigGlobalVersion;
