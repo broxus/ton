@@ -258,12 +258,17 @@ void LiteQuery::perform_getBlock(BlockIdExt blkid) {
                                   });
   } else {
     td::actor::send_closure_later(manager_, &ValidatorManager::try_get_static_file, blkid.file_hash,
-                                  [Self = actor_id(this), blkid](td::Result<Ref<ton::validator::BlockData>> res) {
+                                  [Self = actor_id(this), blkid](td::Result<td::BufferSlice> res) {
                                     if (res.is_error()) {
                                       td::actor::send_closure(Self, &LiteQuery::abort_query, res.move_as_error());
                                     } else {
+                                      auto block_r = create_block(blkid, res.move_as_ok());
+                                      if (block_r.is_error()) {
+                                        td::actor::send_closure(Self, &LiteQuery::abort_query, block_r.move_as_error());
+                                      }
+
                                       td::actor::send_closure_later(Self, &LiteQuery::continue_getBlock, blkid,
-                                                                    res.move_as_ok());
+                                                                    block_r.move_as_ok());
                                     }
                                   });
   }
