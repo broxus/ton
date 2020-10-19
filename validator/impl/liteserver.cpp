@@ -245,15 +245,28 @@ void LiteQuery::perform_getBlock(BlockIdExt blkid) {
     fatal_error("invalid BlockIdExt");
     return;
   }
-  td::actor::send_closure_later(manager_, &ValidatorManager::get_block_data_from_db_short, blkid,
-                                [Self = actor_id(this), blkid](td::Result<Ref<ton::validator::BlockData>> res) {
-                                  if (res.is_error()) {
-                                    td::actor::send_closure(Self, &LiteQuery::abort_query, res.move_as_error());
-                                  } else {
-                                    td::actor::send_closure_later(Self, &LiteQuery::continue_getBlock, blkid,
-                                                                  res.move_as_ok());
-                                  }
-                                });
+
+  if (blkid.id.seqno) {
+    td::actor::send_closure_later(manager_, &ValidatorManager::get_block_data_from_db_short, blkid,
+                                  [Self = actor_id(this), blkid](td::Result<Ref<ton::validator::BlockData>> res) {
+                                    if (res.is_error()) {
+                                      td::actor::send_closure(Self, &LiteQuery::abort_query, res.move_as_error());
+                                    } else {
+                                      td::actor::send_closure_later(Self, &LiteQuery::continue_getBlock, blkid,
+                                                                    res.move_as_ok());
+                                    }
+                                  });
+  } else {
+    td::actor::send_closure_later(manager_, &ValidatorManager::try_get_static_file, blkid.file_hash,
+                                  [Self = actor_id(this), blkid](td::Result<Ref<ton::validator::BlockData>> res) {
+                                    if (res.is_error()) {
+                                      td::actor::send_closure(Self, &LiteQuery::abort_query, res.move_as_error());
+                                    } else {
+                                      td::actor::send_closure_later(Self, &LiteQuery::continue_getBlock, blkid,
+                                                                    res.move_as_ok());
+                                    }
+                                  });
+  }
 }
 
 void LiteQuery::continue_getBlock(BlockIdExt blkid, Ref<ton::validator::BlockData> block) {
