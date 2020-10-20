@@ -801,13 +801,19 @@ auto parse_shard_state(const ton::BlockIdExt& blkid, const td::BufferSlice& data
   block::ShardState shard_state;
   TRY_STATUS(shard_state.unpack_state(blkid, root_cell))
 
+  TRY_RESULT(total_balance, parse_currency_collection(shard_state.total_balance_.pack()))
+  TRY_RESULT(total_validator_fees, parse_currency_collection(shard_state.total_validator_fees_.pack()))
+  TRY_RESULT(global_balance, parse_currency_collection(shard_state.global_balance_.pack()))
+
   std::vector<tonlib_api_ptr<tonlib_api::liteServer_blockStateAccount>> accounts;
   for (const auto& [key, value] : *shard_state.account_dict_) {
     TRY_RESULT(account, parse_block_state_account(value))
     accounts.emplace_back(std::move(account));
   }
 
-  return tonlib_api::make_object<tonlib_api::liteServer_blockState>(std::move(accounts));
+  return tonlib_api::make_object<tonlib_api::liteServer_blockState>(  //
+      shard_state.utime_, shard_state.lt_, std::move(total_balance), std::move(total_validator_fees), std::move(global_balance),
+      std::move(accounts));
 }
 
 auto to_tonlib_api(const block::ValidatorDescr& validator) -> tonlib_api_ptr<tonlib_api::liteServer_validator> {

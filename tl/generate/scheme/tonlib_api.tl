@@ -466,7 +466,13 @@ liteServer.blockStateAccount
     state:liteServer.AccountState
     valid:Bool
     is_zero:Bool = liteServer.BlockStateAccount;
-liteServer.blockState accounts:vector<liteServer.BlockStateAccount> = liteServer.BlockState;
+liteServer.blockState
+    utime:int32
+    lt:int64
+    total_balance:liteServer.CurrencyCollection
+    total_validator_fees:liteServer.CurrencyCollection
+    global_balance:liteServer.CurrencyCollection
+    accounts:vector<liteServer.BlockStateAccount> = liteServer.BlockState;
 
 liteServer.configMintPrice mint_new_price:bytes mint_add_price:bytes = liteServer.ConfigMintPrice;
 liteServer.configToMint currency_collection:vector<liteServer.CurrencyCollectionItem> = liteServer.ConfigToMint;
