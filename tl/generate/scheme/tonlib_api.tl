@@ -452,7 +452,18 @@ liteServer.storageInfo
     has_due_payment:Bool
     due_payment:bytes = liteServer.StorageInfo;
 liteServer.accountStateUninit = liteServer.AccountState;
-liteServer.accountStateActive = liteServer.AccountState;
+//@param key    int256
+liteServer.simpleLib key:bytes is_public:Bool root:bytes  = liteServer.SimpleLib;
+liteServer.tickTock tick:Bool tock:Bool = liteServer.TickTock;
+liteServer.accountStateActive
+    has_split_depth:Bool
+    split_depth:int32
+    special:liteServer.TickTock
+    has_code:Bool
+    code:bytes
+    has_data:Bool
+    data:bytes
+    library:vector<liteServer.SimpleLib> = liteServer.AccountState;
 //@param state_hash         int256
 liteServer.accountStateFrozen state_hash:bytes = liteServer.AccountState;
 //@param addr               int256
@@ -699,6 +710,7 @@ liteServer.getMasterchainInfo = liteServer.MasterchainInfo;
 liteServer.getState id:ton.blockIdExt = liteServer.BlockState;
 liteServer.getBlock id:ton.blockIdExt = liteServer.Block;
 liteServer.getBlockHeader id:ton.blockIdExt mode:int32 = liteServer.BlockHeader;
+liteServer.getAccount id:ton.blockIdExt account:liteServer.accountId = liteServer.BlockStateAccount;
 liteServer.getOneTransaction id:ton.blockIdExt account:liteServer.accountId lt:int64 = liteServer.Transaction;
 //@param hash   int256
 liteServer.getTransactions count:int32 account:liteServer.accountId lt:int64 hash:bytes = liteServer.TransactionList;

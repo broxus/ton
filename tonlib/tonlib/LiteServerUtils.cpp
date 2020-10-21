@@ -730,6 +730,34 @@ auto parse_storage_info(const td::Ref<vm::CellSlice>& csr)
       std::move(used), record.last_paid, has_due_payment, due_payment);
 }
 
+auto parse_simple_libs(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<std::vector<tonlib_api_ptr<tonlib_api::liteServer_simpleLib>>> {
+  std::vector<tonlib_api_ptr<tonlib_api::liteServer_simpleLib>> result{};
+
+  vm::Dictionary dict{csr, 256};
+  for (const auto& [key, value] : dict) {
+    block::gen::SimpleLib::Record record;
+    if (!tlb::csr_unpack(csr, record)) {
+      return td::Status::Error("failed to unpack simple lib");
+    }
+    TRY_RESULT(root, vm::std_boc_serialize(record.root))
+
+    result.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_simpleLib>(
+        std::string(reinterpret_cast<const char*>(key.get_byte_ptr()), 32), record.public1, root.as_slice().str()));
+  }
+
+  return std::move(result);
+}
+
+auto parse_account_special(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_tickTock>> {
+  block::gen::TickTock::Record record;
+  if (!tlb::csr_unpack(csr, record)) {
+    return td::Status::Error("failed to unpack ticktock");
+  }
+  return tonlib_api::make_object<tonlib_api::liteServer_tickTock>(record.tick, record.tock);
+}
+
 auto parse_account_state(const td::Ref<vm::CellSlice>& csr)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_AccountState>> {
   const auto type = block::gen::t_AccountState.get_tag(*csr);
@@ -738,7 +766,38 @@ auto parse_account_state(const td::Ref<vm::CellSlice>& csr)
       return tonlib_api::make_object<tonlib_api::liteServer_accountStateUninit>();
     }
     case block::gen::AccountState::account_active: {
-      return tonlib_api::make_object<tonlib_api::liteServer_accountStateActive>();
+      block::gen::StateInit::Record state_init;
+      block::gen::AccountState::Record_account_active record;
+      if (!tlb::csr_unpack(csr, record) || !tlb::csr_unpack(record.x, state_init)) {
+        return td::Status::Error("failed to unpack account active state");
+      }
+
+      bool has_split_depth, has_code, has_data;
+      td::int32 split_depth{};
+      td::Ref<vm::Cell> code_cell, data_cell;
+      if (!state_init.split_depth.write().fetch_bool_to(has_split_depth) ||
+          (has_split_depth && !state_init.split_depth.write().fetch_int_to(5, split_depth)) ||
+          !state_init.code.write().fetch_bool_to(has_code) ||
+          (has_code && !state_init.code.write().fetch_ref_to(code_cell)) ||
+          !state_init.data.write().fetch_bool_to(has_data) ||
+          (has_data && !state_init.data.write().fetch_ref_to(data_cell))) {
+        return td::Status::Error("failed to unpack account state init");
+      }
+
+      TRY_RESULT(special, parse_maybe(parse_account_special, state_init.special))
+      td::BufferSlice code, data;
+      if (has_code) {
+        TRY_RESULT_ASSIGN(code, vm::std_boc_serialize(code_cell))
+      }
+      if (has_data) {
+        TRY_RESULT_ASSIGN(data, vm::std_boc_serialize(data_cell))
+      }
+
+      TRY_RESULT(library, parse_simple_libs(state_init.library))
+
+      return tonlib_api::make_object<tonlib_api::liteServer_accountStateActive>(
+          has_split_depth, split_depth, std::move(special), has_code, code.as_slice().str(), has_data,
+          data.as_slice().str(), std::move(library));
     }
     case block::gen::AccountState::account_frozen: {
       block::gen::AccountState::Record_account_frozen record;
@@ -812,8 +871,8 @@ auto parse_shard_state(const ton::BlockIdExt& blkid, const td::BufferSlice& data
   }
 
   return tonlib_api::make_object<tonlib_api::liteServer_blockState>(  //
-      shard_state.utime_, shard_state.lt_, std::move(total_balance), std::move(total_validator_fees), std::move(global_balance),
-      std::move(accounts));
+      shard_state.utime_, shard_state.lt_, std::move(total_balance), std::move(total_validator_fees),
+      std::move(global_balance), std::move(accounts));
 }
 
 auto to_tonlib_api(const block::ValidatorDescr& validator) -> tonlib_api_ptr<tonlib_api::liteServer_validator> {
