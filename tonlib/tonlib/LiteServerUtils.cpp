@@ -811,28 +811,20 @@ auto parse_account_state(const td::Ref<vm::CellSlice>& csr)
   }
 }
 
-auto parse_block_state_account(const td::Ref<vm::CellSlice>& csr)
-    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_blockStateAccount>> {
-  block::tlb::ShardAccount::Record shard_account;
-  if (!shard_account.unpack(csr)) {
-    return td::Status::Error("failed to unpack shard account");
-  }
-
-  auto account_csr = vm::load_cell_slice(shard_account.account);
-
-  const auto type = block::gen::t_Account.get_tag(account_csr);
+auto parse_account(const td::Ref<vm::CellSlice>& csr, const td::Bits256& last_trans_hash)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_account>> {
+  const auto type = block::gen::t_Account.get_tag(*csr);
   switch (type) {
     case block::gen::Account::account_none: {
       return nullptr;
     }
     case block::gen::Account::account: {
       block::gen::Account::Record_account record;
-      if (!tlb::unpack(account_csr, record)) {
+      if (!tlb::csr_unpack(csr, record)) {
         return td::Status::Error("failed to unpack account");
       }
 
       TRY_RESULT(addr, parse_msg_address_int(record.addr))
-
       TRY_RESULT(storage_stat, parse_storage_info(record.storage_stat))
 
       block::gen::AccountStorage::Record account_storage;
@@ -843,10 +835,9 @@ auto parse_block_state_account(const td::Ref<vm::CellSlice>& csr)
       TRY_RESULT(balance, parse_currency_collection(account_storage.balance))
       TRY_RESULT(state, parse_account_state(account_storage.state))
 
-      return tonlib_api::make_object<tonlib_api::liteServer_blockStateAccount>(
-          std::move(addr), std::move(storage_stat), account_storage.last_trans_lt,
-          shard_account.last_trans_hash.as_slice().str(), std::move(balance), std::move(state), shard_account.valid,
-          shard_account.is_zero);
+      return tonlib_api::make_object<tonlib_api::liteServer_account>(
+          std::move(addr), std::move(storage_stat), account_storage.last_trans_lt, last_trans_hash.as_slice().str(),
+          std::move(balance), std::move(state));
     }
     default:
       return td::Status::Error("failed to unpack account");
@@ -864,9 +855,15 @@ auto parse_shard_state(const ton::BlockIdExt& blkid, const td::BufferSlice& data
   TRY_RESULT(total_validator_fees, parse_currency_collection(shard_state.total_validator_fees_.pack()))
   TRY_RESULT(global_balance, parse_currency_collection(shard_state.global_balance_.pack()))
 
-  std::vector<tonlib_api_ptr<tonlib_api::liteServer_blockStateAccount>> accounts;
+  std::vector<tonlib_api_ptr<tonlib_api::liteServer_account>> accounts;
   for (const auto& [key, value] : *shard_state.account_dict_) {
-    TRY_RESULT(account, parse_block_state_account(value))
+    block::tlb::ShardAccount::Record shard_account;
+    if (!shard_account.unpack(value)) {
+      return td::Status::Error("failed to unpack shard account");
+    }
+    auto account_csr = vm::load_cell_slice_ref(shard_account.account);
+
+    TRY_RESULT(account, parse_account(account_csr, shard_account.last_trans_hash))
     accounts.emplace_back(std::move(account));
   }
 

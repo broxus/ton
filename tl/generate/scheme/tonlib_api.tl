@@ -468,22 +468,20 @@ liteServer.accountStateActive
 liteServer.accountStateFrozen state_hash:bytes = liteServer.AccountState;
 //@param addr               int256
 //@param last_trans_hash    int256
-liteServer.blockStateAccount
+liteServer.account
     addr:liteServer.MessageAddressInt
     storage_stat:liteServer.StorageInfo
     last_trans_lt:int64
     last_trans_hash:bytes
     balance:liteServer.CurrencyCollection
-    state:liteServer.AccountState
-    valid:Bool
-    is_zero:Bool = liteServer.BlockStateAccount;
+    state:liteServer.AccountState = liteServer.Account;
 liteServer.blockState
     utime:int32
     lt:int64
     total_balance:liteServer.CurrencyCollection
     total_validator_fees:liteServer.CurrencyCollection
     global_balance:liteServer.CurrencyCollection
-    accounts:vector<liteServer.BlockStateAccount> = liteServer.BlockState;
+    accounts:vector<liteServer.Account> = liteServer.BlockState;
 
 liteServer.configMintPrice mint_new_price:bytes mint_add_price:bytes = liteServer.ConfigMintPrice;
 liteServer.configToMint currency_collection:vector<liteServer.CurrencyCollectionItem> = liteServer.ConfigToMint;
@@ -710,7 +708,7 @@ liteServer.getMasterchainInfo = liteServer.MasterchainInfo;
 liteServer.getState id:ton.blockIdExt = liteServer.BlockState;
 liteServer.getBlock id:ton.blockIdExt = liteServer.Block;
 liteServer.getBlockHeader id:ton.blockIdExt mode:int32 = liteServer.BlockHeader;
-liteServer.getAccount id:ton.blockIdExt account:liteServer.accountId = liteServer.BlockStateAccount;
+liteServer.getAccount id:ton.blockIdExt account:liteServer.accountId = liteServer.Account;
 liteServer.getOneTransaction id:ton.blockIdExt account:liteServer.accountId lt:int64 = liteServer.Transaction;
 //@param hash   int256
 liteServer.getTransactions count:int32 account:liteServer.accountId lt:int64 hash:bytes = liteServer.TransactionList;

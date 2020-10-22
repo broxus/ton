@@ -29,8 +29,8 @@ auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Ce
 
 auto parse_account_state(const td::Ref<vm::CellSlice>& csr)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_AccountState>>;
-auto parse_block_state_account(const td::Ref<vm::CellSlice>& csr)
-    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_blockStateAccount>>;
+auto parse_account(const td::Ref<vm::CellSlice>& csr, const td::Bits256& last_trans_hash)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_account>>;
 
 auto parse_shard_state(const ton::BlockIdExt& blkid, const td::BufferSlice& data)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_blockState>>;
