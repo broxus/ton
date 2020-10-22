@@ -2582,7 +2582,8 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getAccount& req
   auto account_id = account->id_;
   client_.send_query(
       lite_api::liteServer_getAccountState(std::move(lite_api_id), std::move(account)),
-      promise.wrap([block_id, workchain, account_id](lite_api_ptr<lite_api::liteServer_accountState>&& account_state) {
+      promise.wrap([block_id, workchain, account_id](lite_api_ptr<lite_api::liteServer_accountState>&& account_state)
+                       -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_blockStateAccount>> {
         block::AccountState state;
         state.blk = ton::create_block_id(account_state->id_);
         state.shard_blk = ton::create_block_id(account_state->shardblk_);
@@ -2595,8 +2596,11 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getAccount& req
         }
         auto account_info = info_r.move_as_ok();
 
-        vm::load_cell_slice(account_info.root).print_rec(std::cerr);
+        if (account_info.root.is_null()) {
+          return td::Status::Error("account not found");
+        }
 
+        return parse_block_state_account(vm::load_cell_slice_ref(account_info.root));
       }));
   return td::Status::OK();
 }
