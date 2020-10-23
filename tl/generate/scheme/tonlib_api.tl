@@ -518,7 +518,13 @@ liteServer.block
     next:vector<ton.BlockId>
     transactions:vector<liteServer.Transaction> = liteServer.Block;
 liteServer.validator pubkey:bytes adnl_addr:bytes weight:int64 cum_weight:int64 = liteServer.Validator;
-liteServer.validatorSet utime_since:int32 utime_until:int32 total:int32 main:int32 total_weight:int64 list:vector<liteServer.Validator> = liteServer.ValidatorSet;
+liteServer.validatorSet
+    utime_since:int32
+    utime_until:int32
+    total:int32
+    main:int32
+    total_weight:int64
+    list:vector<liteServer.Validator> = liteServer.ValidatorSet;
 //@param due_payment    maybe int256 (empty on null)
 liteServer.storageInfo
     storage_used:liteServer.StorageUsed
@@ -563,7 +569,19 @@ liteServer.configParams ids:vector<int32> = liteServer.ConfigParams;
 liteServer.configProposalSetup min_tot_rounds:int32 max_tot_rounds:int32 min_wins:int32 max_losses:int32 min_store_sec:int32 max_store_sec:int32 bit_price:int32 cell_price:int32 = liteServer.ConfigProposalSetup;
 liteServer.configVotingSetup normals_params:liteServer.ConfigProposalSetup critical_params:liteServer.ConfigProposalSetup = liteServer.ConfigVotingSetup;
 liteServer.configWorkchainFormat vm_version:int32 vm_mode:int64 = liteServer.ConfigWorkchainFormat;
-liteServer.configWorkchainInfo enabled_since:int32 actual_min_split:int32 min_split:int32 max_split:int32 basic:Bool active:Bool accept_msgs:Bool flags:int32 zerostate_root_hash:bytes zerostate_file_hash:bytes version:int32 format:liteServer.ConfigWorkchainFormat = liteServer.ConfigWorkchainInfo;
+liteServer.configWorkchainInfo
+    enabled_since:int32
+    actual_min_split:int32
+    min_split:int32
+    max_split:int32
+    basic:Bool
+    active:Bool
+    accept_msgs:Bool
+    flags:int32
+    zerostate_root_hash:bytes
+    zerostate_file_hash:bytes
+    version:int32
+    format:liteServer.ConfigWorkchainFormat = liteServer.ConfigWorkchainInfo;
 liteServer.configWorkchains workchains:vector<liteServer.ConfigWorkchainInfo> = liteServer.ConfigWorkchains;
 //@param deposit            int256
 //@param bit_price          int256
@@ -643,7 +661,8 @@ liteServer.configConsensusConfigNew
     catchain_max_deps:int32
     max_block_bytes:int32
     max_collated_bytes:int32 = liteServer.ConfigConsensusConfig;
-liteServer.configFundamentalSmcAddresses addresses:vector<bytes> = liteServer.ConfigFundamentalSmcAddresses;
+liteServer.configFundamentalSmcAddresses
+    addresses:vector<liteServer.AccountId> = liteServer.ConfigFundamentalSmcAddresses;
 liteServer.configInfo
     config_addr:liteServer.AccountId
     elector_addr:liteServer.AccountId

@@ -1346,11 +1346,12 @@ auto parse_config_fundamental_smc_addresses(const td::Ref<vm::Cell>& cell)
     return td::Status::Error("failed to unpack fundamental smc addresses");
   }
 
-  std::vector<std::string> addresses;
+  std::vector<tonlib_api_ptr<tonlib_api::liteServer_accountId>> addresses;
 
   vm::Dictionary fundamental_smc_addr{value.fundamental_smc_addr, 256};
   for (const auto& item : fundamental_smc_addr) {
-    addresses.emplace_back(std::string(reinterpret_cast<const char*>(item.first.get_byte_ptr()), 32));
+    addresses.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_accountId>(
+        -1, std::string(reinterpret_cast<const char*>(item.first.get_byte_ptr()), 32)));
   }
 
   return tonlib_api::make_object<tonlib_api::liteServer_configFundamentalSmcAddresses>(std::move(addresses));
