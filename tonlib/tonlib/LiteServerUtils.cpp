@@ -152,7 +152,7 @@ auto parse_optional_cs(td::Ref<vm::CellSlice>&& cs) -> td::Result<std::string> {
   }
 }
 
-auto parse_message(td::Ref<vm::Cell>&& msg) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_message>> {
+auto parse_message(const td::Ref<vm::Cell>& msg) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_message>> {
   block::gen::Message::Record message;
   if (!tlb::type_unpack_cell(msg, block::gen::t_Message_Any, message)) {
     return td::Status::Error("failed to unpack message");
@@ -887,7 +887,7 @@ auto to_tonlib_api(const block::ValidatorSet& vset) -> tonlib_api_ptr<tonlib_api
                                                                       vset.main, vset.total_weight, std::move(list));
 }
 
-auto parse_config_addr(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_accountId>> {
+auto parse_config_addr(const td::Ref<vm::Cell>& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_accountId>> {
   if (cell.is_null() || vm::load_cell_slice(cell).size_ext() != 0x100) {
     return td::Status::Error("failed to parse address from config");
   }
@@ -897,14 +897,16 @@ auto parse_config_addr(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<to
   return tonlib_api::make_object<tonlib_api::liteServer_accountId>(ton::masterchainId, addr.as_slice().str());
 }
 
-auto parse_config_vset(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_validatorSet>> {
+auto parse_config_vset(const td::Ref<vm::Cell>& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_validatorSet>> {
   TRY_RESULT(vset, block::ConfigInfo::unpack_validator_set(cell))
   return to_tonlib_api(*vset);
 }
 
 using ConfigParam = block::gen::ConfigParam;
 
-auto parse_mint_price(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configMintPrice>> {
+auto parse_mint_price(const td::Ref<vm::Cell>& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configMintPrice>> {
   ConfigParam::Record_cons6 mint_price;
   if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{6}, mint_price)) {
     return td::Status::Error("failed to unpack mint price");
@@ -914,7 +916,7 @@ auto parse_mint_price(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<ton
   return tonlib_api::make_object<tonlib_api::liteServer_configMintPrice>(mint_new_price, mint_add_price);
 }
 
-auto parse_to_mint(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configToMint>> {
+auto parse_to_mint(const td::Ref<vm::Cell>& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configToMint>> {
   ConfigParam::Record_cons7 to_mint_value;
   if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{7}, to_mint_value)) {
     return td::Status::Error("failed to unpack to_mint");
@@ -925,19 +927,60 @@ auto parse_to_mint(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<tonlib
   return tonlib_api::make_object<tonlib_api::liteServer_configToMint>(std::move(extra_currency_collection));
 }
 
-auto parse_global_version(td::Ref<vm::Cell>&& cell)
-    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configGlobalVersion>> {
+auto parse_ext_block_ref(const td::Ref<vm::Cell>& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_extBlockRef>> {
+  block::gen::ExtBlkRef::Record record;
+  if (cell.is_null() || !tlb::unpack_cell(cell, record)) {
+    return td::Status::Error("failed to unpack external block reference");
+  }
+  return tonlib_api::make_object<tonlib_api::liteServer_extBlockRef>(
+      record.end_lt, record.seq_no, record.root_hash.as_slice().str(), record.file_hash.as_slice().str());
+}
+
+auto parse_value_flow(const td::Ref<vm::Cell>& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_valueFlow>> {
+  block::gen::ValueFlow::Record record;
+  if (cell.is_null() || !tlb::unpack_cell(cell, record)) {
+    return td::Status::Error("failed to unpack value flow");
+  }
+
+  TRY_RESULT(from_prev_blk, parse_currency_collection(record.r1.from_prev_blk))
+  TRY_RESULT(to_next_blk, parse_currency_collection(record.r1.to_next_blk))
+  TRY_RESULT(imported, parse_currency_collection(record.r1.imported))
+  TRY_RESULT(exported, parse_currency_collection(record.r1.exported))
+  TRY_RESULT(fees_collected, parse_currency_collection(record.fees_collected))
+  TRY_RESULT(fees_imported, parse_currency_collection(record.r2.fees_imported))
+  TRY_RESULT(recovered, parse_currency_collection(record.r2.recovered))
+  TRY_RESULT(created, parse_currency_collection(record.r2.created))
+  TRY_RESULT(minted, parse_currency_collection(record.r2.minted))
+
+  return tonlib_api::make_object<tonlib_api::liteServer_valueFlow>(
+      std::move(from_prev_blk), std::move(to_next_blk), std::move(imported), std::move(exported),
+      std::move(fees_collected), std::move(fees_imported), std::move(recovered), std::move(created), std::move(minted));
+}
+
+auto parse_block_extra(const td::Ref<vm::Cell>& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_blockExtra>> {
+  block::gen::BlockExtra::Record record;
+  if (cell.is_null() || !tlb::unpack_cell(cell, record)) {
+    return td::Status::Error("failed to unpack block extra");
+  }
+  // TODO: implement block extra parsing
+  return nullptr;
+}
+
+auto parse_global_version(const td::Ref<vm::Cell>& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_globalVersion>> {
   block::gen::GlobalVersion::Record global_version;
   ConfigParam::Record_cons8 global_version_value;
   if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{8}, global_version_value) ||
       !tlb::csr_unpack(global_version_value.x, global_version)) {
     return td::Status::Error("failed to unpack global version");
   }
-  return tonlib_api::make_object<tonlib_api::liteServer_configGlobalVersion>(  //
+  return tonlib_api::make_object<tonlib_api::liteServer_globalVersion>(  //
       global_version.version, global_version.capabilities);
 }
 
-auto parse_integer_array(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configParams>> {
+auto parse_integer_array(const td::Ref<vm::Cell>& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configParams>> {
   if (cell.is_null()) {
     return td::Status::Error("failed to unpack config params");
   }
@@ -950,7 +993,7 @@ auto parse_integer_array(td::Ref<vm::Cell>&& cell) -> td::Result<tonlib_api_ptr<
   return tonlib_api::make_object<tonlib_api::liteServer_configParams>(std::move(result));
 }
 
-auto parse_config_proposal_setup(td::Ref<vm::Cell>&& cell)
+auto parse_config_proposal_setup(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configProposalSetup>> {
   block::gen::ConfigProposalSetup::Record proposal_setup;
   if (cell.is_null() || !tlb::unpack_cell(std::move(cell), proposal_setup)) {
@@ -961,7 +1004,7 @@ auto parse_config_proposal_setup(td::Ref<vm::Cell>&& cell)
       proposal_setup.min_store_sec, proposal_setup.max_store_sec, proposal_setup.bit_price, proposal_setup.cell_price);
 }
 
-auto parse_config_voting_setup(td::Ref<vm::Cell>&& cell)
+auto parse_config_voting_setup(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configVotingSetup>> {
   block::gen::ConfigVotingSetup::Record config_voting_setup;
   ConfigParam::Record_cons11 config_voting_setup_value;
@@ -997,7 +1040,7 @@ auto parse_workchain_descr(td::Ref<vm::CellSlice>&& cs)
       info.zerostate_file_hash.as_slice().str(), info.version, std::move(format));
 }
 
-auto parse_config_workchains(td::Ref<vm::Cell>&& cell)
+auto parse_config_workchains(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configWorkchains>> {
   ConfigParam::Record_cons12 workchains_value;
   if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{12}, workchains_value)) {
@@ -1014,7 +1057,7 @@ auto parse_config_workchains(td::Ref<vm::Cell>&& cell)
   return tonlib_api::make_object<tonlib_api::liteServer_configWorkchains>(std::move(result));
 }
 
-auto parse_config_complaint_pricing(td::Ref<vm::Cell>&& cell)
+auto parse_config_complaint_pricing(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configComplaintPricing>> {
   block::gen::ComplaintPricing::Record complaint_pricing;
   ConfigParam::Record_cons13 complaint_pricing_value;
@@ -1029,7 +1072,7 @@ auto parse_config_complaint_pricing(td::Ref<vm::Cell>&& cell)
   return tonlib_api::make_object<tonlib_api::liteServer_configComplaintPricing>(deposit, bit_price, cell_price);
 }
 
-auto parse_config_block_create_fees(td::Ref<vm::Cell>&& cell)
+auto parse_config_block_create_fees(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configBlockCreateFees>> {
   block::gen::BlockCreateFees::Record block_create_fees;
   ConfigParam::Record_cons14 block_create_fees_value;
@@ -1044,7 +1087,7 @@ auto parse_config_block_create_fees(td::Ref<vm::Cell>&& cell)
                                                                                basechain_block_fee);
 }
 
-auto parse_config_validators_timings(td::Ref<vm::Cell>&& cell)
+auto parse_config_validators_timings(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configValidatorsTimings>> {
   ConfigParam::Record_cons15 validators_timings;
   if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{15}, validators_timings)) {
@@ -1055,7 +1098,7 @@ auto parse_config_validators_timings(td::Ref<vm::Cell>&& cell)
       validators_timings.elections_end_before, validators_timings.stake_held_for);
 }
 
-auto parse_config_validators_quantity_limits(td::Ref<vm::Cell>&& cell)
+auto parse_config_validators_quantity_limits(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configValidatorsQuantityLimits>> {
   ConfigParam::Record_cons16 validators_quantity_limits;
   if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{16}, validators_quantity_limits)) {
@@ -1066,7 +1109,7 @@ auto parse_config_validators_quantity_limits(td::Ref<vm::Cell>&& cell)
       validators_quantity_limits.min_validators);
 }
 
-auto parse_config_validators_stake_limits(td::Ref<vm::Cell>&& cell)
+auto parse_config_validators_stake_limits(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configValidatorsStakeLimits>> {
   ConfigParam::Record_cons17 validators_stake_limits;
   if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{17}, validators_stake_limits)) {
@@ -1079,7 +1122,7 @@ auto parse_config_validators_stake_limits(td::Ref<vm::Cell>&& cell)
       min_stake, max_stake, min_total_stake, validators_stake_limits.max_stake_factor);
 }
 
-auto parse_config_storage_prices(td::Ref<vm::Cell>&& cell)
+auto parse_config_storage_prices(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configStoragePrices>> {
   ConfigParam::Record_cons18 storage_prices_value;
   if (cell.is_null()) {
@@ -1102,7 +1145,7 @@ auto parse_config_storage_prices(td::Ref<vm::Cell>&& cell)
   return tonlib_api::make_object<tonlib_api::liteServer_configStoragePrices>(std::move(prices));
 }
 
-auto parse_config_gas_prices(td::Ref<vm::Cell>&& cell)
+auto parse_config_gas_prices(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_ConfigGasLimitsPrices>> {
   if (cell.is_null()) {
     return td::Status::Error("failed to unpack gas limits prices");
@@ -1160,7 +1203,7 @@ auto parse_config_param_limits(td::Ref<vm::CellSlice>&& cs)
       param_limits.underload, param_limits.soft_limit, param_limits.hard_limit);
 }
 
-auto parse_config_block_limits(td::Ref<vm::Cell>&& cell)
+auto parse_config_block_limits(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configBlockLimits>> {
   block::gen::BlockLimits::Record block_limits;
   if (cell.is_null() || !tlb::unpack_cell(cell, block_limits)) {
@@ -1173,7 +1216,7 @@ auto parse_config_block_limits(td::Ref<vm::Cell>&& cell)
                                                                            std::move(lt_delta));
 }
 
-auto parse_config_msg_forward_prices(td::Ref<vm::Cell>&& cell)
+auto parse_config_msg_forward_prices(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configMsgForwardPrices>> {
   block::gen::MsgForwardPrices::Record msg_forward_prices;
   if (cell.is_null() || !tlb::unpack_cell(cell, msg_forward_prices)) {
@@ -1184,7 +1227,7 @@ auto parse_config_msg_forward_prices(td::Ref<vm::Cell>&& cell)
       msg_forward_prices.ihr_price_factor, msg_forward_prices.first_frac, msg_forward_prices.next_frac);
 }
 
-auto parse_config_catchain_config(td::Ref<vm::Cell>&& cell)
+auto parse_config_catchain_config(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_ConfigCatchainConfig>> {
   if (cell.is_null()) {
     return td::Status::Error("failed to unpack catchain config");
@@ -1217,7 +1260,7 @@ auto parse_config_catchain_config(td::Ref<vm::Cell>&& cell)
   }
 }
 
-auto parse_config_consensus_config(td::Ref<vm::Cell>&& cell)
+auto parse_config_consensus_config(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_ConfigConsensusConfig>> {
   if (cell.is_null()) {
     return td::Status::Error("failed to unpack consensus config");
@@ -1253,7 +1296,7 @@ auto parse_config_consensus_config(td::Ref<vm::Cell>&& cell)
   }
 }
 
-auto parse_config_fundamental_smc_addresses(td::Ref<vm::Cell>&& cell)
+auto parse_config_fundamental_smc_addresses(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configFundamentalSmcAddresses>> {
   ConfigParam::Record_cons31 value;
   if (cell.is_null() || !tlb::type_unpack_cell(cell, ConfigParam{31}, value)) {
@@ -1271,10 +1314,10 @@ auto parse_config_fundamental_smc_addresses(td::Ref<vm::Cell>&& cell)
 }
 
 template <typename T>
-auto parse_config_param(block::Config& config, int param, td::Result<tonlib_api_ptr<T>> (*f)(td::Ref<vm::Cell>&&))
+auto parse_config_param(block::Config& config, int param, td::Result<tonlib_api_ptr<T>> (*f)(const td::Ref<vm::Cell>&))
     -> td::Result<tonlib_api_ptr<T>> {
   if (auto param_ref = config.get_config_param(param); param_ref.not_null()) {
-    return (*f)(std::move(param_ref));
+    return (*f)(param_ref);
   }
   return nullptr;
 }

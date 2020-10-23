@@ -441,8 +441,69 @@ liteServer.transaction
     hash_update:liteServer.TransactionHashUpdate
     desc:liteServer.TransactionDescr = liteServer.Transaction;
 liteServer.transactionList ids:vector<ton.blockIdExt> transactions:vector<liteServer.Transaction> = liteServer.TransactionList;
-liteServer.blockInfo version:int32 not_master:Bool after_merge:Bool before_split:Bool after_split:Bool want_split:Bool want_merge:Bool key_block:Bool vert_seqno_incr:Bool flags:int32 seq_no:int32 vert_seq_no:int32 gen_utime:int32 start_lt:int64 end_lt:int64 gen_validator_list_hash_short:int32 gen_catchain_seqno:int32 min_ref_mc_seqno:int32 prev_key_block_seqno:int32 = liteServer.BlockInfo;
-liteServer.block id:ton.BlockIdExt masterchain_id:ton.BlockIdExt info:liteServer.blockInfo previous:vector<ton.BlockIdExt> next:vector<ton.BlockId> shards:liteServer.AllShardsInfo transactions:vector<liteServer.Transaction> = liteServer.Block;
+liteServer.globalVersion version:int32 capabilities:int64 = liteServer.GlobalVersion;
+//@param root_hash  int256
+//@param file_hash  int256
+liteServer.extBlockRef end_lt:int64 seqno:int32 root_hash:bytes file_hash:bytes = liteServer.ExtBlockRef;
+liteServer.blockInfo
+    version:int32
+    not_master:Bool
+    after_merge:Bool
+    before_split:Bool
+    after_split:Bool
+    want_split:Bool
+    want_merge:Bool
+    key_block:Bool
+    vert_seqno_incr:Bool
+    flags:int32
+    seq_no:int32
+    vert_seq_no:int32
+    gen_utime:int32
+    start_lt:int64
+    end_lt:int64
+    gen_validator_list_hash_short:int32
+    gen_catchain_seqno:int32
+    min_ref_mc_seqno:int32
+    prev_key_block_seqno:int32
+    gen_software:liteServer.GlobalVersion
+    master_ref:liteServer.ExtBlockRef = liteServer.BlockInfo;
+liteServer.valueFlow
+    from_prev_blk:liteServer.CurrencyCollection
+    to_next_blk:liteServer.CurrencyCollection
+    imported:liteServer.CurrencyCollection
+    exported:liteServer.CurrencyCollection
+    fees_collected:liteServer.CurrencyCollection
+    fees_imported:liteServer.CurrencyCollection
+    recovered:liteServer.CurrencyCollection
+    created:liteServer.CurrencyCollection
+    minted:liteServer.CurrencyCollection = liteServer.ValueFlow;
+//@param id             int256
+//@param fees_collected int256
+liteServer.inMsgDescrItem
+    id:bytes
+    fees_collected:bytes
+    value_imported:liteServer.CurrencyCollection = liteServer.InMsgDescrItem;
+liteServer.outMsgDescrItem
+    id:bytes
+    value:liteServer.CurrencyCollection = liteServer.OutMsgDescrItem;
+//@param rand_seed      int256
+//@param created_by     int256
+liteServer.blockExtra
+    in_msg_descr:vector<liteServer.InMsgDescrItem>
+    out_msg_descr:vector<liteServer.OutMsgDescrItem>
+    rand_seed:bytes
+    created_by:bytes = liteServer.BlockExtra;
+liteServer.block
+    id:ton.BlockIdExt
+    masterchain_id:ton.BlockIdExt
+    global_id:int32
+    info:liteServer.blockInfo
+    value_flow:liteServer.ValueFlow
+    //block_extra:liteServer.BlockExtra
+    previous:vector<ton.BlockIdExt>
+    next:vector<ton.BlockId>
+    shards:liteServer.AllShardsInfo
+    transactions:vector<liteServer.Transaction> = liteServer.Block;
 liteServer.validator pubkey:bytes adnl_addr:bytes weight:int64 cum_weight:int64 = liteServer.Validator;
 liteServer.validatorSet utime_since:int32 utime_until:int32 total:int32 main:int32 total_weight:int64 list:vector<liteServer.Validator> = liteServer.ValidatorSet;
 //@param due_payment    maybe int256 (empty on null)
@@ -485,7 +546,6 @@ liteServer.blockState
 
 liteServer.configMintPrice mint_new_price:bytes mint_add_price:bytes = liteServer.ConfigMintPrice;
 liteServer.configToMint currency_collection:vector<liteServer.CurrencyCollectionItem> = liteServer.ConfigToMint;
-liteServer.configGlobalVersion version:int32 capabilities:int64 = liteServer.ConfigGlobalVersion;
 liteServer.configParams ids:vector<int32> = liteServer.ConfigParams;
 liteServer.configProposalSetup min_tot_rounds:int32 max_tot_rounds:int32 min_wins:int32 max_losses:int32 min_store_sec:int32 max_store_sec:int32 bit_price:int32 cell_price:int32 = liteServer.ConfigProposalSetup;
 liteServer.configVotingSetup normals_params:liteServer.ConfigProposalSetup critical_params:liteServer.ConfigProposalSetup = liteServer.ConfigVotingSetup;
@@ -580,7 +640,7 @@ liteServer.configInfo
     dns_root_addr:liteServer.AccountId
     mint_price:liteServer.ConfigMintPrice
     to_mint:liteServer.configToMint
-    global_version:liteServer.ConfigGlobalVersion
+    global_version:liteServer.GlobalVersion
     mandatory_params:liteServer.ConfigParams
     critical_params:liteServer.ConfigParams
     config_voting_setup:liteServer.ConfigVotingSetup

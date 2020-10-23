@@ -127,56 +127,71 @@ auto GetBlock::parse_result() -> td::Result<ResultType> {
           to_tonlib_api(ton::BlockId{block_id.id.workchain, block_id.id.shard, block_id.id.seqno + 1}));
     }
 
+    tonlib_api_ptr<tonlib_api::liteServer_globalVersion> gen_software;
+    if (info.flags & 0x1u) {
+      TRY_RESULT_ASSIGN(gen_software,
+                        parse_global_version(vm::CellBuilder{}.append_cellslice(info.gen_software).finalize()))
+    }
+
+    tonlib_api_ptr<tonlib_api::liteServer_extBlockRef> master_ref;
+    td::Ref<vm::Cell> master_ref_cell;
+    if (info.not_master && !vm::load_cell_slice(info.master_ref).fetch_ref_to(master_ref_cell)) {
+      TRY_RESULT_ASSIGN(master_ref, parse_ext_block_ref(std::move(master_ref_cell)))
+    }
+
     block_info = tonlib_api::make_object<tonlib_api::liteServer_blockInfo>(
         info.version, info.not_master, info.after_merge, info.before_split, info.after_split, info.want_split,
         info.want_merge, info.key_block, info.vert_seqno_incr, info.flags, info.seq_no, info.vert_seq_no,
         info.gen_utime, info.start_lt, info.end_lt, info.gen_validator_list_hash_short, info.gen_catchain_seqno,
-        info.min_ref_mc_seqno, info.prev_key_block_seqno);
+        info.min_ref_mc_seqno, info.prev_key_block_seqno, std::move(gen_software), std::move(master_ref));
+
+    tonlib_api_ptr<tonlib_api::liteServer_allShardsInfo> all_shards_info = nullptr;
+    if (!shard_data_.empty()) {
+      TRY_RESULT(shard_data, vm::std_boc_deserialize(shard_data_))
+
+      block::ShardConfig shard_config;
+      if (!shard_config.unpack(vm::load_cell_slice_ref(shard_data))) {
+        return td::Status::Error("failed to unpack shard config");
+      }
+      auto ids = shard_config.get_shard_hash_ids(true);
+
+      auto min_shard_gen_utime = ids.empty() ? 0u : std::numeric_limits<ton::UnixTime>::max();
+      auto max_shard_gen_utime = ids.empty() ? 0u : std::numeric_limits<ton::UnixTime>::min();
+      std::vector<tonlib_api_ptr<tonlib_api::liteServer_shardHash>> shards;
+      shards.reserve(ids.size());
+
+      for (auto id : ids) {
+        auto ref = shard_config.get_shard_hash(ton::ShardIdFull(id));
+        if (ref.is_null()) {
+          continue;
+        }
+
+        min_shard_gen_utime = std::min(min_shard_gen_utime, ref->gen_utime_);
+        max_shard_gen_utime = std::max(max_shard_gen_utime, ref->gen_utime_);
+
+        TRY_RESULT(fees_collected, to_tonlib_api(ref->fees_collected_.grams))
+        TRY_RESULT(funds_collected, to_tonlib_api(ref->funds_created_.grams))
+
+        shards.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_shardHash>(
+            ref->blk_.id.workchain, ref->blk_.id.shard, to_tonlib_api(ref->blk_), ref->start_lt_, ref->end_lt_,
+            ref->before_split_, ref->before_merge_, ref->want_split_, ref->want_merge_, ref->next_catchain_seqno_,
+            ref->next_validator_shard_, ref->min_ref_mc_seqno_, ref->gen_utime_, fees_collected, funds_collected));
+      }
+
+      all_shards_info = tonlib_api::make_object<tonlib_api::liteServer_allShardsInfo>(
+          min_shard_gen_utime, max_shard_gen_utime, std::move(shards));
+    }
+
+    TRY_RESULT(value_flow, parse_value_flow(blk.value_flow))
+
+    return tonlib_api::make_object<tonlib_api::liteServer_block>(
+        to_tonlib_api(block_id), to_tonlib_api(masterchain_blk_id), blk.global_id, std::move(block_info),
+        std::move(value_flow), std::move(previous_blocks), std::move(next_blocks), std::move(all_shards_info),
+        std::move(transactions));
   } catch (const vm::VmError& err) {
     return td::Status::Error(PSLICE() << "error while parsing AccountBlocks of block " << block_id.to_str() << " : "
                                       << err.get_msg());
   }
-
-  tonlib_api_ptr<tonlib_api::liteServer_allShardsInfo> all_shards_info = nullptr;
-  if (!shard_data_.empty()) {
-    TRY_RESULT(shard_data, vm::std_boc_deserialize(shard_data_))
-
-    block::ShardConfig shard_config;
-    if (!shard_config.unpack(vm::load_cell_slice_ref(shard_data))) {
-      return td::Status::Error("failed to unpack shard config");
-    }
-    auto ids = shard_config.get_shard_hash_ids(true);
-
-    auto min_shard_gen_utime = ids.empty() ? 0u : std::numeric_limits<ton::UnixTime>::max();
-    auto max_shard_gen_utime = ids.empty() ? 0u : std::numeric_limits<ton::UnixTime>::min();
-    std::vector<tonlib_api_ptr<tonlib_api::liteServer_shardHash>> shards;
-    shards.reserve(ids.size());
-
-    for (auto id : ids) {
-      auto ref = shard_config.get_shard_hash(ton::ShardIdFull(id));
-      if (ref.is_null()) {
-        continue;
-      }
-
-      min_shard_gen_utime = std::min(min_shard_gen_utime, ref->gen_utime_);
-      max_shard_gen_utime = std::max(max_shard_gen_utime, ref->gen_utime_);
-
-      TRY_RESULT(fees_collected, to_tonlib_api(ref->fees_collected_.grams))
-      TRY_RESULT(funds_collected, to_tonlib_api(ref->funds_created_.grams))
-
-      shards.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_shardHash>(
-          ref->blk_.id.workchain, ref->blk_.id.shard, to_tonlib_api(ref->blk_), ref->start_lt_, ref->end_lt_,
-          ref->before_split_, ref->before_merge_, ref->want_split_, ref->want_merge_, ref->next_catchain_seqno_,
-          ref->next_validator_shard_, ref->min_ref_mc_seqno_, ref->gen_utime_, fees_collected, funds_collected));
-    }
-
-    all_shards_info = tonlib_api::make_object<tonlib_api::liteServer_allShardsInfo>(
-        min_shard_gen_utime, max_shard_gen_utime, std::move(shards));
-  }
-
-  return tonlib_api::make_object<tonlib_api::liteServer_block>(
-      to_tonlib_api(block_id), to_tonlib_api(masterchain_blk_id), std::move(block_info), std::move(previous_blocks),
-      std::move(next_blocks), std::move(all_shards_info), std::move(transactions));
 }
 
 void GetBlock::finish_query() {
