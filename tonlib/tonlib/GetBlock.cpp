@@ -134,9 +134,8 @@ auto GetBlock::parse_result() -> td::Result<ResultType> {
     }
 
     tonlib_api_ptr<tonlib_api::liteServer_extBlockRef> master_ref;
-    td::Ref<vm::Cell> master_ref_cell;
-    if (info.not_master && !vm::load_cell_slice(info.master_ref).fetch_ref_to(master_ref_cell)) {
-      TRY_RESULT_ASSIGN(master_ref, parse_ext_block_ref(std::move(master_ref_cell)))
+    if (info.not_master && info.master_ref.not_null()) {
+      TRY_RESULT_ASSIGN(master_ref, parse_ext_block_ref(info.master_ref))
     }
 
     block_info = tonlib_api::make_object<tonlib_api::liteServer_blockInfo>(
