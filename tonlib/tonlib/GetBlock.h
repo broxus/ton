@@ -30,9 +30,6 @@ class GetBlock : public td::actor::Actor {
 
   void got_block_header(lite_api_ptr<lite_api::liteServer_blockHeader>&& result);
   void got_block_data(lite_api_ptr<lite_api::liteServer_blockData>&& result);
-  void got_shard_info(lite_api_ptr<lite_api::liteServer_allShardsInfo>&& result);
-
-  void failed_to_get_shard_info(td::Status error);
 
   void hangup() override {
     check(TonlibError::Cancelled());
@@ -61,7 +58,6 @@ class GetBlock : public td::actor::Actor {
   td::int32 pending_queries_ = 0;
 
   td::BufferSlice block_data_;
-  td::BufferSlice shard_data_;
 
   td::actor::ActorShared<> parent_;
   td::Promise<ResultType> promise_;

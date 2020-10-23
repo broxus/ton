@@ -1,5 +1,6 @@
 #pragma once
 
+#include "crypto/block/mc-config.h"
 #include "tonlib/Stuff.h"
 
 namespace tonlib {
@@ -38,11 +39,16 @@ auto parse_shard_state(const ton::BlockIdExt& blkid, const td::BufferSlice& data
 auto parse_ext_block_ref(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_extBlockRef>>;
 auto parse_value_flow(const td::Ref<vm::Cell>& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_valueFlow>>;
-auto parse_block_extra(const td::Ref<vm::Cell>& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_blockExtra>>;
+auto parse_shard_hashes(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_allShardsInfo>>;
+auto parse_mc_block_extra(const td::Ref<vm::Cell>& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_mcBlockExtra>>;
 auto parse_global_version(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_globalVersion>>;
 
 auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice config_proof)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configInfo>>;
+auto parse_config(const td::Ref<vm::CellSlice>& csr) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configInfo>>;
+auto parse_config(block::Config& config) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configInfo>>;
 
 }  // namespace tonlib

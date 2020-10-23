@@ -62,20 +62,24 @@ auto GetBlock::parse_result() -> td::Result<ResultType> {
   try {
     block::gen::Block::Record blk;
     block::gen::BlockExtra::Record extra;
-    if (!(tlb::unpack_cell(block_root, blk) && tlb::unpack_cell(std::move(blk.extra), extra))) {
+    if (!(tlb::unpack_cell(block_root, blk) && tlb::unpack_cell(blk.extra, extra))) {
       return td::Status::Error(PSLICE() << "cannot find account transaction data in block " << block_id.to_str());
     }
+
+    std::vector<tonlib_api_ptr<tonlib_api::liteServer_inMsgDescrItem>> in_msg_descr;    // TODO
+    std::vector<tonlib_api_ptr<tonlib_api::liteServer_outMsgDescrItem>> out_msg_descr;  // TODO
+    std::vector<tonlib_api_ptr<tonlib_api::liteServer_blockExtraAccount>> extra_accounts;
 
     vm::AugmentedDictionary acc_dict{vm::load_cell_slice_ref(extra.account_blocks), 256,
                                      block::tlb::aug_ShardAccountBlocks};
 
-    bool allow_same = true;
-    td::Bits256 cur_addr{};
+    auto allow_same = true;
+    td::Bits256 dict_key{};
     while (true) {
       td::Ref<vm::CellSlice> value;
       try {
         value = acc_dict.extract_value(
-            acc_dict.vm::DictionaryFixed::lookup_nearest_key(cur_addr.bits(), 256, true, allow_same));
+            acc_dict.vm::DictionaryFixed::lookup_nearest_key(dict_key.bits(), 256, true, allow_same));
       } catch (const vm::VmError& err) {
         return td::Status::Error(PSLICE() << "error while traversing account block dictionary: " << err.get_msg());
       }
@@ -86,12 +90,14 @@ auto GetBlock::parse_result() -> td::Result<ResultType> {
       allow_same = false;
 
       block::gen::AccountBlock::Record acc_blk;
-      if (!(tlb::csr_unpack(std::move(value), acc_blk) && acc_blk.account_addr == cur_addr)) {
-        return td::Status::Error(PSLICE() << "invalid AccountBlock for account " << cur_addr.to_hex());
+      if (!(tlb::csr_unpack(std::move(value), acc_blk) && acc_blk.account_addr == dict_key)) {
+        return td::Status::Error(PSLICE() << "invalid AccountBlock for account " << dict_key.to_hex());
       }
 
       vm::AugmentedDictionary trans_dict{vm::DictNonEmpty(), std::move(acc_blk.transactions), 64,
                                          block::tlb::aug_AccountTransactions};
+      auto transaction_count = 0;
+
       td::BitArray<64> cur_trans{};
       while (true) {
         td::Ref<vm::Cell> tvalue;
@@ -106,9 +112,20 @@ auto GetBlock::parse_result() -> td::Result<ResultType> {
           break;
         }
 
-        TRY_RESULT(transaction, parse_transaction(block_id.id.workchain, cur_addr, std::move(tvalue)))
+        TRY_RESULT(transaction, parse_transaction(block_id.id.workchain, dict_key, std::move(tvalue)))
         transactions.emplace_back(std::move(transaction));
+        ++transaction_count;
       }
+
+      block::gen::HASH_UPDATE::Record state_update_value;
+      if (!tlb::type_unpack_cell(acc_blk.state_update, block::gen::t_HASH_UPDATE_Account, state_update_value)) {
+        return td::Status::Error("failed to unpack account state update");
+      }
+      auto state_update = tonlib_api::make_object<tonlib_api::liteServer_hashUpdate>(  //
+          state_update_value.old_hash.as_slice().str(), state_update_value.new_hash.as_slice().str());
+
+      extra_accounts.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_blockExtraAccount>(
+          dict_key.as_slice().str(), transaction_count, std::move(state_update)));
     }
 
     block::gen::BlockInfo::Record info;
@@ -144,48 +161,21 @@ auto GetBlock::parse_result() -> td::Result<ResultType> {
         info.gen_utime, info.start_lt, info.end_lt, info.gen_validator_list_hash_short, info.gen_catchain_seqno,
         info.min_ref_mc_seqno, info.prev_key_block_seqno, std::move(gen_software), std::move(master_ref));
 
-    tonlib_api_ptr<tonlib_api::liteServer_allShardsInfo> all_shards_info = nullptr;
-    if (!shard_data_.empty()) {
-      TRY_RESULT(shard_data, vm::std_boc_deserialize(shard_data_))
-
-      block::ShardConfig shard_config;
-      if (!shard_config.unpack(vm::load_cell_slice_ref(shard_data))) {
-        return td::Status::Error("failed to unpack shard config");
-      }
-      auto ids = shard_config.get_shard_hash_ids(true);
-
-      auto min_shard_gen_utime = ids.empty() ? 0u : std::numeric_limits<ton::UnixTime>::max();
-      auto max_shard_gen_utime = ids.empty() ? 0u : std::numeric_limits<ton::UnixTime>::min();
-      std::vector<tonlib_api_ptr<tonlib_api::liteServer_shardHash>> shards;
-      shards.reserve(ids.size());
-
-      for (auto id : ids) {
-        auto ref = shard_config.get_shard_hash(ton::ShardIdFull(id));
-        if (ref.is_null()) {
-          continue;
-        }
-
-        min_shard_gen_utime = std::min(min_shard_gen_utime, ref->gen_utime_);
-        max_shard_gen_utime = std::max(max_shard_gen_utime, ref->gen_utime_);
-
-        TRY_RESULT(fees_collected, to_tonlib_api(ref->fees_collected_.grams))
-        TRY_RESULT(funds_collected, to_tonlib_api(ref->funds_created_.grams))
-
-        shards.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_shardHash>(
-            ref->blk_.id.workchain, ref->blk_.id.shard, to_tonlib_api(ref->blk_), ref->start_lt_, ref->end_lt_,
-            ref->before_split_, ref->before_merge_, ref->want_split_, ref->want_merge_, ref->next_catchain_seqno_,
-            ref->next_validator_shard_, ref->min_ref_mc_seqno_, ref->gen_utime_, fees_collected, funds_collected));
-      }
-
-      all_shards_info = tonlib_api::make_object<tonlib_api::liteServer_allShardsInfo>(
-          min_shard_gen_utime, max_shard_gen_utime, std::move(shards));
+    tonlib_api_ptr<tonlib_api::liteServer_mcBlockExtra> mc_block_extra;
+    td::Ref<vm::Cell> mc_block_extra_cell;
+    if (extra.custom->prefetch_maybe_ref(mc_block_extra_cell) && mc_block_extra_cell.not_null()) {
+      TRY_RESULT_ASSIGN(mc_block_extra, parse_mc_block_extra(mc_block_extra_cell))
     }
 
     TRY_RESULT(value_flow, parse_value_flow(blk.value_flow))
 
+    auto block_extra = tonlib_api::make_object<tonlib_api::liteServer_blockExtra>(
+        std::move(in_msg_descr), std::move(out_msg_descr), std::move(extra_accounts), extra.rand_seed.as_slice().str(),
+        extra.created_by.as_slice().str(), std::move(mc_block_extra));
+
     return tonlib_api::make_object<tonlib_api::liteServer_block>(
         to_tonlib_api(block_id), to_tonlib_api(masterchain_blk_id), blk.global_id, std::move(block_info),
-        std::move(value_flow), std::move(previous_blocks), std::move(next_blocks), std::move(all_shards_info),
+        std::move(value_flow), std::move(block_extra), std::move(previous_blocks), std::move(next_blocks),
         std::move(transactions));
   } catch (const vm::VmError& err) {
     return td::Status::Error(PSLICE() << "error while parsing AccountBlocks of block " << block_id.to_str() << " : "
@@ -238,20 +228,6 @@ void GetBlock::proceed_with_block_id(const ton::BlockIdExt& block_id) {
   client_.send_query(lite_api::liteServer_getBlock(ton::create_tl_lite_block_id(block_id)),
                      std::move(block_data_handler));
   pending_queries_++;
-
-  if ((mode_ & 0b1000u) && block_id.is_masterchain()) {
-    auto all_shards_info_handler = td::PromiseCreator::lambda(
-        [SelfId = actor_id(this)](td::Result<lite_api_ptr<lite_api::liteServer_allShardsInfo>> R) {
-          if (R.is_error()) {
-            td::actor::send_closure(SelfId, &GetBlock::failed_to_get_shard_info, R.move_as_error());
-          } else {
-            td::actor::send_closure(SelfId, &GetBlock::got_shard_info, R.move_as_ok());
-          }
-        });
-    client_.send_query(lite_api::liteServer_getAllShardsInfo(ton::create_tl_lite_block_id(block_id)),
-                       std::move(all_shards_info_handler));
-    pending_queries_++;
-  }
 }
 
 void GetBlock::got_block_header(lite_api_ptr<lite_api::liteServer_blockHeader>&& result) {
@@ -263,16 +239,6 @@ void GetBlock::got_block_header(lite_api_ptr<lite_api::liteServer_blockHeader>&&
 
 void GetBlock::got_block_data(lite_api_ptr<lite_api::liteServer_blockData>&& result) {
   block_data_ = std::move(result->data_);
-  check_finished();
-}
-
-void GetBlock::got_shard_info(lite_api_ptr<lite_api::liteServer_allShardsInfo>&& result) {
-  shard_data_ = std::move(result->data_);
-  check_finished();
-}
-
-void GetBlock::failed_to_get_shard_info(td::Status error) {
-  LOG(WARNING) << error;
   check_finished();
 }
 

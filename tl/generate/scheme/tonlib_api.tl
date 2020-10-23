@@ -313,7 +313,7 @@ liteServer.currencyCollectionItem currency:int32 value:bytes = liteServer.Curren
 liteServer.currencyCollection grams:bytes other:vector<liteServer.currencyCollectionItem> = liteServer.CurrencyCollection;
 //@param old_hash           int256
 //@param new_hash           int256
-liteServer.transactionHashUpdate old_hash:bytes new_hash:bytes = liteServer.TransactionHashUpdate;
+liteServer.hashUpdate old_hash:bytes new_hash:bytes = liteServer.HashUpdate;
 //@param storage_fees_collected int256
 //@param storage_fees_due       maybe int256 (empty bytes on null)
 liteServer.transactionStoragePhase
@@ -438,7 +438,7 @@ liteServer.transaction
     in_msg:liteServer.Message
     out_msgs:vector<liteServer.Message>
     total_fees:bytes
-    hash_update:liteServer.TransactionHashUpdate
+    hash_update:liteServer.HashUpdate
     desc:liteServer.TransactionDescr = liteServer.Transaction;
 liteServer.transactionList ids:vector<ton.blockIdExt> transactions:vector<liteServer.Transaction> = liteServer.TransactionList;
 liteServer.globalVersion version:int32 capabilities:int64 = liteServer.GlobalVersion;
@@ -486,23 +486,36 @@ liteServer.inMsgDescrItem
 liteServer.outMsgDescrItem
     id:bytes
     value:liteServer.CurrencyCollection = liteServer.OutMsgDescrItem;
+//@param addr   int256
+liteServer.blockExtraAccount
+    addr:bytes
+    transaction_cnt:int32
+    state_update:liteServer.HashUpdate = liteServer.BlockExtraAccount;
+liteServer.shardFeesItem
+    fees:liteServer.CurrencyCollection
+    create:liteServer.CurrencyCollection = liteServer.ShardFeesItem;
+liteServer.mcBlockExtra
+    key_block:Bool
+    shard_hashes:liteServer.AllShardsInfo
+    config:liteServer.ConfigInfo = liteServer.McBlockExtra;
 //@param rand_seed      int256
 //@param created_by     int256
 liteServer.blockExtra
     in_msg_descr:vector<liteServer.InMsgDescrItem>
     out_msg_descr:vector<liteServer.OutMsgDescrItem>
+    accounts:vector<liteServer.BlockExtraAccount>
     rand_seed:bytes
-    created_by:bytes = liteServer.BlockExtra;
+    created_by:bytes
+    custom:liteServer.McBlockExtra = liteServer.BlockExtra;
 liteServer.block
     id:ton.BlockIdExt
     masterchain_id:ton.BlockIdExt
     global_id:int32
-    info:liteServer.blockInfo
+    info:liteServer.BlockInfo
     value_flow:liteServer.ValueFlow
-    //block_extra:liteServer.BlockExtra
+    block_extra:liteServer.BlockExtra
     previous:vector<ton.BlockIdExt>
     next:vector<ton.BlockId>
-    shards:liteServer.AllShardsInfo
     transactions:vector<liteServer.Transaction> = liteServer.Block;
 liteServer.validator pubkey:bytes adnl_addr:bytes weight:int64 cum_weight:int64 = liteServer.Validator;
 liteServer.validatorSet utime_since:int32 utime_until:int32 total:int32 main:int32 total_weight:int64 list:vector<liteServer.Validator> = liteServer.ValidatorSet;
@@ -632,7 +645,6 @@ liteServer.configConsensusConfigNew
     max_collated_bytes:int32 = liteServer.ConfigConsensusConfig;
 liteServer.configFundamentalSmcAddresses addresses:vector<bytes> = liteServer.ConfigFundamentalSmcAddresses;
 liteServer.configInfo
-    id:ton.blockIdExt
     config_addr:liteServer.AccountId
     elector_addr:liteServer.AccountId
     minter_addr:liteServer.AccountId

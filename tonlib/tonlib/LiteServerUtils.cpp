@@ -1,7 +1,5 @@
 #include "LiteServerUtils.h"
 
-#include "crypto/block/mc-config.h"
-
 namespace tonlib {
 
 auto parse_grams(td::Ref<vm::CellSlice>& grams) -> td::Result<std::string> {
@@ -706,8 +704,8 @@ auto parse_transaction(int workchain, const td::Bits256& account, td::Ref<vm::Ce
       trans.prev_trans_hash.as_slice().str(), static_cast<std::int64_t>(trans.prev_trans_lt),
       static_cast<std::int32_t>(trans.now), trans.outmsg_cnt, static_cast<std::int32_t>(trans.orig_status),
       static_cast<std::int32_t>(trans.end_status), std::move(in_msg), std::move(out_msgs), total_fees,
-      tonlib_api::make_object<tonlib_api::liteServer_transactionHashUpdate>(hash_update.old_hash.as_slice().str(),
-                                                                            hash_update.new_hash.as_slice().str()),
+      tonlib_api::make_object<tonlib_api::liteServer_hashUpdate>(hash_update.old_hash.as_slice().str(),
+                                                                 hash_update.new_hash.as_slice().str()),
       std::move(transaction_descr));
 }
 
@@ -958,15 +956,6 @@ auto parse_value_flow(const td::Ref<vm::Cell>& cell) -> td::Result<tonlib_api_pt
       std::move(fees_collected), std::move(fees_imported), std::move(recovered), std::move(created), std::move(minted));
 }
 
-auto parse_block_extra(const td::Ref<vm::Cell>& cell) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_blockExtra>> {
-  block::gen::BlockExtra::Record record;
-  if (cell.is_null() || !tlb::unpack_cell(cell, record)) {
-    return td::Status::Error("failed to unpack block extra");
-  }
-  // TODO: implement block extra parsing
-  return nullptr;
-}
-
 auto parse_global_version(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_globalVersion>> {
   block::gen::GlobalVersion::Record global_version;
@@ -977,6 +966,60 @@ auto parse_global_version(const td::Ref<vm::Cell>& cell)
   }
   return tonlib_api::make_object<tonlib_api::liteServer_globalVersion>(  //
       global_version.version, global_version.capabilities);
+}
+
+auto parse_shard_hashes(const td::Ref<vm::CellSlice>& csr)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_allShardsInfo>> {
+  block::ShardConfig shard_config;
+  if (!shard_config.unpack(csr)) {
+    return td::Status::Error("cannot unpack ShardConfig");
+  }
+
+  auto ids = shard_config.get_shard_hash_ids(true);
+
+  auto min_shard_gen_utime = ids.empty() ? 0u : std::numeric_limits<ton::UnixTime>::max();
+  auto max_shard_gen_utime = ids.empty() ? 0u : std::numeric_limits<ton::UnixTime>::min();
+  std::vector<tonlib_api_ptr<tonlib_api::liteServer_shardHash>> shards;
+  shards.reserve(ids.size());
+
+  for (auto id : ids) {
+    auto ref = shard_config.get_shard_hash(ton::ShardIdFull(id));
+    if (ref.is_null()) {
+      continue;
+    }
+
+    min_shard_gen_utime = std::min(min_shard_gen_utime, ref->gen_utime_);
+    max_shard_gen_utime = std::max(max_shard_gen_utime, ref->gen_utime_);
+
+    TRY_RESULT(fees_collected, to_tonlib_api(ref->fees_collected_.grams))
+    TRY_RESULT(funds_collected, to_tonlib_api(ref->funds_created_.grams))
+
+    shards.emplace_back(tonlib_api::make_object<tonlib_api::liteServer_shardHash>(
+        ref->blk_.id.workchain, ref->blk_.id.shard, to_tonlib_api(ref->blk_), ref->start_lt_, ref->end_lt_,
+        ref->before_split_, ref->before_merge_, ref->want_split_, ref->want_merge_, ref->next_catchain_seqno_,
+        ref->next_validator_shard_, ref->min_ref_mc_seqno_, ref->gen_utime_, fees_collected, funds_collected));
+  }
+
+  return tonlib_api::make_object<tonlib_api::liteServer_allShardsInfo>(min_shard_gen_utime, max_shard_gen_utime,
+                                                                       std::move(shards));
+}
+
+auto parse_mc_block_extra(const td::Ref<vm::Cell>& cell)
+    -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_mcBlockExtra>> {
+  block::gen::McBlockExtra::Record record;
+  if (cell.is_null() || !tlb::unpack_cell(cell, record)) {
+    return td::Status::Error("failed to unpack masterchain block extra");
+  }
+
+  TRY_RESULT(shard_hashes, parse_shard_hashes(record.shard_hashes))
+
+  tonlib_api_ptr<tonlib_api::liteServer_configInfo> config;
+  if (record.key_block) {
+    TRY_RESULT_ASSIGN(config, parse_config(record.config))
+  }
+
+  return tonlib_api::make_object<tonlib_api::liteServer_mcBlockExtra>(  //
+      record.key_block, std::move(shard_hashes), std::move(config));
 }
 
 auto parse_integer_array(const td::Ref<vm::Cell>& cell)
@@ -1324,6 +1367,20 @@ auto parse_config_param(block::Config& config, int param, td::Result<tonlib_api_
 
 auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice config_proof)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configInfo>> {
+  TRY_RESULT(state_proof_ref, vm::std_boc_deserialize(state_proof))
+  TRY_RESULT(config_proof_ref, vm::std_boc_deserialize(config_proof))
+  TRY_RESULT(state, block::check_extract_state_proof(blkid, state_proof, config_proof))
+
+  TRY_RESULT(config, block::ConfigInfo::extract_from_state(state, block::ConfigInfo::needShardHashes))
+  return parse_config(*config);
+}
+
+auto parse_config(const td::Ref<vm::CellSlice>& csr) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configInfo>> {
+  TRY_RESULT(config, block::Config::unpack_config(csr));
+  return parse_config(*config);
+}
+
+auto parse_config(block::Config& config) -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configInfo>> {
   enum {
     CONFIG_ADDR = 0,
     ELECTOR_ADDR = 1,
@@ -1367,65 +1424,59 @@ auto parse_config(const ton::BlockIdExt& blkid, td::Slice state_proof, td::Slice
     VALIDATOR_SIGNED_TEMP_KEY = 39,
   };
 
-  TRY_RESULT(state_proof_ref, vm::std_boc_deserialize(state_proof))
-  TRY_RESULT(config_proof_ref, vm::std_boc_deserialize(config_proof))
-  TRY_RESULT(state, block::check_extract_state_proof(blkid, state_proof, config_proof))
-
-  TRY_RESULT(config, block::ConfigInfo::extract_from_state(state, block::ConfigInfo::needShardHashes))
-
   // Accounts
-  TRY_RESULT(config_addr, parse_config_param(*config, CONFIG_ADDR, parse_config_addr))
-  TRY_RESULT(elector_addr, parse_config_param(*config, ELECTOR_ADDR, parse_config_addr))
-  TRY_RESULT(minter_addr, parse_config_param(*config, MINTER_ADDR, parse_config_addr))
-  TRY_RESULT(fee_collector_addr, parse_config_param(*config, FEE_COLLECTOR_ADDR, parse_config_addr))
-  TRY_RESULT(dns_root_addr, parse_config_param(*config, DNS_ROOT_ADDR, parse_config_addr))
+  TRY_RESULT(config_addr, parse_config_param(config, CONFIG_ADDR, parse_config_addr))
+  TRY_RESULT(elector_addr, parse_config_param(config, ELECTOR_ADDR, parse_config_addr))
+  TRY_RESULT(minter_addr, parse_config_param(config, MINTER_ADDR, parse_config_addr))
+  TRY_RESULT(fee_collector_addr, parse_config_param(config, FEE_COLLECTOR_ADDR, parse_config_addr))
+  TRY_RESULT(dns_root_addr, parse_config_param(config, DNS_ROOT_ADDR, parse_config_addr))
 
   // General
-  TRY_RESULT(mint_price, parse_config_param(*config, MINT_PRICE, parse_mint_price))
-  TRY_RESULT(to_mint, parse_config_param(*config, TO_MINT, parse_to_mint))
-  TRY_RESULT(global_version, parse_config_param(*config, GLOBAL_VERSION, parse_global_version))
-  TRY_RESULT(mandatory_params, parse_config_param(*config, MANDATORY_PARAMS, parse_integer_array))
-  TRY_RESULT(critical_params, parse_config_param(*config, CRITICAL_PARAMS, parse_integer_array))
-  TRY_RESULT(config_voting_setup, parse_config_param(*config, CONFIG_VOTING_SETUP, parse_config_voting_setup))
-  TRY_RESULT(workchains, parse_config_param(*config, WORKCHAINS, parse_config_workchains))
-  TRY_RESULT(complaint_pricing, parse_config_param(*config, COMPLAINT_PRICING, parse_config_complaint_pricing))
-  TRY_RESULT(block_create_fees, parse_config_param(*config, BLOCK_CREATE_FEES, parse_config_block_create_fees))
-  TRY_RESULT(validators_timings, parse_config_param(*config, VALIDATORS_TIMINGS, parse_config_validators_timings))
+  TRY_RESULT(mint_price, parse_config_param(config, MINT_PRICE, parse_mint_price))
+  TRY_RESULT(to_mint, parse_config_param(config, TO_MINT, parse_to_mint))
+  TRY_RESULT(global_version, parse_config_param(config, GLOBAL_VERSION, parse_global_version))
+  TRY_RESULT(mandatory_params, parse_config_param(config, MANDATORY_PARAMS, parse_integer_array))
+  TRY_RESULT(critical_params, parse_config_param(config, CRITICAL_PARAMS, parse_integer_array))
+  TRY_RESULT(config_voting_setup, parse_config_param(config, CONFIG_VOTING_SETUP, parse_config_voting_setup))
+  TRY_RESULT(workchains, parse_config_param(config, WORKCHAINS, parse_config_workchains))
+  TRY_RESULT(complaint_pricing, parse_config_param(config, COMPLAINT_PRICING, parse_config_complaint_pricing))
+  TRY_RESULT(block_create_fees, parse_config_param(config, BLOCK_CREATE_FEES, parse_config_block_create_fees))
+  TRY_RESULT(validators_timings, parse_config_param(config, VALIDATORS_TIMINGS, parse_config_validators_timings))
   TRY_RESULT(validators_quantity_limits,
-             parse_config_param(*config, VALIDATORS_QUANTITY_LIMITS, parse_config_validators_quantity_limits))
+             parse_config_param(config, VALIDATORS_QUANTITY_LIMITS, parse_config_validators_quantity_limits))
   TRY_RESULT(validators_stake_limits,
-             parse_config_param(*config, VALIDATORS_STAKE_LIMITS, parse_config_validators_stake_limits))
-  TRY_RESULT(storage_prices, parse_config_param(*config, STORAGE_PRICES, parse_config_storage_prices))
-  TRY_RESULT(masterchain_gas_prices, parse_config_param(*config, MASTERCHAIN_GAS_PRICES, parse_config_gas_prices))
-  TRY_RESULT(basechain_gas_prices, parse_config_param(*config, BASECHAIN_GAS_PRICES, parse_config_gas_prices))
-  TRY_RESULT(masterchain_block_limits, parse_config_param(*config, MASTERCHAIN_BLOCK_LIMITS, parse_config_block_limits))
-  TRY_RESULT(basechain_block_limits, parse_config_param(*config, BASECHAIN_BLOCK_LIMITS, parse_config_block_limits))
+             parse_config_param(config, VALIDATORS_STAKE_LIMITS, parse_config_validators_stake_limits))
+  TRY_RESULT(storage_prices, parse_config_param(config, STORAGE_PRICES, parse_config_storage_prices))
+  TRY_RESULT(masterchain_gas_prices, parse_config_param(config, MASTERCHAIN_GAS_PRICES, parse_config_gas_prices))
+  TRY_RESULT(basechain_gas_prices, parse_config_param(config, BASECHAIN_GAS_PRICES, parse_config_gas_prices))
+  TRY_RESULT(masterchain_block_limits, parse_config_param(config, MASTERCHAIN_BLOCK_LIMITS, parse_config_block_limits))
+  TRY_RESULT(basechain_block_limits, parse_config_param(config, BASECHAIN_BLOCK_LIMITS, parse_config_block_limits))
   TRY_RESULT(masterchain_msg_forward_prices,
-             parse_config_param(*config, MASTERCHAIN_MSG_FORWARD_PRICES, parse_config_msg_forward_prices))
+             parse_config_param(config, MASTERCHAIN_MSG_FORWARD_PRICES, parse_config_msg_forward_prices))
   TRY_RESULT(basechain_msg_forward_prices,
-             parse_config_param(*config, BASECHAIN_MSG_FORWARD_PRICES, parse_config_msg_forward_prices))
-  TRY_RESULT(catchain_config, parse_config_param(*config, CATCHAIN_CONFIG, parse_config_catchain_config))
-  TRY_RESULT(consensus_config, parse_config_param(*config, CONSENSUS_CONFIG, parse_config_consensus_config))
+             parse_config_param(config, BASECHAIN_MSG_FORWARD_PRICES, parse_config_msg_forward_prices))
+  TRY_RESULT(catchain_config, parse_config_param(config, CATCHAIN_CONFIG, parse_config_catchain_config))
+  TRY_RESULT(consensus_config, parse_config_param(config, CONSENSUS_CONFIG, parse_config_consensus_config))
   TRY_RESULT(fundamental_smc_addresses,
-             parse_config_param(*config, FUNDAMENTAL_SMC_ADDR, parse_config_fundamental_smc_addresses))
+             parse_config_param(config, FUNDAMENTAL_SMC_ADDR, parse_config_fundamental_smc_addresses))
 
   // Validators
-  TRY_RESULT(prev_vset, parse_config_param(*config, PREV_VSET, parse_config_vset))
-  TRY_RESULT(prev_temp_vset, parse_config_param(*config, PREV_TEMP_VSET, parse_config_vset))
-  TRY_RESULT(curr_vset, parse_config_param(*config, CURR_VSET, parse_config_vset))
-  TRY_RESULT(curr_temp_vset, parse_config_param(*config, CURR_TEMP_VSET, parse_config_vset))
-  TRY_RESULT(next_vset, parse_config_param(*config, NEXT_VSET, parse_config_vset))
-  TRY_RESULT(next_temp_vset, parse_config_param(*config, NEXT_TEMP_VSET, parse_config_vset))
+  TRY_RESULT(prev_vset, parse_config_param(config, PREV_VSET, parse_config_vset))
+  TRY_RESULT(prev_temp_vset, parse_config_param(config, PREV_TEMP_VSET, parse_config_vset))
+  TRY_RESULT(curr_vset, parse_config_param(config, CURR_VSET, parse_config_vset))
+  TRY_RESULT(curr_temp_vset, parse_config_param(config, CURR_TEMP_VSET, parse_config_vset))
+  TRY_RESULT(next_vset, parse_config_param(config, NEXT_VSET, parse_config_vset))
+  TRY_RESULT(next_temp_vset, parse_config_param(config, NEXT_TEMP_VSET, parse_config_vset))
 
   // ugh
   return tonlib_api::make_object<tonlib_api::liteServer_configInfo>(
-      to_tonlib_api(blkid), std::move(config_addr), std::move(elector_addr), std::move(minter_addr),
-      std::move(fee_collector_addr), std::move(dns_root_addr), std::move(mint_price), std::move(to_mint),
-      std::move(global_version), std::move(mandatory_params), std::move(critical_params),
-      std::move(config_voting_setup), std::move(workchains), std::move(complaint_pricing), std::move(block_create_fees),
-      std::move(validators_timings), std::move(validators_quantity_limits), std::move(validators_stake_limits),
-      std::move(storage_prices), std::move(masterchain_gas_prices), std::move(basechain_gas_prices),
-      std::move(masterchain_block_limits), std::move(basechain_block_limits), std::move(masterchain_msg_forward_prices),
+      std::move(config_addr), std::move(elector_addr), std::move(minter_addr), std::move(fee_collector_addr),
+      std::move(dns_root_addr), std::move(mint_price), std::move(to_mint), std::move(global_version),
+      std::move(mandatory_params), std::move(critical_params), std::move(config_voting_setup), std::move(workchains),
+      std::move(complaint_pricing), std::move(block_create_fees), std::move(validators_timings),
+      std::move(validators_quantity_limits), std::move(validators_stake_limits), std::move(storage_prices),
+      std::move(masterchain_gas_prices), std::move(basechain_gas_prices), std::move(masterchain_block_limits),
+      std::move(basechain_block_limits), std::move(masterchain_msg_forward_prices),
       std::move(basechain_msg_forward_prices), std::move(catchain_config), std::move(consensus_config),
       std::move(fundamental_smc_addresses), std::move(prev_vset), std::move(prev_temp_vset), std::move(curr_vset),
       std::move(curr_temp_vset), std::move(next_vset), std::move(next_temp_vset));
