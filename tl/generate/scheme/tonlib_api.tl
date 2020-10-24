@@ -567,7 +567,7 @@ liteServer.configMintPrice mint_new_price:bytes mint_add_price:bytes = liteServe
 liteServer.configToMint currency_collection:vector<liteServer.CurrencyCollectionItem> = liteServer.ConfigToMint;
 liteServer.configParams ids:vector<int32> = liteServer.ConfigParams;
 liteServer.configProposalSetup min_tot_rounds:int32 max_tot_rounds:int32 min_wins:int32 max_losses:int32 min_store_sec:int32 max_store_sec:int32 bit_price:int32 cell_price:int32 = liteServer.ConfigProposalSetup;
-liteServer.configVotingSetup normals_params:liteServer.ConfigProposalSetup critical_params:liteServer.ConfigProposalSetup = liteServer.ConfigVotingSetup;
+liteServer.configVotingSetup normal_params:liteServer.ConfigProposalSetup critical_params:liteServer.ConfigProposalSetup = liteServer.ConfigVotingSetup;
 liteServer.configWorkchainFormat vm_version:int32 vm_mode:int64 = liteServer.ConfigWorkchainFormat;
 liteServer.configWorkchainInfo
     enabled_since:int32
