@@ -10,7 +10,7 @@
 
 namespace tonlib {
 
-class GetBlock : public td::actor::Actor {
+class GetBlock final : public td::actor::Actor {
  public:
   using ResultType = tonlib_api_ptr<tonlib_api::liteServer_block>;
 
@@ -23,7 +23,7 @@ class GetBlock : public td::actor::Actor {
   auto parse_result() -> td::Result<ResultType>;
   void finish_query();
 
-  void start_up() override;
+  void start_up() final;
   void start_up_with_block_id(const ton::BlockIdExt& block_id);
   void start_up_with_lookup();
   void proceed_with_block_id(const ton::BlockIdExt& block_id);
@@ -31,7 +31,7 @@ class GetBlock : public td::actor::Actor {
   void got_block_header(lite_api_ptr<lite_api::liteServer_blockHeader>&& result);
   void got_block_data(lite_api_ptr<lite_api::liteServer_blockData>&& result);
 
-  void hangup() override {
+  void hangup() final {
     check(TonlibError::Cancelled());
   }
 

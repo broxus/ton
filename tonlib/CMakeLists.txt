@@ -9,6 +9,7 @@ set(TONLIB_SOURCE
   tonlib/AccountState.cpp
   tonlib/Client.cpp
   tonlib/Config.cpp
+  tonlib/ElectorSmc.cpp
   tonlib/ExtClient.cpp
   tonlib/ExtClientLazy.cpp
   tonlib/ExtClientOutbound.cpp
@@ -28,6 +29,7 @@ set(TONLIB_SOURCE
   tonlib/AccountState.h
   tonlib/Client.h
   tonlib/Config.h
+  tonlib/ElectorSmc.h
   tonlib/ExtClient.h
   tonlib/ExtClientLazy.h
   tonlib/ExtClientOutbound.h

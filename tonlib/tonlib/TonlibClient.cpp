@@ -31,6 +31,7 @@
 #include "tonlib/LiteServerUtils.h"
 #include "tonlib/AccountState.h"
 #include "tonlib/GetBlock.h"
+#include "tonlib/ElectorSmc.h"
 
 #include "smc-envelope/GenericAccount.h"
 #include "smc-envelope/ManualDns.h"
@@ -2738,6 +2739,24 @@ td::Status TonlibClient::do_request(tonlib_api::liteServer_getConfigParams& requ
                        // TODO: parse individual params
                        return tonlib_api::make_object<tonlib_api::liteServer_configInfo>();
                      }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(tonlib_api::liteServer_getPastElections& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_pastElections>>&& promise) {
+  const auto& id = *request.id_;
+  TRY_RESULT(root_hash, to_bits256(id.root_hash_, "id.root_hash"))
+  TRY_RESULT(file_hash, to_bits256(id.file_hash_, "id.file_hash"))
+  const auto block_id = ton::BlockIdExt(id.workchain_, id.shard_, id.seqno_, root_hash, file_hash);
+  if (!block_id.is_valid_full()) {
+    return td::Status::Error("invalid block id");
+  }
+
+  TRY_RESULT(elector_addr, to_bits256(request.elector_addr_, "elector_addr"))
+
+  auto actor_id = actor_id_++;
+  actors_[actor_id] = td::actor::create_actor<ElectorSmc>(
+      "ElectorSmc", client_.get_client(), actor_shared(this, actor_id), block_id, elector_addr, std::move(promise));
   return td::Status::OK();
 }
 

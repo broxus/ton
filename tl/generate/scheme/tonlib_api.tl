@@ -697,6 +697,17 @@ liteServer.configInfo
     cur_temp_vset:liteServer.ValidatorSet
     next_vset:liteServer.ValidatorSet
     next_temp_vset:liteServer.ValidatorSet = liteServer.ConfigInfo;
+//@param vset_hash      int256
+//@param total_stake    int256
+liteServer.pastElectionsItem
+    election_id:int32
+    unfreeze_at:int32
+    stake_held_for:int32
+    vset_hash:bytes
+    total_stake:bytes
+    total_bonuses:bytes = liteServer.PastElectionsItem;
+liteServer.pastElections
+    elections:vector<liteServer.PastElectionsItem> = liteServer.PastElections;
 
 ---functions---
 
@@ -812,6 +823,8 @@ liteServer.listBlockTransactions id:ton.blockIdExt mode:int32 count:int32 after:
 liteServer.getBlockProof mode:int32 known_block:ton.blockIdExt target_block:ton.blockIdExt = liteServer.PartialBlockProof;
 liteServer.getConfigAll id:ton.blockIdExt = liteServer.ConfigInfo;
 liteServer.getConfigParams mode:int32 id:ton.blockIdExt param_list:(vector int32) = liteServer.ConfigInfo;
+//@param bytes  int256
+liteServer.getPastElections id:ton.BlockIdExt elector_addr:bytes = liteServer.PastElections;
 
 //@description Sets new log stream for internal logging of tonlib. This is an offline method. Can be called before authorization. Can be called synchronously @log_stream New log stream
 setLogStream log_stream:LogStream = Ok;
