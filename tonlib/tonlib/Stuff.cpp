@@ -178,7 +178,7 @@ auto compute_last_blocks(std::vector<tonlib_api_ptr<tonlib_api::ton_blockId>>&& 
         // If child found
         const auto child_it = it;
         // Insert current block right after it
-        leaf.insert(++it, Item{.block = block.get(), .child_count = 0});
+        leaf.insert(++it, Item{block.get(), 0});
         // Remove child from tree if all it's parents are found
         if (++child_it->child_count == 2) {
           leaf.erase(child_it);
@@ -199,7 +199,7 @@ auto compute_last_blocks(std::vector<tonlib_api_ptr<tonlib_api::ton_blockId>>&& 
       // Add workers task
       top_blocks.emplace_back(std::move(block));
       // Create leaf tree
-      leaves.emplace_back(std::list{Item{.block = block_ptr, .child_count = 0}});
+      leaves.emplace_back(std::list{Item{block_ptr, 0}});
     }
   }
 

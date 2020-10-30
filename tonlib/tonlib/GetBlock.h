@@ -8,6 +8,8 @@
 
 #include "td/actor/actor.h"
 
+#include <optional>
+
 namespace tonlib {
 
 class GetBlock final : public td::actor::Actor {
