@@ -47,7 +47,7 @@ unpackedAccountAddress workchain_id:int32 bounceable:Bool testnet:Bool addr:byte
 internal.transactionId lt:int64 hash:bytes = internal.TransactionId;
 
 ton.blockId workchain:int32 shard:int64 seqno:int32 = ton.BlockId;
-ton.blockIds ids:vector<ton.BlockId> = ton.BlockIds;
+ton.blockIds ids:vector<ton.blockId> = ton.BlockIds;
 //@param root_hash  int256
 //@param file_hash  int256
 ton.blockIdExt workchain:int32 shard:int64 seqno:int32 root_hash:bytes file_hash:bytes = ton.BlockIdExt;
@@ -265,11 +265,11 @@ liteServer.currentTime now:int32 = liteServer.CurrentTime;
 //@param state_root_hash    int256
 liteServer.masterchainInfo last:ton.BlockIdExt state_root_hash:bytes init:ton.zeroStateIdExt = liteServer.MasterchainInfo;
 liteServer.shardHash workchain:int32 id:int64 top_block_id:ton.BlockIdExt start_lt:int64 end_lt:int64 before_split:Bool before_merge:Bool want_split:Bool want_merge:Bool next_catchain_seqno:int32 next_validator_shard:int64 min_ref_mc_seqno:int32 gen_utime:int32 fees_collected:bytes funds_collected:bytes = liteServer.ShardHash;
-liteServer.allShardsInfo min_shard_gen_utime:int32 max_shard_gen_utime:int32 shards:vector<liteServer.ShardHash> = liteServer.AllShardsInfo;
+liteServer.allShardsInfo min_shard_gen_utime:int32 max_shard_gen_utime:int32 shards:vector<liteServer.shardHash> = liteServer.AllShardsInfo;
 liteServer.blockHeader id:ton.blockIdExt mode:int32 header_proof:bytes = liteServer.BlockHeader;
 //@param node_id_short  int256
 liteServer.signature node_id_short:bytes signature:bytes = liteServer.Signature;
-liteServer.signatureSet validator_set_hash:int32 catchain_seqno:int32 signatures:(vector liteServer.signature) = liteServer.SignatureSet;
+liteServer.signatureSet validator_set_hash:int32 catchain_seqno:int32 signatures:vector<liteServer.signature> = liteServer.SignatureSet;
 liteServer.blockLinkBack to_key_block:Bool from:ton.blockIdExt to:ton.blockIdExt dest_proof:bytes proof:bytes state_proof:bytes = liteServer.BlockLink;
 liteServer.blockLinkForward to_key_block:Bool from:ton.blockIdExt to:ton.blockIdExt dest_proof:bytes config_proof:bytes signatures:liteServer.SignatureSet = liteServer.BlockLink;
 liteServer.partialBlockProof complete:Bool from:ton.blockIdExt to:ton.blockIdExt steps:vector<liteServer.BlockLink> = liteServer.PartialBlockProof;
@@ -279,7 +279,7 @@ liteServer.partialBlockProof complete:Bool from:ton.blockIdExt to:ton.blockIdExt
 liteServer.transactionId mode:int32 account:bytes lt:int64 hash:bytes = liteServer.TransactionId;
 //@param account    int256
 liteServer.transactionId3 account:bytes lt:int64 = liteServer.TransactionId3;
-liteServer.blockTransactions id:ton.blockIdExt req_count:int32 incomplete:Bool ids:(vector liteServer.transactionId) proof:bytes = liteServer.BlockTransactions;
+liteServer.blockTransactions id:ton.blockIdExt req_count:int32 incomplete:Bool ids:vector<liteServer.transactionId> proof:bytes = liteServer.BlockTransactions;
 liteServer.messageAnycast depth:int32 rewrite_pfx:bytes = liteServer.MessageAnycast;
 liteServer.messageAddressExtNone = liteServer.MessageAddressExt;
 liteServer.messageAddressExtSome len:int32 external_address:bytes = liteServer.MessageAddressExt;
@@ -436,11 +436,11 @@ liteServer.transaction
     orig_status:int32
     end_status:int32
     in_msg:liteServer.Message
-    out_msgs:vector<liteServer.Message>
+    out_msgs:vector<liteServer.message>
     total_fees:bytes
     hash_update:liteServer.HashUpdate
     desc:liteServer.TransactionDescr = liteServer.Transaction;
-liteServer.transactionList ids:vector<ton.blockIdExt> transactions:vector<liteServer.Transaction> = liteServer.TransactionList;
+liteServer.transactionList ids:vector<ton.blockIdExt> transactions:vector<liteServer.transaction> = liteServer.TransactionList;
 liteServer.globalVersion version:int32 capabilities:int64 = liteServer.GlobalVersion;
 //@param root_hash  int256
 //@param file_hash  int256
@@ -501,9 +501,9 @@ liteServer.mcBlockExtra
 //@param rand_seed      int256
 //@param created_by     int256
 liteServer.blockExtra
-    in_msg_descr:vector<liteServer.InMsgDescrItem>
-    out_msg_descr:vector<liteServer.OutMsgDescrItem>
-    accounts:vector<liteServer.BlockExtraAccount>
+    in_msg_descr:vector<liteServer.inMsgDescrItem>
+    out_msg_descr:vector<liteServer.outMsgDescrItem>
+    accounts:vector<liteServer.blockExtraAccount>
     rand_seed:bytes
     created_by:bytes
     custom:liteServer.McBlockExtra = liteServer.BlockExtra;
@@ -514,9 +514,9 @@ liteServer.block
     info:liteServer.BlockInfo
     value_flow:liteServer.ValueFlow
     block_extra:liteServer.BlockExtra
-    previous:vector<ton.BlockIdExt>
-    next:vector<ton.BlockId>
-    transactions:vector<liteServer.Transaction> = liteServer.Block;
+    previous:vector<ton.blockIdExt>
+    next:vector<ton.blockId>
+    transactions:vector<liteServer.transaction> = liteServer.Block;
 liteServer.validator pubkey:bytes adnl_addr:bytes weight:int64 cum_weight:int64 = liteServer.Validator;
 liteServer.validatorSet
     utime_since:int32
@@ -524,7 +524,7 @@ liteServer.validatorSet
     total:int32
     main:int32
     total_weight:int64
-    list:vector<liteServer.Validator> = liteServer.ValidatorSet;
+    list:vector<liteServer.validator> = liteServer.ValidatorSet;
 //@param due_payment    maybe int256 (empty on null)
 liteServer.storageInfo
     storage_used:liteServer.StorageUsed
@@ -543,7 +543,7 @@ liteServer.accountStateActive
     code:bytes
     has_data:Bool
     data:bytes
-    library:vector<liteServer.SimpleLib> = liteServer.AccountState;
+    library:vector<liteServer.simpleLib> = liteServer.AccountState;
 //@param state_hash         int256
 liteServer.accountStateFrozen state_hash:bytes = liteServer.AccountState;
 //@param addr               int256
@@ -561,10 +561,10 @@ liteServer.blockState
     total_balance:liteServer.CurrencyCollection
     total_validator_fees:liteServer.CurrencyCollection
     global_balance:liteServer.CurrencyCollection
-    accounts:vector<liteServer.Account> = liteServer.BlockState;
+    accounts:vector<liteServer.account> = liteServer.BlockState;
 
 liteServer.configMintPrice mint_new_price:bytes mint_add_price:bytes = liteServer.ConfigMintPrice;
-liteServer.configToMint currency_collection:vector<liteServer.CurrencyCollectionItem> = liteServer.ConfigToMint;
+liteServer.configToMint currency_collection:vector<liteServer.currencyCollectionItem> = liteServer.ConfigToMint;
 liteServer.configParams ids:vector<int32> = liteServer.ConfigParams;
 liteServer.configProposalSetup min_tot_rounds:int32 max_tot_rounds:int32 min_wins:int32 max_losses:int32 min_store_sec:int32 max_store_sec:int32 bit_price:int32 cell_price:int32 = liteServer.ConfigProposalSetup;
 liteServer.configVotingSetup normal_params:liteServer.ConfigProposalSetup critical_params:liteServer.ConfigProposalSetup = liteServer.ConfigVotingSetup;
@@ -582,7 +582,7 @@ liteServer.configWorkchainInfo
     zerostate_file_hash:bytes
     version:int32
     format:liteServer.ConfigWorkchainFormat = liteServer.ConfigWorkchainInfo;
-liteServer.configWorkchains workchains:vector<liteServer.ConfigWorkchainInfo> = liteServer.ConfigWorkchains;
+liteServer.configWorkchains workchains:vector<liteServer.configWorkchainInfo> = liteServer.ConfigWorkchains;
 //@param deposit            int256
 //@param bit_price          int256
 //@param cell_price         int256
@@ -597,7 +597,7 @@ liteServer.configValidatorsQuantityLimits max_validators:int32 max_main_validato
 //@param min_total_stake    int256
 liteServer.configValidatorsStakeLimits min_stake:bytes max_stake:bytes min_total_stake:bytes max_stake_factor:int32 = liteServer.ConfigValidatorsStakeLimits;
 liteServer.configStoragePrice utime_since:int32 bit_price_ps:int64 cell_price_ps:int64 mc_bit_price_ps:int64 mc_cell_price_ps:int64 = liteServer.ConfigStoragePrice;
-liteServer.configStoragePrices prices:vector<liteServer.ConfigStoragePrice> = liteServer.ConfigStoragePrices;
+liteServer.configStoragePrices prices:vector<liteServer.configStoragePrice> = liteServer.ConfigStoragePrices;
 liteServer.configGasPrices
     gas_price:int64
     gas_limit:int64
@@ -662,7 +662,7 @@ liteServer.configConsensusConfigNew
     max_block_bytes:int32
     max_collated_bytes:int32 = liteServer.ConfigConsensusConfig;
 liteServer.configFundamentalSmcAddresses
-    addresses:vector<liteServer.AccountId> = liteServer.ConfigFundamentalSmcAddresses;
+    addresses:vector<liteServer.accountId> = liteServer.ConfigFundamentalSmcAddresses;
 liteServer.configInfo
     config_addr:liteServer.AccountId
     elector_addr:liteServer.AccountId
@@ -707,7 +707,7 @@ liteServer.pastElectionsItem
     total_stake:bytes
     total_bonuses:bytes = liteServer.PastElectionsItem;
 liteServer.pastElections
-    elections:vector<liteServer.PastElectionsItem> = liteServer.PastElections;
+    elections:vector<liteServer.pastElectionsItem> = liteServer.PastElections;
 
 ---functions---
 
@@ -761,7 +761,7 @@ guessAccount public_key:string rwallet_init_public_key:string = AccountRevisionL
 getAccountState account_address:accountAddress = FullAccountState;
 createQuery private_key:InputKey address:accountAddress timeout:int32 action:Action initial_account_state:InitialAccountState = query.Info;
 
-computeLastBlockIds top_blocks:vector<ton.BlockId> = ton.BlockIds;
+computeLastBlockIds top_blocks:vector<ton.blockId> = ton.BlockIds;
 
 findTransaction account_address:accountAddress message_id:bytes after:int32 = TransactionSearchResult;
 
@@ -822,7 +822,7 @@ liteServer.listBlockTransactions id:ton.blockIdExt mode:int32 count:int32 after:
 //@param target_block   ton.blockIdExt if mode & 1
 liteServer.getBlockProof mode:int32 known_block:ton.blockIdExt target_block:ton.blockIdExt = liteServer.PartialBlockProof;
 liteServer.getConfigAll id:ton.blockIdExt = liteServer.ConfigInfo;
-liteServer.getConfigParams mode:int32 id:ton.blockIdExt param_list:(vector int32) = liteServer.ConfigInfo;
+liteServer.getConfigParams mode:int32 id:ton.blockIdExt param_list:vector<int32> = liteServer.ConfigInfo;
 //@param bytes  int256
 liteServer.getPastElections id:ton.BlockIdExt elector_addr:bytes = liteServer.PastElections;
 
