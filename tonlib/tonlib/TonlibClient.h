@@ -63,6 +63,7 @@ class TonlibClient : public td::actor::Actor {
 
   explicit TonlibClient(td::unique_ptr<TonlibCallback> callback);
   void request(td::uint64 id, object_ptr<tonlib_api::Function> function);
+  void request_async(object_ptr<tonlib_api::Function>&& function, td::Promise<tonlib_api::object_ptr<tonlib_api::Object>>&& promise);
   void close();
   static object_ptr<tonlib_api::Object> static_request(object_ptr<tonlib_api::Function> function);
 

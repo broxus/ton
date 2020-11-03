@@ -934,6 +934,30 @@ void TonlibClient::request(td::uint64 id, tonlib_api_ptr<tonlib_api::Function> f
   make_any_request(*function, {}, std::move(promise));
 }
 
+void TonlibClient::request_async(object_ptr<tonlib_api::Function>&& function,
+                           td::Promise<tonlib_api::object_ptr<tonlib_api::Object>>&& promise) {
+  VLOG(tonlib_query) << "Tonlib got query " << to_string(function);
+  if (function == nullptr) {
+    LOG(ERROR) << "Receive empty static request";
+    return promise.set_error(td::Status::Error(400, "Request is empty"));
+  }
+
+  if (is_static_request(function->get_id())) {
+    return promise.set_result(static_request(std::move(function)));
+  }
+
+  if (state_ == State::Closed) {
+    return promise.set_error(td::Status::Error(400, "tonlib is closed"));
+  }
+  if (state_ == State::Uninited) {
+    if (!is_uninited_request(function->get_id())) {
+      return promise.set_error(td::Status::Error(400, "library is not inited"));
+    }
+  }
+
+  make_any_request(*function, {}, std::move(promise));
+}
+
 void TonlibClient::close() {
   stop();
 }
