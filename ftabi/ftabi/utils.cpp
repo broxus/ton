@@ -256,7 +256,7 @@ auto ValueTuple::make_copy() const -> Value* {
 
 auto ParamTuple::to_tonlib_api() const -> ApiParam {
   std::vector<ApiParam> result{};
-  result.resize(items.size());
+  result.reserve(items.size());
   for (const auto& item : items) {
     result.emplace_back(item->to_tonlib_api());
   }

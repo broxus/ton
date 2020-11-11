@@ -93,7 +93,7 @@ auto param_from_string(const std::string& /*name*/, const std::string& type,
   bool is_array = false;
   std::string_view main_type{type.data(), type.size()};
   if (const auto size = type.size(); size > 2) {
-    if (type.compare(size - 2, 2, "[]")) {
+    if (type.compare(size - 2, 2, "[]") == 0) {
       is_array = true;
       main_type = std::string_view{type.data(), size - 2};
     }
@@ -133,7 +133,7 @@ auto param_from_string(const std::string& /*name*/, const std::string& type,
     result = ParamRef{ParamBool{}};
   }  // tuple
   else if (main_type == "tuple") {
-    if (components->empty() || components.value().empty()) {
+    if (!components.has_value() || components.value().empty()) {
       return td::Status::Error(400, tuple_components_not_found);
     }
     result = ParamRef{ParamTuple{std::move(components.value())}};
@@ -192,7 +192,7 @@ auto abi_named_param_from_json(td::JsonValue& object) -> td::Result<std::pair<st
         return td::Status::Error(400, "duplicate param type found");
       }
 
-      TRY_RESULT_ASSIGN(param_name, string_from_json(key, value))
+      TRY_RESULT_ASSIGN(param_type, string_from_json(key, value))
     } else if (key == "components") {
       if (components.has_value()) {
         return td::Status::Error(400, "duplicate param components found");
@@ -201,6 +201,7 @@ auto abi_named_param_from_json(td::JsonValue& object) -> td::Result<std::pair<st
       TRY_STATUS(check_value_type(value, td::JsonValue::Type::Array))
       auto& components_array = value.get_array();
 
+      components.emplace();
       components->reserve(components_array.size());
       for (auto& components_item : components_array) {
         TRY_RESULT(component, abi_param_from_json(components_item))
@@ -227,6 +228,7 @@ auto abi_params_from_json(td::JsonValue& object) -> td::Result<std::vector<Param
   auto& array = object.get_array();
 
   std::vector<ParamRef> params{};
+  params.reserve(array.size());
   for (auto& item : array) {
     TRY_RESULT(param, abi_param_from_json(item))
     params.emplace_back(std::move(param));
