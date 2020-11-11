@@ -29,14 +29,14 @@ auto parse_header_values(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_name
     -> td::Result<std::unordered_map<std::string, ftabi::ValueRef>>;
 
 auto parse_function(const tonlib_api::ftabi_function& value) -> td::Result<ftabi::Function>;
-auto parse_function_call(const tonlib_api_ptr<tonlib_api::ftabi_FunctionCall>& value)
+auto parse_function_call(const ftabi::Function& function, tonlib_api_ptr<tonlib_api::ftabi_FunctionCall>& value)
     -> td::Result<ftabi::FunctionCall>;
 
 auto compute_function_signature(const tonlib_api::ftabi_computeFunctionSignature& request)
     -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;
 auto create_function(tonlib_api::ftabi_createFunction& request) -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;
 auto get_function_from_abi(tonlib_api::ftabi_getFunction& request) -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;
-auto create_message_body(const tonlib_api::ftabi_createMessageBody& request)
+auto create_message_body(tonlib_api::ftabi_createMessageBody& request)
     -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;
 
 auto decode_output(const tonlib_api::ftabi_decodeOutput& request) -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;

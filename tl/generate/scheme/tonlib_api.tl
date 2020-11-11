@@ -156,6 +156,7 @@ ftabi.messageBody data:bytes = ftabi.MessageBody;
 
 ftabi.function name:string header_params:vector<ftabi.NamedParam> input_params:vector<ftabi.Param> output_params:vector<ftabi.Param> input_id:int32 output_id:int32 = ftabi.Function;
 
+ftabi.functionCallJson value:string = ftabi.FunctionCall;
 ftabi.functionCallExternal header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
 ftabi.functionCallExternalSigned header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
 ftabi.functionCallInternal header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> = ftabi.FunctionCall;

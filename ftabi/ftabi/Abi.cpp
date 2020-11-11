@@ -617,7 +617,7 @@ auto function_call_inputs_from_json(const std::vector<ParamRef>& params, td::Jso
   return values;
 }
 
-auto function_call_from_json(Function& function, td::JsonValue& object) -> td::Result<FunctionCall> {
+auto function_call_from_json(const Function& function, td::JsonValue& object) -> td::Result<FunctionCall> {
   TRY_STATUS(check_value_type(object, td::JsonValue::Type::Object))
   auto& root = object.get_object();
 

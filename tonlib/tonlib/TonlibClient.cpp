@@ -2953,7 +2953,7 @@ td::Status TonlibClient::do_request(tonlib_api::ftabi_runLocal& request,
 
   TRY_RESULT(account_address, get_account_address(request.address_->account_address_));
   TRY_RESULT(function, parse_function(*request.function_))
-  TRY_RESULT(function_call, parse_function_call(request.call_))
+  TRY_RESULT(function_call, parse_function_call(function, request.call_))
 
   using ReturnType = tonlib_api_ptr<tonlib_api::ftabi_decodedOutput>;
 
@@ -3453,7 +3453,7 @@ TonlibClient::object_ptr<tonlib_api::Object> TonlibClient::do_static_request(ton
   return result.move_as_ok();
 }
 
-tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_createMessageBody& request) {
+tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(tonlib_api::ftabi_createMessageBody& request) {
   if (request.function_ == nullptr) {
     return status_to_tonlib_api(TonlibError::EmptyField("function"));
   }
