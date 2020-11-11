@@ -74,7 +74,7 @@ auto get_dictionary(SliceData& cursor) -> td::Result<SliceData> {
 }
 
 auto read_array_from_map(const ParamRef& param, SliceData&& cursor, uint32_t size)
--> td::Result<std::pair<SliceData, std::vector<ValueRef>>> {
+    -> td::Result<std::pair<SliceData, std::vector<ValueRef>>> {
   TRY_RESULT_ASSIGN(cursor, details::find_next_bits(std::move(cursor), 1))
 
   TRY_RESULT(root, details::get_dictionary(cursor))
@@ -135,12 +135,11 @@ auto ValueInt::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceDat
 
 auto ValueInt::to_tonlib_api() const -> ApiValue {
   if (value.signed_fits_bits(64)) {
-    return tonlib_api::make_object<tonlib_api::ftabi_valueInt>(std::move(param_->to_tonlib_api()), value.to_long());
+    return tonlib_api::make_object<tonlib_api::ftabi_valueInt>(param_->to_tonlib_api(), value.to_long());
   } else {
     td::BufferSlice bytes(32);
     CHECK(value.export_bytes(bytes.as_slice().ubegin(), bytes.size(), value.sgn()))
-    return tonlib_api::make_object<tonlib_api::ftabi_valueBigInt>(std::move(param_->to_tonlib_api()),
-                                                                  bytes.as_slice().str());
+    return tonlib_api::make_object<tonlib_api::ftabi_valueBigInt>(param_->to_tonlib_api(), bytes.as_slice().str());
   }
 }
 
@@ -159,11 +158,11 @@ auto ValueInt::try_is_signed() const -> td::Result<bool> {
 }
 
 auto ParamUint::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramUint>(name_, static_cast<int32_t>(size));
+  return tonlib_api::make_object<tonlib_api::ftabi_paramUint>(static_cast<int32_t>(size));
 }
 
 auto ParamInt::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramInt>(name_, static_cast<int32_t>(size));
+  return tonlib_api::make_object<tonlib_api::ftabi_paramInt>(static_cast<int32_t>(size));
 }
 
 // value bool
@@ -194,7 +193,7 @@ auto ValueBool::to_string() const -> std::string {
 }
 
 auto ValueBool::to_tonlib_api() const -> ApiValue {
-  return tonlib_api::make_object<tonlib_api::ftabi_valueBool>(std::move(param_->to_tonlib_api()), value);
+  return tonlib_api::make_object<tonlib_api::ftabi_valueBool>(param_->to_tonlib_api(), value);
 }
 
 auto ValueBool::make_copy() const -> Value* {
@@ -202,7 +201,7 @@ auto ValueBool::make_copy() const -> Value* {
 }
 
 auto ParamBool::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramBool>(name_);
+  return tonlib_api::make_object<tonlib_api::ftabi_paramBool>();
 }
 
 // value tuple
@@ -246,10 +245,9 @@ auto ValueTuple::to_tonlib_api() const -> ApiValue {
   std::vector<ApiValue> api_values{};
   api_values.reserve(values.size());
   for (const auto& item : values) {
-    api_values.emplace_back(std::move(item->to_tonlib_api()));
+    api_values.emplace_back(item->to_tonlib_api());
   }
-  return tonlib_api::make_object<tonlib_api::ftabi_valueTuple>(std::move(param_->to_tonlib_api()),
-                                                               std::move(api_values));
+  return tonlib_api::make_object<tonlib_api::ftabi_valueTuple>(param_->to_tonlib_api(), std::move(api_values));
 }
 
 auto ValueTuple::make_copy() const -> Value* {
@@ -260,9 +258,9 @@ auto ParamTuple::to_tonlib_api() const -> ApiParam {
   std::vector<ApiParam> result{};
   result.resize(items.size());
   for (const auto& item : items) {
-    result.emplace_back(std::move(item->to_tonlib_api()));
+    result.emplace_back(item->to_tonlib_api());
   }
-  return tonlib_api::make_object<tonlib_api::ftabi_paramTuple>(name_, std::move(result));
+  return tonlib_api::make_object<tonlib_api::ftabi_paramTuple>(std::move(result));
 }
 
 // value array
@@ -309,7 +307,7 @@ auto ValueArray::make_copy() const -> Value* {
 }
 
 auto ParamArray::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramArray>(name_, param->to_tonlib_api());
+  return tonlib_api::make_object<tonlib_api::ftabi_paramArray>(param->to_tonlib_api());
 }
 
 // value fixed array
@@ -352,7 +350,7 @@ auto ValueFixedArray::make_copy() const -> Value* {
 }
 
 auto ParamFixedArray::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramFixedArray>(name_, param->to_tonlib_api(), size);
+  return tonlib_api::make_object<tonlib_api::ftabi_paramFixedArray>(param->to_tonlib_api(), size);
 }
 
 // value cell
@@ -410,11 +408,12 @@ auto ValueCell::make_copy() const -> Value* {
 }
 
 auto ParamCell::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramCell>(name_);
+  return tonlib_api::make_object<tonlib_api::ftabi_paramCell>();
 }
 
 // value map
 
+/*
 ValueMap::ValueMap(ParamRef param, std::vector<std::pair<ValueRef, ValueRef>> values)
     : Value{std::move(param)}, values{std::move(values)} {
 }
@@ -524,6 +523,8 @@ auto ParamMap::to_tonlib_api() const -> ApiParam {
   return tonlib_api::make_object<tonlib_api::ftabi_paramMap>(name_, key->to_tonlib_api(), value->to_tonlib_api());
 }
 
+*/
+
 // value address
 
 ValueAddress::ValueAddress(ParamRef param, const block::StdAddress& value) : Value{std::move(param)}, value{value} {
@@ -575,7 +576,7 @@ auto ValueAddress::to_string() const -> std::string {
 
 auto ValueAddress::to_tonlib_api() const -> ApiValue {
   return tonlib_api::make_object<tonlib_api::ftabi_valueAddress>(
-      std::move(param_->to_tonlib_api()), tonlib_api::make_object<tonlib_api::accountAddress>(value.rserialize()));
+      param_->to_tonlib_api(), tonlib_api::make_object<tonlib_api::accountAddress>(value.rserialize()));
 }
 
 auto ValueAddress::make_copy() const -> Value* {
@@ -583,7 +584,7 @@ auto ValueAddress::make_copy() const -> Value* {
 }
 
 auto ParamAddress::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramAddress>(name_);
+  return tonlib_api::make_object<tonlib_api::ftabi_paramAddress>();
 }
 
 // value bytes
@@ -680,7 +681,7 @@ auto ValueBytes::to_tonlib_api() const -> ApiValue {
                 "incompatible api bytes representation");
   std::memcpy(&result[0], value.data(), value.size());
 
-  return tonlib_api::make_object<tonlib_api::ftabi_valueBytes>(std::move(param_->to_tonlib_api()), std::move(result));
+  return tonlib_api::make_object<tonlib_api::ftabi_valueBytes>(param_->to_tonlib_api(), std::move(result));
 }
 
 auto ValueBytes::make_copy() const -> Value* {
@@ -688,11 +689,11 @@ auto ValueBytes::make_copy() const -> Value* {
 }
 
 auto ParamBytes::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramBytes>(name_);
+  return tonlib_api::make_object<tonlib_api::ftabi_paramBytes>();
 }
 
 auto ParamFixedBytes::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramFixedBytes>(name_, static_cast<int32_t>(size));
+  return tonlib_api::make_object<tonlib_api::ftabi_paramFixedBytes>(static_cast<int32_t>(size));
 }
 
 // value gram
@@ -725,7 +726,7 @@ auto ValueGram::to_string() const -> std::string {
 }
 
 auto ValueGram::to_tonlib_api() const -> ApiValue {
-  return tonlib_api::make_object<tonlib_api::ftabi_valueGram>(std::move(param_->to_tonlib_api()), value->to_long());
+  return tonlib_api::make_object<tonlib_api::ftabi_valueGram>(param_->to_tonlib_api(), value->to_long());
 }
 
 auto ValueGram::make_copy() const -> Value* {
@@ -733,7 +734,7 @@ auto ValueGram::make_copy() const -> Value* {
 }
 
 auto ParamGram::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramGram>(name_);
+  return tonlib_api::make_object<tonlib_api::ftabi_paramGram>();
 }
 
 // value time
@@ -767,8 +768,7 @@ auto ValueTime::to_string() const -> std::string {
 }
 
 auto ValueTime::to_tonlib_api() const -> ApiValue {
-  return tonlib_api::make_object<tonlib_api::ftabi_valueTime>(std::move(param_->to_tonlib_api()),
-                                                              static_cast<int64_t>(value));
+  return tonlib_api::make_object<tonlib_api::ftabi_valueTime>(param_->to_tonlib_api(), static_cast<int64_t>(value));
 }
 
 auto ValueTime::make_copy() const -> Value* {
@@ -776,7 +776,7 @@ auto ValueTime::make_copy() const -> Value* {
 }
 
 auto ParamTime::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramTime>(name_);
+  return tonlib_api::make_object<tonlib_api::ftabi_paramTime>();
 }
 
 // value expire
@@ -810,8 +810,7 @@ auto ValueExpire::to_string() const -> std::string {
 }
 
 auto ValueExpire::to_tonlib_api() const -> ApiValue {
-  return tonlib_api::make_object<tonlib_api::ftabi_valueExpire>(std::move(param_->to_tonlib_api()),
-                                                                static_cast<int32_t>(value));
+  return tonlib_api::make_object<tonlib_api::ftabi_valueExpire>(param_->to_tonlib_api(), static_cast<int32_t>(value));
 }
 
 auto ValueExpire::make_copy() const -> Value* {
@@ -819,7 +818,7 @@ auto ValueExpire::make_copy() const -> Value* {
 }
 
 auto ParamExpire::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramExpire>(name_);
+  return tonlib_api::make_object<tonlib_api::ftabi_paramExpire>();
 }
 
 // value public key
@@ -871,10 +870,9 @@ auto ValuePublicKey::to_string() const -> std::string {
 auto ValuePublicKey::to_tonlib_api() const -> ApiValue {
   td::SecureString result{};
   if (value) {
-    result = std::move(value.value().copy());
+    result = value.value().copy();
   }
-  return tonlib_api::make_object<tonlib_api::ftabi_valuePublicKey>(std::move(param_->to_tonlib_api()),
-                                                                   std::move(result));
+  return tonlib_api::make_object<tonlib_api::ftabi_valuePublicKey>(param_->to_tonlib_api(), std::move(result));
 }
 
 auto ValuePublicKey::make_copy() const -> Value* {
@@ -886,7 +884,7 @@ auto ValuePublicKey::make_copy() const -> Value* {
 }
 
 auto ParamPublicKey::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramPublicKey>(name_);
+  return tonlib_api::make_object<tonlib_api::ftabi_paramPublicKey>();
 }
 
 // functions
@@ -983,7 +981,7 @@ auto compute_function_id(const std::string& signature) -> uint32_t {
 }
 
 auto compute_function_signature(const std::string& name, const InputParams& inputs, const OutputParams& outputs)
--> std::string {
+    -> std::string {
   // inputs
   std::string inputs_signature{};
   if (inputs.empty()) {
@@ -1012,8 +1010,8 @@ auto compute_function_signature(const std::string& name, const InputParams& inpu
   return name + inputs_signature + ")" + outputs_signature + ")v" + std::to_string(ABI_VERSION);
 }
 
-auto decode_header(SliceData&& data, const std::vector<ParamRef>& header_params, bool internal)
--> td::Result<std::tuple<SliceData, uint32_t, std::vector<ValueRef>>> {
+auto decode_header(SliceData&& data, const HeaderParams& header_params, bool internal)
+    -> td::Result<std::tuple<SliceData, uint32_t, std::vector<ValueRef>>> {
   std::vector<ValueRef> results{};
   if (!internal) {
     bool has_signature = false;
@@ -1023,8 +1021,8 @@ auto decode_header(SliceData&& data, const std::vector<ParamRef>& header_params,
     if (has_signature && !data.write().advance(SIGNATURE_LENGTH * 8)) {
       return td::Status::Error("failed to fetch signature");
     }
-    for (const auto& param : header_params) {
-      TRY_RESULT(default_value, param->default_value())
+    for (const auto& item : header_params) {
+      TRY_RESULT(default_value, item.second->default_value())
       TRY_RESULT_ASSIGN(data, default_value.write().deserialize(std::move(data), false))
       results.emplace_back(std::move(default_value));
     }
@@ -1037,8 +1035,7 @@ auto decode_header(SliceData&& data, const std::vector<ParamRef>& header_params,
   return std::make_tuple(std::move(data), static_cast<uint32_t>(function_id), results);
 }
 
-auto decode_input_id(SliceData&& data, const std::vector<ParamRef>& header_params, bool internal)
--> td::Result<uint32_t> {
+auto decode_input_id(SliceData&& data, const HeaderParams& header_params, bool internal) -> td::Result<uint32_t> {
   TRY_RESULT(decoded_header, decode_header(std::move(data), header_params, internal))
   return std::get<1>(decoded_header);
 }
@@ -1141,7 +1138,7 @@ auto Function::encode_input(const HeaderValues& header, const InputValues& input
 }
 
 auto Function::decode_input(SliceData&& data, bool internal) const
--> td::Result<std::pair<std::vector<ValueRef>, std::vector<ValueRef>>> {
+    -> td::Result<std::pair<std::vector<ValueRef>, std::vector<ValueRef>>> {
   TRY_RESULT(decoded_header, decode_header(std::move(data), header_, internal))
   auto [cursor, input_id, header_values] = std::move(decoded_header);
 
@@ -1169,8 +1166,11 @@ auto Function::decode_output(SliceData&& data) const -> td::Result<std::vector<V
 auto Function::encode_header(const HeaderValues& header, bool internal) const -> td::Result<std::vector<BuilderData>> {
   std::vector<BuilderData> result{};
   if (!internal) {
-    for (const auto& param : header_) {
-      auto it = header.find(param->name());
+    for (const auto& item : header_) {
+      const auto& name = item.first;
+      const auto& param = item.second;
+
+      auto it = header.find(name);
       if (it == header.end()) {
         TRY_RESULT(default_value, param->default_value());
         TRY_RESULT(builder_data, default_value->serialize());
@@ -1331,7 +1331,7 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
 
 auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
                     td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
--> td::Result<std::vector<ValueRef>> {
+    -> td::Result<std::vector<ValueRef>> {
   try {
     if (info.root.is_null()) {
       LOG(ERROR) << "account state of " << address.workchain << ":" << address.addr.to_hex() << " is empty";
@@ -1392,7 +1392,7 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
     vm::VmState vm{state_init.code->prefetch_ref(),
                    std::move(stack),
                    vm::GasLimits{1'000'000'000},
-        /* flags */ 1,
+                   /* flags */ 1,
                    state_init.data->prefetch_ref(),
                    vm::VmLog{}};
 

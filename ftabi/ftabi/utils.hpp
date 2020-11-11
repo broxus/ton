@@ -51,10 +51,7 @@ struct Value;
 using ValueRef = td::Ref<Value>;
 
 struct Param : public td::CntObject {
-  explicit Param(std::string name, ParamType param_type) : name_{std::move(name)}, param_type_{param_type} {
-  }
-  auto name() const -> const std::string& {
-    return name_;
+  explicit Param(ParamType param_type) : param_type_{param_type} {
   }
   auto type() const -> ParamType {
     return param_type_;
@@ -71,7 +68,6 @@ struct Param : public td::CntObject {
   auto make_copy() const -> Param* override = 0;
 
  protected:
-  std::string name_;
   ParamType param_type_;
 };
 
@@ -134,7 +130,7 @@ struct ValueInt : Value {
 struct ParamUint : Param {
   using ValueType = ValueInt;
 
-  explicit ParamUint(const std::string& name, uint32_t size) : Param{name, ParamType::Uint}, size{size} {
+  explicit ParamUint(uint32_t size) : Param{ParamType::Uint}, size{size} {
   }
   auto type_signature() const -> std::string final {
     return "uint" + std::to_string(size);
@@ -147,7 +143,7 @@ struct ParamUint : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamUint{name_, size};
+    return new ParamUint{size};
   }
 
   uint32_t size;
@@ -156,7 +152,7 @@ struct ParamUint : Param {
 struct ParamInt : Param {
   using ValueType = ValueInt;
 
-  explicit ParamInt(const std::string& name, uint32_t size) : Param{name, ParamType::Int}, size{size} {
+  explicit ParamInt(uint32_t size) : Param{ParamType::Int}, size{size} {
   }
   auto type_signature() const -> std::string final {
     return "int" + std::to_string(size);
@@ -169,7 +165,7 @@ struct ParamInt : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamInt{name_, size};
+    return new ParamInt{size};
   }
 
   uint32_t size;
@@ -189,7 +185,7 @@ struct ValueBool : Value {
 struct ParamBool : Param {
   using ValueType = ValueBool;
 
-  explicit ParamBool(const std::string& name) : Param{name, ParamType::Bool} {
+  explicit ParamBool() : Param{ParamType::Bool} {
   }
   auto type_signature() const -> std::string final {
     return "bool";
@@ -199,7 +195,7 @@ struct ParamBool : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamBool{name_};
+    return new ParamBool{};
   }
 };
 
@@ -217,12 +213,11 @@ struct ValueTuple : Value {
 struct ParamTuple : Param {
   using ValueType = ValueTuple;
 
-  explicit ParamTuple(const std::string& name, std::vector<ParamRef> items)
-      : Param{name, ParamType::Tuple}, items{std::move(items)} {
+  explicit ParamTuple(std::vector<ParamRef> items) : Param{ParamType::Tuple}, items{std::move(items)} {
   }
   template <typename Arg, typename... Args>
-  explicit ParamTuple(const std::string& name, Arg&& arg, Args&&... args)
-      : Param{name, ParamType::Tuple}, items{ParamRef{std::move(arg)}, ParamRef{std::move(args)}...} {
+  explicit ParamTuple(Arg&& arg, Args&&... args)
+      : Param{ParamType::Tuple}, items{ParamRef{std::move(arg)}, ParamRef{std::move(args)}...} {
     static_assert(std::is_base_of_v<Param, Arg> && (std::is_base_of_v<Param, Args> && ...));
   }
   auto type_signature() const -> std::string final {
@@ -250,7 +245,7 @@ struct ParamTuple : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamTuple{name_, items};
+    return new ParamTuple{items};
   }
 
   std::vector<ParamRef> items;
@@ -268,11 +263,10 @@ struct ValueArray : Value {
 };
 
 struct ParamArray : Param {
-  explicit ParamArray(const std::string& name, ParamRef param)
-      : Param{name, ParamType::Array}, param{std::move(param)} {
+  explicit ParamArray(ParamRef param) : Param{ParamType::Array}, param{std::move(param)} {
   }
   template <typename T>
-  explicit ParamArray(const std::string& name, T&& param) : Param{name, ParamType::Array}, param{std::move(param)} {
+  explicit ParamArray(T&& param) : Param{ParamType::Array}, param{std::move(param)} {
   }
   auto type_signature() const -> std::string final {
     return param->type_signature() + "[]";
@@ -282,7 +276,7 @@ struct ParamArray : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamArray{name_, param};
+    return new ParamArray{param};
   }
 
   ParamRef param;
@@ -300,12 +294,12 @@ struct ValueFixedArray : Value {
 };
 
 struct ParamFixedArray : Param {
-  explicit ParamFixedArray(const std::string& name, ParamRef param, uint32_t size)
-      : Param{name, ParamType::FixedArray}, param{std::move(param)}, size{size} {
+  explicit ParamFixedArray(ParamRef param, uint32_t size)
+      : Param{ParamType::FixedArray}, param{std::move(param)}, size{size} {
   }
   template <typename T>
-  explicit ParamFixedArray(const std::string& name, T&& param, uint32_t size)
-      : Param{name, ParamType::FixedArray}, param{std::forward(param)}, size{size} {
+  explicit ParamFixedArray(T&& param, uint32_t size)
+      : Param{ParamType::FixedArray}, param{std::forward(param)}, size{size} {
   }
   auto type_signature() const -> std::string final {
     return param->type_signature() + "[" + std::to_string(size) + "]";
@@ -315,7 +309,7 @@ struct ParamFixedArray : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamFixedArray{name_, param, size};
+    return new ParamFixedArray{param, size};
   }
 
   ParamRef param;
@@ -336,7 +330,7 @@ struct ValueCell : Value {
 struct ParamCell : Param {
   using ValueType = ValueCell;
 
-  explicit ParamCell(const std::string& name) : Param{name, ParamType::Cell} {
+  explicit ParamCell() : Param{ParamType::Cell} {
   }
   auto type_signature() const -> std::string final {
     return "cell";
@@ -346,10 +340,11 @@ struct ParamCell : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamCell{name_};
+    return new ParamCell{};
   }
 };
 
+/*
 struct ValueMap : Value {
   explicit ValueMap(ParamRef param, std::vector<std::pair<ValueRef, ValueRef>> values);
   auto serialize() const -> td::Result<std::vector<BuilderData>> final;
@@ -362,12 +357,12 @@ struct ValueMap : Value {
 };
 
 struct ParamMap : Param {
-  explicit ParamMap(const std::string& name, ParamRef key, ParamRef value)
-      : Param{name, ParamType::Map}, key{std::move(key)}, value{std::move(value)} {
+  explicit ParamMap(ParamRef key, ParamRef value)
+      : Param{ParamType::Map}, key{std::move(key)}, value{std::move(value)} {
   }
   template <typename K, typename V>
-  explicit ParamMap(const std::string& name, K&& key, V&& value)
-      : Param{name, ParamType::Map}, key{std::forward(key)}, value{std::forward(value)} {
+  explicit ParamMap(K&& key, V&& value)
+      : Param{ParamType::Map}, key{std::forward(key)}, value{std::forward(value)} {
   }
   auto type_signature() const -> std::string final {
     return "map(" + key->type_signature() + "," + value->type_signature() + ")";
@@ -383,6 +378,7 @@ struct ParamMap : Param {
   ParamRef key;
   ParamRef value;
 };
+*/
 
 struct ValueAddress : Value {
   explicit ValueAddress(ParamRef param, const block::StdAddress& value);
@@ -398,7 +394,7 @@ struct ValueAddress : Value {
 struct ParamAddress : Param {
   using ValueType = ValueAddress;
 
-  explicit ParamAddress(const std::string& name) : Param{name, ParamType::Address} {
+  explicit ParamAddress() : Param{ParamType::Address} {
   }
   auto type_signature() const -> std::string final {
     return "address";
@@ -408,7 +404,7 @@ struct ParamAddress : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamAddress{name_};
+    return new ParamAddress{};
   }
 };
 
@@ -426,7 +422,7 @@ struct ValueBytes : Value {
 struct ParamBytes : Param {
   using ValueType = ValueBytes;
 
-  explicit ParamBytes(const std::string& name) : Param{name, ParamType::Bytes} {
+  explicit ParamBytes() : Param{ParamType::Bytes} {
   }
   auto type_signature() const -> std::string final {
     return "bytes";
@@ -436,14 +432,14 @@ struct ParamBytes : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamBytes{name_};
+    return new ParamBytes{};
   }
 };
 
 struct ParamFixedBytes : Param {
   using ValueType = ValueBytes;
 
-  explicit ParamFixedBytes(const std::string& name, size_t size) : Param{name, ParamType::FixedBytes}, size{size} {
+  explicit ParamFixedBytes(size_t size) : Param{ParamType::FixedBytes}, size{size} {
   }
   auto type_signature() const -> std::string final {
     return "fixedbytes" + std::to_string(size);
@@ -453,7 +449,7 @@ struct ParamFixedBytes : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamFixedBytes{name_, size};
+    return new ParamFixedBytes{size};
   }
 
   size_t size;
@@ -473,7 +469,7 @@ struct ValueGram : Value {
 struct ParamGram : Param {
   using ValueType = ValueGram;
 
-  explicit ParamGram(const std::string& name) : Param{name, ParamType::Gram} {
+  explicit ParamGram() : Param{ParamType::Gram} {
   }
   auto type_signature() const -> std::string final {
     return "gram";
@@ -483,7 +479,7 @@ struct ParamGram : Param {
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamGram{name_};
+    return new ParamGram{};
   }
 };
 
@@ -501,7 +497,7 @@ struct ValueTime : Value {
 struct ParamTime : Param {
   using ValueType = ValueTime;
 
-  explicit ParamTime() : Param{"time", ParamType::Time} {
+  explicit ParamTime() : Param{ParamType::Time} {
   }
   auto type_signature() const -> std::string final {
     return "time";
@@ -531,7 +527,7 @@ struct ValueExpire : Value {
 struct ParamExpire : Param {
   using ValueType = ValueExpire;
 
-  explicit ParamExpire() : Param{"expire", ParamType::Expire} {
+  explicit ParamExpire() : Param{ParamType::Expire} {
   }
   auto type_signature() const -> std::string final {
     return "expire";
@@ -559,7 +555,7 @@ struct ValuePublicKey : Value {
 struct ParamPublicKey : Param {
   using ValueType = ValuePublicKey;
 
-  explicit ParamPublicKey() : Param{"pubkey", ParamType::PublicKey} {
+  explicit ParamPublicKey() : Param{ParamType::PublicKey} {
   }
   auto type_signature() const -> std::string final {
     return "pubkey";
@@ -576,7 +572,7 @@ struct ParamPublicKey : Param {
 auto fill_signature(const td::optional<td::SecureString>& signature, BuilderData&& cell) -> td::Result<BuilderData>;
 auto pack_cells_into_chain(std::vector<BuilderData>&& cells) -> td::Result<BuilderData>;
 
-using HeaderParams = std::vector<ParamRef>;
+using HeaderParams = std::vector<std::pair<std::string, ParamRef>>;
 using InputParams = std::vector<ParamRef>;
 using OutputParams = std::vector<ParamRef>;
 
@@ -597,11 +593,11 @@ static auto make_value(const ParamRef& param, Args&&... args) -> ValueRef {
 }
 
 template <typename... Values>
-static auto make_header(Values&&... values) -> HeaderValues {
+static auto make_header(std::pair<std::string, Values>&&... values) -> HeaderValues {
   static_assert((std::is_same_v<Values, ValueRef> && ...));
 
   HeaderValues header{};
-  (header.insert(std::make_pair(values->param()->name(), values)), ...);
+  (header.emplace(std::forward<std::pair<std::string, Values>>(values)), ...);
   return header;
 }
 
@@ -617,12 +613,11 @@ static constexpr uint8_t ABI_VERSION = 2;
 
 auto compute_function_id(const std::string& signature) -> uint32_t;
 auto compute_function_signature(const std::string& name, const InputParams& inputs, const OutputParams& outputs)
--> std::string;
+    -> std::string;
 
-auto decode_header(SliceData&& data, const std::vector<ParamRef>& header_params, bool internal)
--> td::Result<std::tuple<SliceData, uint32_t, std::vector<ValueRef>>>;
-auto decode_input_id(SliceData&& data, const std::vector<ParamRef>& header_params, bool internal)
--> td::Result<uint32_t>;
+auto decode_header(SliceData&& data, const HeaderParams& header_params, bool internal)
+    -> td::Result<std::tuple<SliceData, uint32_t, std::vector<ValueRef>>>;
+auto decode_input_id(SliceData&& data, const HeaderParams& header_params, bool internal) -> td::Result<uint32_t>;
 auto decode_output_id(SliceData&& data) -> td::Result<uint32_t>;
 auto decode_params(SliceData&& data, const std::vector<ParamRef>& params) -> td::Result<std::vector<ValueRef>>;
 
@@ -655,7 +650,7 @@ class Function : public td::CntObject {
                     const td::optional<td::Ed25519::PrivateKey>& private_key) const -> td::Result<BuilderData>;
 
   auto decode_input(SliceData&& data, bool internal) const
-  -> td::Result<std::pair<std::vector<ValueRef>, std::vector<ValueRef>>>;
+      -> td::Result<std::pair<std::vector<ValueRef>, std::vector<ValueRef>>>;
   auto decode_output(SliceData&& data) const -> td::Result<std::vector<ValueRef>>;
 
   auto encode_header(const HeaderValues& header, bool internal) const -> td::Result<std::vector<BuilderData>>;
@@ -697,6 +692,6 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
                     FunctionCallRef&& function_call) -> td::Result<std::vector<ValueRef>>;
 auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
                     td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
--> td::Result<std::vector<ValueRef>>;
+    -> td::Result<std::vector<ValueRef>>;
 
 }  // namespace ftabi

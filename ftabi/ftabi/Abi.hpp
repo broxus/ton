@@ -20,9 +20,9 @@ struct ContractAbi {
   std::unordered_map<std::string, FunctionAbi> functions{};
 };
 
-auto abi_header_from_json(td::JsonValue& object) -> td::Result<HeaderParams>;
 auto abi_param_from_json(td::JsonValue& object) -> td::Result<ParamRef>;
 auto abi_params_from_json(td::JsonValue& object) -> td::Result<std::vector<ParamRef>>;
+auto abi_header_from_json(td::JsonValue& object) -> td::Result<HeaderParams>;
 auto abi_function_from_json(td::JsonValue& object) -> td::Result<FunctionAbi>;
 auto abi_functions_from_json(td::JsonValue& object) -> td::Result<std::unordered_map<std::string, FunctionAbi>>;
 

@@ -12,14 +12,12 @@ auto parse_param(tonlib_api::ftabi_Param& param) -> td::Result<ftabi::ParamRef> 
       param,
       td::overloaded(  //
           [](const tonlib_api::ftabi_paramUint& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamUint(param.name_, param.size_)};
+            return ftabi::ParamRef{ftabi::ParamUint{static_cast<uint32_t>(param.size_)}};
           },
           [](const tonlib_api::ftabi_paramInt& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamInt(param.name_, param.size_)};
+            return ftabi::ParamRef{ftabi::ParamInt{static_cast<uint32_t>(param.size_)}};
           },
-          [](const tonlib_api::ftabi_paramBool& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamBool(param.name_)};
-          },
+          [](const tonlib_api::ftabi_paramBool& param) -> ReturnType { return ftabi::ParamRef{ftabi::ParamBool{}}; },
           [](const tonlib_api::ftabi_paramTuple& param) -> ReturnType {
             std::vector<ftabi::ParamRef> itemTypes{};
             itemTypes.reserve(param.itemTypes_.size());
@@ -27,36 +25,30 @@ auto parse_param(tonlib_api::ftabi_Param& param) -> td::Result<ftabi::ParamRef> 
               TRY_RESULT(itemType, parse_param(*item))
               itemTypes.emplace_back(std::move(itemType));
             }
-            return ftabi::ParamRef{ftabi::ParamTuple(param.name_, std::move(itemTypes))};
+            return ftabi::ParamRef{ftabi::ParamTuple{std::move(itemTypes)}};
           },
           [](const tonlib_api::ftabi_paramArray& param) -> ReturnType {
             TRY_RESULT(itemType, parse_param(*param.itemType_))
-            return ftabi::ParamRef{ftabi::ParamArray(param.name_, std::move(itemType))};
+            return ftabi::ParamRef{ftabi::ParamArray{std::move(itemType)}};
           },
           [](const tonlib_api::ftabi_paramFixedArray& param) -> ReturnType {
             TRY_RESULT(itemType, parse_param(*param.itemType_))
-            return ftabi::ParamRef{ftabi::ParamFixedArray(param.name_, std::move(itemType), param.size_)};
+            return ftabi::ParamRef{ftabi::ParamFixedArray{std::move(itemType), static_cast<uint32_t>(param.size_)}};
           },
-          [](const tonlib_api::ftabi_paramCell& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamCell(param.name_)};
-          },
-          [](const tonlib_api::ftabi_paramMap& param) -> ReturnType {
-            TRY_RESULT(keyType, parse_param(*param.keyType_))
-            TRY_RESULT(valueType, parse_param(*param.valueType_))
-            return ftabi::ParamRef{ftabi::ParamMap(param.name_, std::move(keyType), std::move(valueType))};
-          },
+          [](const tonlib_api::ftabi_paramCell& param) -> ReturnType { return ftabi::ParamRef{ftabi::ParamCell{}}; },
+          // [](const tonlib_api::ftabi_paramMap& param) -> ReturnType {
+          //   TRY_RESULT(keyType, parse_param(*param.keyType_))
+          //   TRY_RESULT(valueType, parse_param(*param.valueType_))
+          //   return ftabi::ParamRef{ftabi::ParamMap{std::move(keyType), std::move(valueType)}};
+          // },
           [](const tonlib_api::ftabi_paramAddress& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamAddress(param.name_)};
+            return ftabi::ParamRef{ftabi::ParamAddress{}};
           },
-          [](const tonlib_api::ftabi_paramBytes& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamBytes(param.name_)};
-          },
+          [](const tonlib_api::ftabi_paramBytes& param) -> ReturnType { return ftabi::ParamRef{ftabi::ParamBytes{}}; },
           [](const tonlib_api::ftabi_paramFixedBytes& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamFixedBytes(param.name_, param.size_)};
+            return ftabi::ParamRef{ftabi::ParamFixedBytes{static_cast<size_t>(param.size_)}};
           },
-          [](const tonlib_api::ftabi_paramGram& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamGram(param.name_)};
-          },
+          [](const tonlib_api::ftabi_paramGram& param) -> ReturnType { return ftabi::ParamRef{ftabi::ParamGram{}}; },
           [](const tonlib_api::ftabi_paramTime& param) -> ReturnType { return ftabi::ParamRef{ftabi::ParamTime{}}; },
           [](const tonlib_api::ftabi_paramExpire& param) -> ReturnType {
             return ftabi::ParamRef{ftabi::ParamExpire{}};
@@ -75,6 +67,25 @@ auto parse_params(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_Param>>& pa
       return TonlibError::EmptyField("params[i]");
     }
     TRY_RESULT(param, parse_param(*item))
+    result.emplace_back(std::move(param));
+  }
+  return std::move(result);
+}
+
+auto parse_named_param(tonlib_api::ftabi_namedParam& named_param) -> td::Result<NamedParam> {
+  TRY_RESULT(value, parse_param(*named_param.param_))
+  return std::make_pair(named_param.name_, std::move(value));
+}
+
+auto parse_named_params(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_namedParam>>& params)
+    -> td::Result<std::vector<NamedParam>> {
+  std::vector<NamedParam> result{};
+  result.reserve(params.size());
+  for (auto& item : params) {
+    if (item == nullptr) {
+      return TonlibError::EmptyField("params[i]");
+    }
+    TRY_RESULT(param, parse_named_param(*item))
     result.emplace_back(std::move(param));
   }
   return std::move(result);
@@ -161,7 +172,27 @@ auto parse_values(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_Value>>& va
   return std::move(result);
 }
 
-auto parse_header_values(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_Value>>& values)
+auto parse_named_value(tonlib_api::ftabi_namedValue& named_value)
+    -> td::Result<std::pair<std::string, ftabi::ValueRef>> {
+  TRY_RESULT(value, parse_value(*named_value.value_))
+  return std::make_pair(named_value.name_, std::move(value));
+}
+
+auto parse_named_values(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_namedValue>>& values)
+    -> td::Result<std::vector<std::pair<std::string, ftabi::ValueRef>>> {
+  std::vector<std::pair<std::string, ftabi::ValueRef>> result{};
+  result.reserve(values.size());
+  for (auto& item : values) {
+    if (item == nullptr) {
+      return TonlibError::EmptyField("values[i]");
+    }
+    TRY_RESULT(value, parse_named_value(*item))
+    result.emplace_back(std::move(value));
+  }
+  return std::move(result);
+}
+
+auto parse_header_values(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_namedValue>>& values)
     -> td::Result<std::unordered_map<std::string, ftabi::ValueRef>> {
   std::unordered_map<std::string, ftabi::ValueRef> result{};
   result.reserve(values.size());
@@ -169,16 +200,15 @@ auto parse_header_values(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_Valu
     if (item == nullptr) {
       return TonlibError::EmptyField("values[i]");
     }
-    TRY_RESULT(value, parse_value(*item))
-    const auto name = value->param()->name();
-    result.emplace(std::make_pair(name, std::move(value)));
+    TRY_RESULT(named_value, parse_named_value(*item))
+    result.emplace(std::make_pair(named_value.first, std::move(named_value.second)));
   }
   return std::move(result);
 }
 
 auto parse_function(const tonlib_api::ftabi_function& value) -> td::Result<ftabi::Function> {
   auto name = value.name_;
-  TRY_RESULT(header, parse_params(value.header_params_))
+  TRY_RESULT(header, parse_named_params(value.header_params_))
   TRY_RESULT(inputs, parse_params(value.input_params_))
   TRY_RESULT(outputs, parse_params(value.output_params_))
   return ftabi::Function(std::move(name), std::move(header), std::move(inputs), std::move(outputs));
@@ -306,11 +336,33 @@ auto to_tonlib_api(const std::vector<ftabi::ParamRef>& params) -> std::vector<to
   return results;
 }
 
+auto to_tonlib_api(const std::vector<std::pair<std::string, ftabi::ParamRef>>& named_params)
+    -> std::vector<tonlib_api_ptr<tonlib_api::ftabi_namedParam>> {
+  std::vector<tonlib_api_ptr<tonlib_api::ftabi_namedParam>> results;
+  results.reserve(named_params.size());
+  for (const auto& named_param : named_params) {
+    auto value = named_param.second->to_tonlib_api();
+    results.emplace_back(tonlib_api::make_object<tonlib_api::ftabi_namedParam>(named_param.first, std::move(value)));
+  }
+  return results;
+}
+
 auto to_tonlib_api(const std::vector<ftabi::ValueRef>& values) -> std::vector<tonlib_api_ptr<tonlib_api::ftabi_Value>> {
   std::vector<tonlib_api_ptr<tonlib_api::ftabi_Value>> results;
   results.reserve(values.size());
   for (const auto& value : values) {
     results.emplace_back(value->to_tonlib_api());
+  }
+  return results;
+}
+
+auto to_tonlib_api(const std::vector<std::pair<std::string, ftabi::ValueRef>>& named_values)
+    -> std::vector<tonlib_api_ptr<tonlib_api::ftabi_namedValue>> {
+  std::vector<tonlib_api_ptr<tonlib_api::ftabi_namedValue>> results;
+  results.reserve(named_values.size());
+  for (const auto& named_value : named_values) {
+    auto value = named_value.second->to_tonlib_api();
+    results.emplace_back(tonlib_api::make_object<tonlib_api::ftabi_namedValue>(named_value.first, std::move(value)));
   }
   return results;
 }

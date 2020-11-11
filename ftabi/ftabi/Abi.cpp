@@ -83,7 +83,7 @@ auto ContractAbi::create_function(std::string name) -> td::Result<Function> {
   }
 }
 
-auto param_from_string(const std::string& name, const std::string& type,
+auto param_from_string(const std::string& /*name*/, const std::string& type,
                        std::optional<std::vector<ParamRef>>&& components) -> td::Result<ParamRef> {
   constexpr td::Slice unknown_param_type = "unknown param type";
   constexpr td::Slice invalid_integer_size = "invalid integer size";
@@ -119,7 +119,7 @@ auto param_from_string(const std::string& name, const std::string& type,
     if (bits < 1 || bits > 256) {
       return td::Status::Error(400, invalid_integer_size);
     }
-    result = ParamRef{ParamInt{name, bits}};
+    result = ParamRef{ParamInt{bits}};
   }  // uint<M>
   else if (main_type.compare(0, 4, "uint") == 0) {
     const td::Slice bits_str{main_type.data() + 4, main_type.size() - 4};
@@ -127,19 +127,19 @@ auto param_from_string(const std::string& name, const std::string& type,
     if (bits < 1 || bits > 256) {
       return td::Status::Error(400, invalid_integer_size);
     }
-    result = ParamRef{ParamUint{name, bits}};
+    result = ParamRef{ParamUint{bits}};
   }  // bool
   else if (main_type == "bool") {
-    result = ParamRef{ParamBool{name}};
+    result = ParamRef{ParamBool{}};
   }  // tuple
   else if (main_type == "tuple") {
     if (components->empty() || components.value().empty()) {
       return td::Status::Error(400, tuple_components_not_found);
     }
-    result = ParamRef{ParamTuple{name, std::move(components.value())}};
+    result = ParamRef{ParamTuple{std::move(components.value())}};
   }  // bytes
   else if (main_type == "bytes") {
-    result = ParamRef{ParamBytes{name}};
+    result = ParamRef{ParamBytes{}};
   }  // fixedbytes<M>
   else if (main_type.compare(0, 10, "fixedbytes") == 0) {
     const td::Slice bytes_str{main_type.data() + 10, main_type.size() - 10};
@@ -147,63 +147,30 @@ auto param_from_string(const std::string& name, const std::string& type,
     if (bytes < 1) {
       return td::Status::Error(400, invalid_fixedbytes_size);
     }
-    result = ParamRef{ParamFixedBytes{name, bytes}};
+    result = ParamRef{ParamFixedBytes{bytes}};
   }  // address
   else if (main_type == "address") {
-    result = ParamRef{ParamAddress{name}};
+    result = ParamRef{ParamAddress{}};
   }  // map
   else if (main_type == "map") {
     // TODO: add support for map types
     return td::Status::Error(400, "map param type is not supported yet");
   }  // cell
   else if (main_type == "cell") {
-    result = ParamRef{ParamCell{name}};
+    result = ParamRef{ParamCell{}};
   }  // ...other...
   else {
     return td::Status::Error(400, unknown_param_type);
   }
 
   if (is_array) {
-    return ParamRef{ParamArray{name, std::move(result)}};
+    return ParamRef{ParamArray{std::move(result)}};
   } else {
     return result;
   }
 }
 
-auto abi_header_from_json(td::JsonValue& object) -> td::Result<HeaderParams> {
-  TRY_STATUS(check_value_type(object, td::JsonValue::Type::Array))
-  auto& array = object.get_array();
-
-  HeaderParams result{};
-  std::unordered_set<std::string> headers;
-
-  for (auto& item : array) {
-    if (item.type() == td::JsonValue::Type::String) {
-      auto item_value = item.get_string().str();
-      if (headers.find(item_value) != headers.end()) {
-        return td::Status::Error(400, "duplicated header found");
-      }
-      headers.emplace(item_value);
-
-      if (item_value == "time") {
-        result.emplace_back(ParamTime{});
-      } else if (item_value == "expire") {
-        result.emplace_back(ParamExpire{});
-      } else if (item_value == "pubkey") {
-        result.emplace_back(ParamPublicKey{});
-      }
-    } else if (item.type() == td::JsonValue::Type::Object) {
-      TRY_RESULT(param, abi_param_from_json(item))
-      result.emplace_back(std::move(param));
-    } else {
-      return td::Status::Error(400, "Expected String or Object");
-    }
-  }
-
-  return result;
-}
-
-auto abi_param_from_json(td::JsonValue& object) -> td::Result<ParamRef> {
+auto abi_named_param_from_json(td::JsonValue& object) -> td::Result<std::pair<std::string, ParamRef>> {
   TRY_STATUS(check_value_type(object, td::JsonValue::Type::Object))
   auto& root = object.get_object();
 
@@ -242,25 +209,64 @@ auto abi_param_from_json(td::JsonValue& object) -> td::Result<ParamRef> {
     }
   }
 
+  TRY_STATUS(check_missing_field("name", param_name))
   TRY_STATUS(check_missing_field("type", param_type))
 
-  return param_from_string(param_name.value(), param_type.value(), std::move(components));
+  TRY_RESULT(param, param_from_string(param_name.value(), param_type.value(), std::move(components)))
+
+  return std::make_pair(param_name.value(), std::move(param));
+}
+
+auto abi_param_from_json(td::JsonValue& object) -> td::Result<ParamRef> {
+  TRY_RESULT(named_param, abi_named_param_from_json(object))
+  return named_param.second;
 }
 
 auto abi_params_from_json(td::JsonValue& object) -> td::Result<std::vector<ParamRef>> {
   TRY_STATUS(check_value_type(object, td::JsonValue::Type::Array))
   auto& array = object.get_array();
 
-  std::vector<ParamRef> result{};
-  std::unordered_set<std::string> params{};
+  std::vector<ParamRef> params{};
   for (auto& item : array) {
     TRY_RESULT(param, abi_param_from_json(item))
-    if (params.find(param->name()) != params.end()) {
-      return td::Status::Error(400, "duplicate param found");
-    }
-    params.emplace(param->name());
+    params.emplace_back(std::move(param));
+  }
 
-    result.emplace_back(std::move(param));
+  return params;
+}
+
+auto abi_header_from_json(td::JsonValue& object) -> td::Result<HeaderParams> {
+  TRY_STATUS(check_value_type(object, td::JsonValue::Type::Array))
+  auto& array = object.get_array();
+
+  HeaderParams result{};
+  std::unordered_set<std::string> headers;
+
+  for (auto& item : array) {
+    if (item.type() == td::JsonValue::Type::String) {
+      auto item_value = item.get_string().str();
+      if (headers.find(item_value) != headers.end()) {
+        return td::Status::Error(400, "duplicated header found");
+      }
+      headers.emplace(item_value);
+
+      if (item_value == "time") {
+        result.emplace_back(std::piecewise_construct, std::forward_as_tuple(item_value),
+                            std::forward_as_tuple(ParamTime{}));
+      } else if (item_value == "expire") {
+        result.emplace_back(std::piecewise_construct, std::forward_as_tuple(item_value),
+                            std::forward_as_tuple(ParamExpire{}));
+      } else if (item_value == "pubkey") {
+        result.emplace_back(std::piecewise_construct, std::forward_as_tuple(item_value),
+                            std::forward_as_tuple(ParamPublicKey{}));
+      }
+    } else if (item.type() == td::JsonValue::Type::Object) {
+      TRY_RESULT(named_param, abi_named_param_from_json(item))
+      result.emplace_back(std::piecewise_construct, std::forward_as_tuple(std::move(named_param.first)),
+                          std::forward_as_tuple(std::move(named_param.second)));
+    } else {
+      return td::Status::Error(400, "Expected String or Object");
+    }
   }
 
   return result;

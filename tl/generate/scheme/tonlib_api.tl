@@ -119,21 +119,21 @@ msg.message destination:accountAddress public_key:string amount:int64 data:msg.D
 // FreeTON abi
 //
 
-ftabi.paramUint name:string size:int32 = ftabi.Param;
-ftabi.paramInt name:string size:int32 = ftabi.Param;
-ftabi.paramBool name:string = ftabi.Param;
-ftabi.paramTuple name:string itemTypes:vector<ftabi.Param> = ftabi.Param;
-ftabi.paramArray name:string itemType:ftabi.Param = ftabi.Param;
-ftabi.paramFixedArray name:string itemType:ftabi.Param size:int32 = ftabi.Param;
-ftabi.paramCell name:string = ftabi.Param;
-ftabi.paramMap name:string keyType:ftabi.Param valueType:ftabi.Param = ftabi.Param;
-ftabi.paramAddress name:string = ftabi.Param;
-ftabi.paramBytes name:string = ftabi.Param;
-ftabi.paramFixedBytes name:string size:int32 = ftabi.Param;
-ftabi.paramGram name:string = ftabi.Param;
-ftabi.paramTime name:string = ftabi.Param;
-ftabi.paramExpire name:string = ftabi.Param;
-ftabi.paramPublicKey name:string = ftabi.Param;
+ftabi.paramUint size:int32 = ftabi.Param;
+ftabi.paramInt size:int32 = ftabi.Param;
+ftabi.paramBool = ftabi.Param;
+ftabi.paramTuple itemTypes:vector<ftabi.Param> = ftabi.Param;
+ftabi.paramArray itemType:ftabi.Param = ftabi.Param;
+ftabi.paramFixedArray itemType:ftabi.Param size:int32 = ftabi.Param;
+ftabi.paramCell = ftabi.Param;
+//ftabi.paramMap keyType:ftabi.Param valueType:ftabi.Param = ftabi.Param;
+ftabi.paramAddress = ftabi.Param;
+ftabi.paramBytes = ftabi.Param;
+ftabi.paramFixedBytes size:int32 = ftabi.Param;
+ftabi.paramGram = ftabi.Param;
+ftabi.paramTime = ftabi.Param;
+ftabi.paramExpire = ftabi.Param;
+ftabi.paramPublicKey = ftabi.Param;
 
 ftabi.valueInt param:ftabi.Param value:int64 = ftabi.Value;
 ftabi.valueBigInt param:ftabi.Param value:bytes = ftabi.Value;
@@ -147,16 +147,19 @@ ftabi.valueTime param:ftabi.Param value:int64 = ftabi.Value;
 ftabi.valueExpire param:ftabi.Param value:int32 = ftabi.Value;
 ftabi.valuePublicKey param:ftabi.Param value:SecureString = ftabi.Value;
 
+ftabi.namedParam name:string param:ftabi.Param = ftabi.NamedParam;
+ftabi.namedValue name:string value:ftabi.Value = ftabi.NamedValue;
+
 ftabi.functionId id:int32 = ftabi.FunctionId;
 ftabi.functionSignature data:string = ftabi.FunctionSignature;
 ftabi.messageBody data:bytes = ftabi.MessageBody;
 
-ftabi.function name:string header_params:vector<ftabi.Param> input_params:vector<ftabi.Param> output_params:vector<ftabi.Param> input_id:int32 output_id:int32 = ftabi.Function;
+ftabi.function name:string header_params:vector<ftabi.NamedParam> input_params:vector<ftabi.Param> output_params:vector<ftabi.Param> input_id:int32 output_id:int32 = ftabi.Function;
 
-ftabi.functionCallExternal header_values:vector<ftabi.Value> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
-ftabi.functionCallExternalSigned header_values:vector<ftabi.Value> input_values:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
-ftabi.functionCallInternal header_values:vector<ftabi.Value> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
-ftabi.functionCallInternalSigned header_values:vector<ftabi.Value> input_values:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
+ftabi.functionCallExternal header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
+ftabi.functionCallExternalSigned header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
+ftabi.functionCallInternal header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
+ftabi.functionCallInternalSigned header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
 
 ftabi.decodedInput header_values:vector<ftabi.Value> values:vector<ftabi.Value> = ftabi.DecodedInput;
 ftabi.decodedOutput values:vector<ftabi.Value> = ftabi.DecodedOutput;
@@ -803,7 +806,7 @@ smc.runGetMethod id:int53 method:smc.MethodId stack:vector<tvm.StackEntry> = smc
 
 ftabi.computeFunctionId signature:ftabi.FunctionSignature = ftabi.FunctionId;
 ftabi.computeFunctionSignature name:string inputs:vector<ftabi.Param> outputs:vector<ftabi.Param> = ftabi.FunctionSignature;
-ftabi.createFunction name:string header:vector<ftabi.Param> inputs:vector<ftabi.Param> outputs:vector<ftabi.Param> = ftabi.Function;
+ftabi.createFunction name:string header:vector<ftabi.NamedParam> inputs:vector<ftabi.Param> outputs:vector<ftabi.Param> = ftabi.Function;
 ftabi.getFunction abi:string name:string = ftabi.Function;
 ftabi.createMessageBody function:ftabi.Function call:ftabi.FunctionCall = ftabi.MessageBody;
 ftabi.runLocal address:AccountAddress function:ftabi.Function call:ftabi.FunctionCall = ftabi.DecodedOutput;

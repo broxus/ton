@@ -2691,7 +2691,10 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getValida
   std::vector<ton::tl_object_ptr<ton::ton_api::engine_validator_validatorKeysSet>> result;
   result.reserve(config_.validators.size());
 
-  for (const auto &[perm_key, validator] : config_.validators) {
+  for (const auto &item : config_.validators) {
+    const auto &perm_key = item.first;
+    const auto &validator = item.second;
+
     std::vector<ton::Bits256> adnl_addrs{};
     adnl_addrs.reserve(validator.adnl_ids.size());
 
