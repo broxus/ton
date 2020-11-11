@@ -188,13 +188,13 @@ auto abi_named_param_from_json(td::JsonValue& object) -> td::Result<std::pair<st
 
       TRY_RESULT_ASSIGN(param_name, string_from_json(key, value))
     } else if (key == "type") {
-      if (param_name.has_value()) {
+      if (param_type.has_value()) {
         return td::Status::Error(400, "duplicate param type found");
       }
 
       TRY_RESULT_ASSIGN(param_name, string_from_json(key, value))
     } else if (key == "components") {
-      if (param_name.has_value()) {
+      if (components.has_value()) {
         return td::Status::Error(400, "duplicate param components found");
       }
 
