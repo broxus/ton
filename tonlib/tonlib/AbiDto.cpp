@@ -141,7 +141,7 @@ td::Result<ftabi::ValueRef> parse_value(tonlib_api::ftabi_Value& value) {
           },
           [](const tonlib_api::ftabi_valueGram& value) -> ReturnType {
             TRY_RESULT(param, parse_param(*value.param_))
-            return ftabi::ValueRef{ftabi::ValueGram(std::move(param), td::make_refint(value.value_))};
+            return ftabi::ValueRef{ftabi::ValueGram(std::move(param), td::make_bigint(value.value_))};
           },
           [](const tonlib_api::ftabi_valueTime& value) -> ReturnType {
             TRY_RESULT(param, parse_param(*value.param_))

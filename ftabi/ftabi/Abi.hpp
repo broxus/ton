@@ -26,6 +26,9 @@ auto abi_header_from_json(td::JsonValue& object) -> td::Result<HeaderParams>;
 auto abi_function_from_json(td::JsonValue& object) -> td::Result<FunctionAbi>;
 auto abi_functions_from_json(td::JsonValue& object) -> td::Result<std::unordered_map<std::string, FunctionAbi>>;
 
+auto value_from_json(ParamRef param, td::JsonValue& object) -> td::Result<ValueRef>;
+
 auto contract_abi_from_json(td::JsonValue& object) -> td::Result<ContractAbi>;
+auto function_call_from_json(Function& function, td::JsonValue& object) -> td::Result<FunctionCall>;
 
 }  // namespace ftabi

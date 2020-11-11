@@ -698,7 +698,7 @@ auto ParamFixedBytes::to_tonlib_api() const -> ApiParam {
 
 // value gram
 
-ValueGram::ValueGram(ParamRef param, td::RefInt256 value) : Value{std::move(param)}, value{std::move(value)} {
+ValueGram::ValueGram(ParamRef param, td::BigInt256 value) : Value{std::move(param)}, value{std::move(value)} {
 }
 
 auto ValueGram::serialize() const -> td::Result<std::vector<BuilderData>> {
@@ -707,7 +707,7 @@ auto ValueGram::serialize() const -> td::Result<std::vector<BuilderData>> {
   }
 
   vm::CellBuilder cb{};
-  CHECK(block::tlb::t_Grams.store_integer_ref(cb, value))
+  CHECK(block::tlb::t_Grams.store_integer_value(cb, value))
   return std::vector<BuilderData>{cb.finalize()};
 }
 
@@ -717,16 +717,16 @@ auto ValueGram::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceDa
   if (grams.is_null()) {
     return td::Status::Error("failed to parse grams");
   }
-  value = std::move(grams);
+  value = *grams;
   return std::move(cursor);
 }
 
 auto ValueGram::to_string() const -> std::string {
-  return "$" + value->to_dec_string();
+  return "$" + value.to_dec_string();
 }
 
 auto ValueGram::to_tonlib_api() const -> ApiValue {
-  return tonlib_api::make_object<tonlib_api::ftabi_valueGram>(param_->to_tonlib_api(), value->to_long());
+  return tonlib_api::make_object<tonlib_api::ftabi_valueGram>(param_->to_tonlib_api(), value.to_long());
 }
 
 auto ValueGram::make_copy() const -> Value* {

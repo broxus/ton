@@ -67,6 +67,18 @@ struct Param : public td::CntObject {
   virtual auto to_tonlib_api() const -> ApiParam = 0;
   auto make_copy() const -> Param* override = 0;
 
+  template <typename T>
+  auto as() -> T& {
+    static_assert(std::is_base_of_v<Param, T>);
+    return *dynamic_cast<T*>(this);
+  }
+
+  template <typename T>
+  auto as() const -> const T& {
+    static_assert(std::is_base_of_v<Param, T>);
+    return *dynamic_cast<const T*>(this);
+  }
+
  protected:
   ParamType param_type_;
 };
@@ -456,14 +468,14 @@ struct ParamFixedBytes : Param {
 };
 
 struct ValueGram : Value {
-  explicit ValueGram(ParamRef param, td::RefInt256 value);
+  explicit ValueGram(ParamRef param, td::BigInt256 value);
   auto serialize() const -> td::Result<std::vector<BuilderData>> final;
   auto deserialize(SliceData&& cursor, bool last) -> td::Result<SliceData> final;
   auto to_string() const -> std::string final;
   auto to_tonlib_api() const -> ApiValue final;
   auto make_copy() const -> Value* final;
 
-  td::RefInt256 value;
+  td::BigInt256 value;
 };
 
 struct ParamGram : Param {
@@ -475,7 +487,7 @@ struct ParamGram : Param {
     return "gram";
   }
   auto default_value() const -> td::Result<ValueRef> final {
-    return ValueGram{ParamRef{make_copy()}, td::make_refint(0)};
+    return ValueGram{ParamRef{make_copy()}, td::make_bigint(0)};
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
@@ -578,6 +590,7 @@ using OutputParams = std::vector<ParamRef>;
 
 using HeaderValues = std::unordered_map<std::string, ValueRef>;
 using InputValues = std::vector<ValueRef>;
+using OutputValues = std::vector<ValueRef>;
 
 template <typename P, typename... Args>
 static auto make_value(P&& param, Args&&... args) -> ValueRef {
@@ -667,6 +680,15 @@ class Function : public td::CntObject {
     return !outputs_.empty();
   }
 
+  auto header() const -> const HeaderParams& {
+    return header_;
+  }
+  auto inputs() const -> const InputParams& {
+    return inputs_;
+  }
+  auto outputs() const -> const OutputParams& {
+    return outputs_;
+  }
   auto input_id() const -> uint32_t {
     return input_id_;
   }
