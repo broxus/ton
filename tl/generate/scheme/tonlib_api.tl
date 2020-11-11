@@ -168,6 +168,9 @@ ftabi.decodedOutput values:vector<ftabi.Value> = ftabi.DecodedOutput;
 ftabi.jsonDecodedInput value:string = ftabi.JsonDecodedInput;
 ftabi.jsonDecodedOutput value:string = ftabi.JsonDecodedOutput;
 
+//@param hash   int256
+ftabi.stateInit data:bytes hash:bytes = ftabi.StateInit;
+
 //
 // DNS
 //
@@ -813,6 +816,7 @@ ftabi.createMessageBody function:ftabi.Function call:ftabi.FunctionCall = ftabi.
 ftabi.runLocal address:AccountAddress function:ftabi.Function call:ftabi.FunctionCall = ftabi.DecodedOutput;
 ftabi.decodeOutput function:ftabi.Function data:bytes = ftabi.DecodedOutput;
 ftabi.decodeInput function:ftabi.Function data:bytes internal:Bool = ftabi.DecodedInput;
+ftabi.generateStateInit tvc:bytes key:InputKey = ftabi.StateInit;
 
 //ftabi.jsonCreateMessageBody abi_call:string = ftabi.MessageBody;
 //ftabi.jsonRunLocal address:AccountAddress abi_call:string = ftabi.JsonDecodedOutput;

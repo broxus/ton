@@ -708,6 +708,9 @@ class Function : public td::CntObject {
 using FunctionRef = td::Ref<Function>;
 using FunctionCallRef = td::Ref<FunctionCall>;
 
+auto generate_state_init(const td::Ref<vm::Cell>& tvc, const td::Ed25519::PublicKey& public_key)
+    -> td::Result<td::Ref<vm::Cell>>;
+
 auto unpack_result_message_body(vm::CellSlice& cs) -> td::Result<td::Ref<vm::CellSlice>>;
 
 auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,

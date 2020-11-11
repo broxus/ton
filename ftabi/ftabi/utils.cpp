@@ -1244,6 +1244,39 @@ auto Function::make_copy() const -> Function* {
   return new Function{std::move(name), std::move(header), std::move(inputs), std::move(outputs), input_id_, output_id_};
 }
 
+auto generate_state_init(const td::Ref<vm::Cell>& tvc, const td::Ed25519::PublicKey& public_key)
+    -> td::Result<td::Ref<vm::Cell>> {
+  block::gen::StateInit::Record state_init;
+  if (!tlb::unpack_cell(tvc, state_init)) {
+    return td::Status::Error("Failed to unpack state_init");
+  }
+
+  vm::CellBuilder value_cb{};
+  if (!value_cb.store_bytes_bool(public_key.as_octet_string())) {
+    return td::Status::Error("Failed to create public key value");
+  }
+
+  try {
+    auto data = vm::load_cell_slice_ref(state_init.data->prefetch_ref());
+    vm::Dictionary map{data, 64};
+    td::BitArray<64> key{};
+    map.set(key, value_cb.as_cellslice_ref(), vm::Dictionary::SetMode::Replace);
+
+    value_cb.reset();
+    auto packed_map = value_cb.store_ones(1).store_ref(map.get_root_cell()).finalize();
+    state_init.data = value_cb.store_ones(1).store_ref(packed_map).as_cellslice_ref();
+  } catch (const vm::VmError& e) {
+    return td::Status::Error(PSLICE() << "VM error: " << e.as_status().message());
+  }
+
+  td::Ref<vm::Cell> new_state;
+  if (!tlb::pack_cell(new_state, state_init)) {
+    return td::Status::Error("Failed to pack state_init");
+  }
+
+  return new_state;
+}
+
 // smc stuff
 static auto unpack_internal_address_opt(vm::CellSlice& cs, td::optional<block::StdAddress>& address) -> bool {
   const auto tag = cs.fetch_ulong(2);
