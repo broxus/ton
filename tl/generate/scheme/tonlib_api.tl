@@ -161,6 +161,9 @@ ftabi.functionCallInternalSigned header_values:vector<ftabi.Value> input_values:
 ftabi.decodedInput header_values:vector<ftabi.Value> values:vector<ftabi.Value> = ftabi.DecodedInput;
 ftabi.decodedOutput values:vector<ftabi.Value> = ftabi.DecodedOutput;
 
+ftabi.jsonDecodedInput value:string = ftabi.JsonDecodedInput;
+ftabi.jsonDecodedOutput value:string = ftabi.JsonDecodedOutput;
+
 //
 // DNS
 //
@@ -292,7 +295,17 @@ liteServer.messageAddressIntVarAnycast anycast:liteServer.MessageAnycast workcha
 //@param value              int256
 //@param ihr_fee            int256
 //@param fwd_fee            int256
-liteServer.messageInfoInt ihr_disabled:Bool bounce:Bool bounced:Bool src:liteServer.MessageAddressInt dest:liteServer.MessageAddressInt value:bytes ihr_fee:bytes fwd_fee:bytes created_lt:int64 created_at:int32 = liteServer.MessageInfo;
+liteServer.messageInfoInt
+    ihr_disabled:Bool
+    bounce:Bool
+    bounced:Bool
+    src:liteServer.MessageAddressInt
+    dest:liteServer.MessageAddressInt
+    value:bytes
+    ihr_fee:bytes
+    fwd_fee:bytes
+    created_lt:int64
+    created_at:int32 = liteServer.MessageInfo;
 //@param import_fee         int256
 liteServer.messageInfoExtIn src:liteServer.MessageAddressExt dest:liteServer.MessageAddressInt import_fee:bytes = liteServer.MessageInfo;
 liteServer.messageInfoExtOut src:liteServer.MessageAddressInt dest:liteServer.MessageAddressExt created_lt:int64 created_at:int32 = liteServer.MessageInfo;
@@ -379,7 +392,14 @@ liteServer.transactionBouncePhaseOk
     msg_size:liteServer.StorageUsedShort
     msg_fees:bytes
     fwd_fees:bytes = liteServer.TransactionBouncePhase;
-//@param code               -1 -> success, 0 -> no elections or wrong sender workchain, 1 -> invalid signature, 2 -> stake is too small relative to others, 3 -> invalid election id, 4 -> already sent stake with different pubkey, 5 -> stake is too small, 6 -> max-factor < 1
+//@param code               -1 -> success,
+//                          0 -> no elections or wrong sender workchain,
+//                          1 -> invalid signature
+//                          2 -> stake is too small relative to others
+//                          3 -> invalid election id
+//                          4 -> already sent stake with different pubkey
+//                          5 -> stake is too small
+//                          6 -> max-factor < 1
 //@param pubkey             int256
 //@param adnl_addr          int256
 liteServer.transactionAdditionalInfoStakeSend status:int32 pubkey:bytes elect_time:int32 max_factor:int32 adnl_addr:bytes = liteServer.TransactionAdditionalInfo;
@@ -784,10 +804,16 @@ smc.runGetMethod id:int53 method:smc.MethodId stack:vector<tvm.StackEntry> = smc
 ftabi.computeFunctionId signature:ftabi.FunctionSignature = ftabi.FunctionId;
 ftabi.computeFunctionSignature name:string inputs:vector<ftabi.Param> outputs:vector<ftabi.Param> = ftabi.FunctionSignature;
 ftabi.createFunction name:string header:vector<ftabi.Param> inputs:vector<ftabi.Param> outputs:vector<ftabi.Param> = ftabi.Function;
+ftabi.getFunction abi:string name:string = ftabi.Function;
 ftabi.createMessageBody function:ftabi.Function call:ftabi.FunctionCall = ftabi.MessageBody;
 ftabi.runLocal address:AccountAddress function:ftabi.Function call:ftabi.FunctionCall = ftabi.DecodedOutput;
 ftabi.decodeOutput function:ftabi.Function data:bytes = ftabi.DecodedOutput;
 ftabi.decodeInput function:ftabi.Function data:bytes internal:Bool = ftabi.DecodedInput;
+
+//ftabi.jsonCreateMessageBody abi_call:string = ftabi.MessageBody;
+//ftabi.jsonRunLocal address:AccountAddress abi_call:string = ftabi.JsonDecodedOutput;
+//ftabi.jsonDecodeOutput abi:string data:bytes = ftabi.JsonDecodedOutput;
+//ftabi.jsonDecodeInput abi:string data:bytes internal:Bool = ftabi.JsonDecodedInput;
 
 dns.resolve account_address:accountAddress name:string category:int32 ttl:int32 = dns.Resolved;
 

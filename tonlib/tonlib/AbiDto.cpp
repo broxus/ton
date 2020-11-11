@@ -57,9 +57,7 @@ auto parse_param(tonlib_api::ftabi_Param& param) -> td::Result<ftabi::ParamRef> 
           [](const tonlib_api::ftabi_paramGram& param) -> ReturnType {
             return ftabi::ParamRef{ftabi::ParamGram(param.name_)};
           },
-          [](const tonlib_api::ftabi_paramTime& param) -> ReturnType {
-            return ftabi::ParamRef{ftabi::ParamTime{}};
-          },
+          [](const tonlib_api::ftabi_paramTime& param) -> ReturnType { return ftabi::ParamRef{ftabi::ParamTime{}}; },
           [](const tonlib_api::ftabi_paramExpire& param) -> ReturnType {
             return ftabi::ParamRef{ftabi::ParamExpire{}};
           },
@@ -235,19 +233,41 @@ auto compute_function_signature(const tonlib_api::ftabi_computeFunctionSignature
   return tonlib_api::make_object<tonlib_api::ftabi_functionSignature>(std::move(signature));
 }
 
+auto compute_function_id(const std::string& name, const ftabi::InputParams& inputs, const ftabi::OutputParams& outputs)
+    -> std::pair<uint32_t, uint32_t> {
+  const auto signature = ftabi::compute_function_signature(name, inputs, outputs);
+  const auto id = ftabi::compute_function_id(signature);
+  const auto input_id = static_cast<int32_t>(id & 0x7fffffffu);
+  const auto output_id = static_cast<int32_t>(id | 0x80000000u);
+  return std::make_pair(input_id, output_id);
+}
+
 auto create_function(tonlib_api::ftabi_createFunction& request) -> td::Result<tonlib_api_ptr<tonlib_api::Object>> {
   const auto& name = request.name_;
 
   TRY_RESULT(inputs, parse_params(request.inputs_))
   TRY_RESULT(outputs, parse_params(request.outputs_))
-
-  const auto signature = ftabi::compute_function_signature(name, inputs, outputs);
-  const auto id = ftabi::compute_function_id(signature);
-  const auto input_id = static_cast<int32_t>(id & 0x7fffffffu);
-  const auto output_id = static_cast<int32_t>(id | 0x80000000u);
+  const auto [input_id, output_id] = compute_function_id(name, inputs, outputs);
 
   return tonlib_api::make_object<tonlib_api::ftabi_function>(
       name, std::move(request.header_), std::move(request.inputs_), std::move(request.outputs_), input_id, output_id);
+}
+
+auto get_function_from_abi(tonlib_api::ftabi_getFunction& request) -> td::Result<tonlib_api_ptr<tonlib_api::Object>> {
+  TRY_RESULT(json, td::json_decode(td::MutableSlice{request.abi_}))
+  TRY_RESULT(contract_abi, ftabi::contract_abi_from_json(json))
+
+  auto it = contract_abi.functions.find(request.name_);
+  if (it == contract_abi.functions.end()) {
+    return td::Status::Error("function not found in contract abi");
+  }
+  auto& function = it->second;
+
+  const auto [input_id, output_id] = compute_function_id(function.name, function.inputs, function.outputs);
+
+  return tonlib_api::make_object<tonlib_api::ftabi_function>(  //
+      function.name, to_tonlib_api(contract_abi.header), to_tonlib_api(function.inputs),
+      to_tonlib_api(function.outputs), input_id, output_id);
 }
 
 auto create_message_body(const tonlib_api::ftabi_createMessageBody& request)
@@ -275,6 +295,15 @@ auto decode_input(const tonlib_api::ftabi_decodeInput& request) -> td::Result<to
   auto header_values_tl = to_tonlib_api(input.first);
   auto values_tl = to_tonlib_api(input.second);
   return tonlib_api::make_object<tonlib_api::ftabi_decodedInput>(std::move(header_values_tl), std::move(values_tl));
+}
+
+auto to_tonlib_api(const std::vector<ftabi::ParamRef>& params) -> std::vector<tonlib_api_ptr<tonlib_api::ftabi_Param>> {
+  std::vector<tonlib_api_ptr<tonlib_api::ftabi_Param>> results;
+  results.reserve(params.size());
+  for (const auto& param : params) {
+    results.emplace_back(param->to_tonlib_api());
+  }
+  return results;
 }
 
 auto to_tonlib_api(const std::vector<ftabi::ValueRef>& values) -> std::vector<tonlib_api_ptr<tonlib_api::ftabi_Value>> {

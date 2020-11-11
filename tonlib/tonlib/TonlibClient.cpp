@@ -935,7 +935,7 @@ void TonlibClient::request(td::uint64 id, tonlib_api_ptr<tonlib_api::Function> f
 }
 
 void TonlibClient::request_async(object_ptr<tonlib_api::Function>&& function,
-                           td::Promise<tonlib_api::object_ptr<tonlib_api::Object>>&& promise) {
+                                 td::Promise<tonlib_api::object_ptr<tonlib_api::Object>>&& promise) {
   VLOG(tonlib_query) << "Tonlib got query " << to_string(function);
   if (function == nullptr) {
     LOG(ERROR) << "Receive empty static request";
@@ -998,6 +998,7 @@ bool TonlibClient::is_static_request(td::int32 id) {
     case tonlib_api::ftabi_computeFunctionId::ID:
     case tonlib_api::ftabi_computeFunctionSignature::ID:
     case tonlib_api::ftabi_createFunction::ID:
+    case tonlib_api::ftabi_getFunction::ID:
     case tonlib_api::ftabi_createMessageBody::ID:
       return true;
     default:
@@ -3438,6 +3439,20 @@ TonlibClient::object_ptr<tonlib_api::Object> TonlibClient::do_static_request(
   return result.move_as_ok();
 }
 
+TonlibClient::object_ptr<tonlib_api::Object> TonlibClient::do_static_request(tonlib_api::ftabi_getFunction& request) {
+  if (request.name_.empty()) {
+    return status_to_tonlib_api(TonlibError::EmptyField("name"));
+  }
+  if (request.abi_.empty()) {
+    return status_to_tonlib_api(TonlibError::EmptyField("abi"));
+  }
+  auto result = get_function_from_abi(request);
+  if (result.is_error()) {
+    return status_to_tonlib_api(result.move_as_error());
+  }
+  return result.move_as_ok();
+}
+
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_createMessageBody& request) {
   if (request.function_ == nullptr) {
     return status_to_tonlib_api(TonlibError::EmptyField("function"));
@@ -3655,6 +3670,11 @@ td::Status TonlibClient::do_request(const tonlib_api::ftabi_computeFunctionSigna
 }
 template <class P>
 td::Status TonlibClient::do_request(tonlib_api::ftabi_createFunction& request, P&&) {
+  UNREACHABLE();
+  return TonlibError::Internal();
+}
+template <class P>
+td::Status TonlibClient::do_request(tonlib_api::ftabi_getFunction& request, P&&) {
   UNREACHABLE();
   return TonlibError::Internal();
 }

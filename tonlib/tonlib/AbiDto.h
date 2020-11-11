@@ -21,12 +21,14 @@ auto parse_function_call(const tonlib_api_ptr<tonlib_api::ftabi_FunctionCall>& v
 auto compute_function_signature(const tonlib_api::ftabi_computeFunctionSignature& request)
     -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;
 auto create_function(tonlib_api::ftabi_createFunction& request) -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;
+auto get_function_from_abi(tonlib_api::ftabi_getFunction& request) -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;
 auto create_message_body(const tonlib_api::ftabi_createMessageBody& request)
     -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;
 
 auto decode_output(const tonlib_api::ftabi_decodeOutput& request) -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;
 auto decode_input(const tonlib_api::ftabi_decodeInput& request) -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;
 
+auto to_tonlib_api(const std::vector<ftabi::ParamRef>& params) -> std::vector<tonlib_api_ptr<tonlib_api::ftabi_Param>>;
 auto to_tonlib_api(const std::vector<ftabi::ValueRef>& values) -> std::vector<tonlib_api_ptr<tonlib_api::ftabi_Value>>;
 
 }  // namespace tonlib

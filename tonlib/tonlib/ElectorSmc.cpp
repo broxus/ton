@@ -164,7 +164,7 @@ auto ElectorSmc::execute_method(lite_api_ptr<lite_api::liteServer_accountState>&
     }
     auto tuple_it = tuple->begin();
 
-    td::int32 election_id, unfreeze_at, stake_held_for;
+    td::int32 election_id{}, unfreeze_at{}, stake_held_for{};
     td::RefInt256 vset_hash_value, total_stake_value, total_bonuses_value;
 
     if (!tuple_it->is_int() || !(election_id = static_cast<td::int32>((tuple_it++)->as_int()->to_long()), true) ||
