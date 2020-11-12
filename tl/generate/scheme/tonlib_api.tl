@@ -773,6 +773,7 @@ raw.getTransactions private_key:InputKey account_address:accountAddress from_tra
 raw.sendMessage body:bytes  = Ok;
 raw.createAndSendMessage destination:accountAddress initial_account_state:bytes data:bytes = Ok;
 raw.createQuery destination:accountAddress init_code:bytes init_data:bytes body:bytes = query.Info;
+raw.createQueryTvc destination:accountAddress init_state:bytes body:bytes = query.Info;
 
 sync = ton.BlockIdExt;
 

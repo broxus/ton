@@ -69,6 +69,9 @@ struct TonlibError {
   static td::Status InvalidAccountAddress() {
     return td::Status::Error(400, "INVALID_ACCOUNT_ADDRESS");
   }
+  static td::Status InvalidStateInitAddress() {
+    return td::Status::Error(400, "INVALID_STATE_INIT_ADDRESS");
+  }
   static td::Status InvalidQueryId() {
     return td::Status::Error(400, "INVALID_QUERY_ID");
   }

@@ -2527,6 +2527,41 @@ td::Status TonlibClient::do_request(const tonlib_api::raw_createQuery& request,
   return td::Status::OK();
 }
 
+td::Status TonlibClient::do_request(const tonlib_api::raw_createQueryTvc& request,
+                                    td::Promise<object_ptr<tonlib_api::query_info>>&& promise) {
+  if (!request.destination_) {
+    return TonlibError::EmptyField("destination");
+  }
+  TRY_RESULT(account_address, get_account_address(request.destination_->account_address_));
+
+  td::Ref<vm::Cell> init_state;
+  if (!request.init_state_.empty()) {
+    TRY_RESULT_PREFIX_ASSIGN(init_state, vm::std_boc_deserialize(request.init_state_),
+                             TonlibError::InvalidBagOfCells("init_state"));
+    const auto hash = init_state->get_hash();
+    if (!account_address.addr.bits().equals(hash.bits(), 256)) {
+      return TonlibError::InvalidStateInitAddress();
+    }
+  }
+  TRY_RESULT_PREFIX(body, vm::std_boc_deserialize(request.body_), TonlibError::InvalidBagOfCells("body"));
+
+  td::Promise<td::unique_ptr<Query>> new_promise =
+      promise.send_closure(actor_id(this), &TonlibClient::finish_create_query);
+
+  make_request(int_api::GetAccountState{account_address, query_context_.block_id.copy(), {}},
+               new_promise.wrap([account_address, init_state = std::move(init_state),
+                                 body = std::move(body)](auto&& source) mutable {
+                 Query::Raw raw;
+                 raw.new_state = std::move(init_state);
+                 raw.message_body = std::move(body);
+                 raw.message =
+                     ton::GenericAccount::create_ext_message(account_address, raw.new_state, raw.message_body);
+                 raw.source = std::move(source);
+                 return td::make_unique<Query>(std::move(raw));
+               }));
+  return td::Status::OK();
+}
+
 td::Status TonlibClient::do_request(const tonlib_api::query_getInfo& request,
                                     td::Promise<object_ptr<tonlib_api::query_info>>&& promise) {
   promise.set_result(get_query_info(request.id_));
