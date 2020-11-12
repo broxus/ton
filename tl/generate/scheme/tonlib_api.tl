@@ -158,9 +158,9 @@ ftabi.function name:string header_params:vector<ftabi.NamedParam> input_params:v
 
 ftabi.functionCallJson value:string = ftabi.FunctionCall;
 ftabi.functionCallExternal header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
-ftabi.functionCallExternalSigned header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
+ftabi.functionCallExternalSigned header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> key:secureBytes = ftabi.FunctionCall;
 ftabi.functionCallInternal header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
-ftabi.functionCallInternalSigned header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> key:InputKey = ftabi.FunctionCall;
+ftabi.functionCallInternalSigned header_values:vector<ftabi.NamedValue> input_values:vector<ftabi.Value> key:secureBytes = ftabi.FunctionCall;
 
 ftabi.decodedInput header_values:vector<ftabi.Value> values:vector<ftabi.Value> = ftabi.DecodedInput;
 ftabi.decodedOutput values:vector<ftabi.Value> = ftabi.DecodedOutput;
@@ -757,6 +757,8 @@ importEncryptedKey local_password:secureBytes key_password:secureBytes exported_
 importUnencryptedKey local_password:secureBytes  exported_unencrypted_key:exportedUnencryptedKey = Key;
 changeLocalPassword input_key:InputKey new_local_password:secureBytes = Key;
 
+generateKeyPair = Key;
+
 encrypt decrypted_data:secureBytes secret:secureBytes = Data;
 decrypt encrypted_data:secureBytes secret:secureBytes = Data;
 kdf password:secureBytes salt:secureBytes iterations:int32 = Data;
@@ -816,7 +818,7 @@ ftabi.createMessageBody function:ftabi.Function call:ftabi.FunctionCall = ftabi.
 ftabi.runLocal address:AccountAddress function:ftabi.Function call:ftabi.FunctionCall = ftabi.DecodedOutput;
 ftabi.decodeOutput function:ftabi.Function data:bytes = ftabi.DecodedOutput;
 ftabi.decodeInput function:ftabi.Function data:bytes internal:Bool = ftabi.DecodedInput;
-ftabi.generateStateInit tvc:bytes key:InputKey = ftabi.StateInit;
+ftabi.generateStateInit tvc:bytes public_key:string = ftabi.StateInit;
 
 //ftabi.jsonCreateMessageBody abi_call:string = ftabi.MessageBody;
 //ftabi.jsonRunLocal address:AccountAddress abi_call:string = ftabi.JsonDecodedOutput;

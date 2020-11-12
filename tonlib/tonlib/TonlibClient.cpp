@@ -990,6 +990,7 @@ bool TonlibClient::is_static_request(td::int32 id) {
     case tonlib_api::setLogTagVerbosityLevel::ID:
     case tonlib_api::getLogTagVerbosityLevel::ID:
     case tonlib_api::addLogMessage::ID:
+    case tonlib_api::generateKeyPair::ID:
     case tonlib_api::encrypt::ID:
     case tonlib_api::decrypt::ID:
     case tonlib_api::kdf::ID:
@@ -3354,6 +3355,16 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
   return tonlib_api::make_object<tonlib_api::ok>();
 }
 
+tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::generateKeyPair& request) {
+  const auto private_key = ton::privkeys::Ed25519::random().export_key();
+  auto public_key_r = private_key.get_public_key();
+  if (public_key_r.is_error()) {
+    return status_to_tonlib_api(public_key_r.move_as_error());
+  }
+  const auto public_key = public_key_r.move_as_ok().as_octet_string();
+  return tonlib_api::make_object<tonlib_api::key>(public_key.as_slice().str(), private_key.as_octet_string());
+}
+
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::encrypt& request) {
   return tonlib_api::make_object<tonlib_api::data>(
       SimpleEncryption::encrypt_data(request.decrypted_data_, request.secret_));
@@ -3499,8 +3510,7 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
 auto generate_state_init(const tonlib_api::ftabi_generateStateInit& request)
     -> td::Result<tonlib_api_ptr<tonlib_api::ftabi_stateInit>> {
   TRY_RESULT(tvc, vm::std_boc_deserialize(request.tvc_))
-  TRY_RESULT(input_key, from_tonlib_api(*request.key_))
-  td::Ed25519::PublicKey public_key{std::move(input_key.key.public_key)};
+  td::Ed25519::PublicKey public_key{td::SecureString{std::move(request.public_key_)}};
   TRY_RESULT(state_init, ftabi::generate_state_init(tvc, public_key));
 
   const auto hash = state_init->get_hash();
@@ -3510,9 +3520,6 @@ auto generate_state_init(const tonlib_api::ftabi_generateStateInit& request)
 }
 
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_generateStateInit& request) {
-  if (request.key_ == nullptr) {
-    return status_to_tonlib_api(TonlibError::EmptyField("key"));
-  }
   auto result = generate_state_init(request);
   if (result.is_error()) {
     return status_to_tonlib_api(result.move_as_error());
@@ -3655,6 +3662,11 @@ td::Status TonlibClient::do_request(const tonlib_api::getLogTags& request, P&&) 
 }
 template <class P>
 td::Status TonlibClient::do_request(const tonlib_api::addLogMessage& request, P&&) {
+  UNREACHABLE();
+  return TonlibError::Internal();
+}
+template <class P>
+td::Status TonlibClient::do_request(const tonlib_api::generateKeyPair& request, P&&) {
   UNREACHABLE();
   return TonlibError::Internal();
 }

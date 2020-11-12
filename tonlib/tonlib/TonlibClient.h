@@ -159,6 +159,8 @@ class TonlibClient : public td::actor::Actor {
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::getLogTags& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::addLogMessage& request);
 
+  static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::generateKeyPair& request);
+
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::encrypt& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::decrypt& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::kdf& request);
@@ -203,6 +205,9 @@ class TonlibClient : public td::actor::Actor {
   td::Status do_request(const tonlib_api::getLogTags& request, P&&);
   template <class P>
   td::Status do_request(const tonlib_api::addLogMessage& request, P&&);
+
+  template <class P>
+  td::Status do_request(const tonlib_api::generateKeyPair& request, P&&);
 
   template <class P>
   td::Status do_request(const tonlib_api::encrypt& request, P&&);

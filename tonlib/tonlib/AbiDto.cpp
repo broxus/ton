@@ -229,16 +229,12 @@ auto parse_function_call(const ftabi::Function& function, tonlib_api_ptr<tonlib_
             TRY_RESULT(inputValues, parse_values(value.input_values_))
             return ftabi::FunctionCall(std::move(headerValues), std::move(inputValues));
           },
-          [](const tonlib_api::ftabi_functionCallExternalSigned& value) -> ReturnType {
+          [](tonlib_api::ftabi_functionCallExternalSigned& value) -> ReturnType {
             TRY_RESULT(headerValues, parse_header_values(value.header_values_))
             TRY_RESULT(inputValues, parse_values(value.input_values_))
-            if (value.key_ == nullptr) {
-              return TonlibError::EmptyField("key");
-            }
-            TRY_RESULT(input_key, from_tonlib_api(*value.key_))
             return ftabi::FunctionCall(
                 std::move(headerValues), std::move(inputValues), false,
-                td::optional<td::Ed25519::PrivateKey>{td::Ed25519::PrivateKey(std::move(input_key.key.secret))});
+                td::optional<td::Ed25519::PrivateKey>{td::Ed25519::PrivateKey(std::move(value.key_))});
           },
           [](const tonlib_api::ftabi_functionCallInternal& value) -> ReturnType {
             TRY_RESULT(headerValues, parse_header_values(value.header_values_))
@@ -246,16 +242,12 @@ auto parse_function_call(const ftabi::Function& function, tonlib_api_ptr<tonlib_
             return ftabi::FunctionCall(std::move(headerValues), std::move(inputValues), true,
                                        td::optional<td::Ed25519::PrivateKey>{});
           },
-          [](const tonlib_api::ftabi_functionCallInternalSigned& value) -> ReturnType {
+          [](tonlib_api::ftabi_functionCallInternalSigned& value) -> ReturnType {
             TRY_RESULT(headerValues, parse_header_values(value.header_values_))
             TRY_RESULT(inputValues, parse_values(value.input_values_))
-            if (value.key_ == nullptr) {
-              return TonlibError::EmptyField("key");
-            }
-            TRY_RESULT(input_key, from_tonlib_api(*value.key_))
             return ftabi::FunctionCall(
                 std::move(headerValues), std::move(inputValues), true,
-                td::optional<td::Ed25519::PrivateKey>{td::Ed25519::PrivateKey(std::move(input_key.key.secret))});
+                td::optional<td::Ed25519::PrivateKey>{td::Ed25519::PrivateKey(std::move(value.key_))});
           }));
 }
 
