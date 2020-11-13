@@ -605,12 +605,14 @@ static auto make_value(const ParamRef& param, Args&&... args) -> ValueRef {
   return ValueRef{V{param, std::forward<Args>(args)...}};
 }
 
-template <typename... Values>
-static auto make_header(std::pair<std::string, Values>&&... values) -> HeaderValues {
-  static_assert((std::is_same_v<Values, ValueRef> && ...));
+template <typename... ArgsFirst, typename... ArgsSecond>
+static auto make_header(std::pair<ArgsFirst, ArgsSecond>&&... values) -> HeaderValues {
+  static_assert((std::is_same_v<ArgsSecond, ValueRef> && ...));
 
   HeaderValues header{};
-  (header.emplace(std::forward<std::pair<std::string, Values>>(values)), ...);
+  (header.emplace(std::piecewise_construct, std::forward_as_tuple<ArgsFirst>(std::forward<ArgsFirst>(values.first)),
+                  std::forward_as_tuple<ArgsSecond>(std::forward<ArgsSecond>(values.second))),
+   ...);
   return header;
 }
 
@@ -618,6 +620,14 @@ template <typename... Args>
 static auto make_params(Args&&... args) -> std::vector<ParamRef> {
   static_assert((std::is_base_of_v<Param, Args> && ...));
   return std::vector<ParamRef>{ParamRef{args}...};
+}
+
+template <typename... ArgsFirst, typename... ArgsSecond>
+static auto make_named_params(std::pair<ArgsFirst, ArgsSecond>&&... args)
+    -> std::vector<std::pair<std::string, ParamRef>> {
+  static_assert((std::is_base_of_v<Param, ArgsSecond> && ...));
+  return std::vector<std::pair<std::string, ParamRef>>{
+      {args.first, ParamRef{std::forward<ArgsSecond>(args.second)}}...};
 }
 
 auto check_params(const std::vector<ValueRef>& values, const std::vector<ParamRef>& params) -> bool;
