@@ -1611,7 +1611,7 @@ void TestNode::send_compute_complaint_price_query(ton::StdSmcAddress elector_add
   params.emplace_back(td::make_refint(refs));
   params.emplace_back(td::make_refint(expires_in));
   auto P = td::PromiseCreator::lambda(
-      [this, expires_in, bits, refs, chash, filename](td::Result<std::vector<vm::StackEntry>> R) {
+      [expires_in, bits, refs, chash, filename](td::Result<std::vector<vm::StackEntry>> R) {
         if (R.is_error()) {
           LOG(ERROR) << R.move_as_error();
           return;
@@ -2985,7 +2985,7 @@ void TestNode::got_state(ton::BlockIdExt blkid, ton::RootHash root_hash, ton::Fi
 }
 
 bool TestNode::get_show_block_header(ton::BlockIdExt blkid, int mode) {
-  return get_block_header(blkid, mode, [this, blkid](td::Result<BlockHdrInfo> R) {
+  return get_block_header(blkid, mode, [this](td::Result<BlockHdrInfo> R) {
     if (R.is_error()) {
       LOG(ERROR) << "unable to fetch block header: " << R.move_as_error();
     } else {
@@ -3247,7 +3247,7 @@ bool TestNode::get_creator_stats(ton::BlockIdExt blkid, int mode, unsigned req_c
   auto& os = *osp;
   return get_creator_stats(
       blkid, mode, req_count, start_after, min_utime,
-      [min_utime, &os](const td::Bits256& key, const block::DiscountedCounter& mc_cnt,
+      [&os](const td::Bits256& key, const block::DiscountedCounter& mc_cnt,
                        const block::DiscountedCounter& shard_cnt) -> bool {
         os << key.to_hex() << " mc_cnt:" << mc_cnt << " shard_cnt:" << shard_cnt << std::endl;
         return true;
@@ -3516,7 +3516,7 @@ bool TestNode::load_creator_stats(std::unique_ptr<TestNode::ValidatorLoadInfo> l
   ton::UnixTime min_utime = info.valid_since - 1000;
   return get_creator_stats(
       info.blk_id, 1000, min_utime,
-      [min_utime, &info](const td::Bits256& key, const block::DiscountedCounter& mc_cnt,
+      [&info](const td::Bits256& key, const block::DiscountedCounter& mc_cnt,
                          const block::DiscountedCounter& shard_cnt) -> bool {
         info.store_record(key, mc_cnt, shard_cnt);
         return true;

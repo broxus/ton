@@ -21,6 +21,7 @@
 #include "td/tl/tl_writer.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace td {
@@ -32,20 +33,35 @@ class TD_TL_writer : public tl::TL_writer {
   static const std::string base_tl_class_name;
   static const std::string base_function_class_name;
 
+ public:
+  enum ParserType : uint8_t {
+    unsafe_parser = 0x1u,
+  };
+
+  enum StorerType : uint8_t {
+    unsafe_storer = 0x1u,
+    string_storer = 0x2u,
+  };
+
  protected:
   const std::string string_type;
   const std::string bytes_type;
   const std::string secure_string_type;
   const std::string secure_bytes_type;
+  const uint8_t parser_types;
+  const uint8_t storer_types;
 
  public:
-  TD_TL_writer(const std::string &tl_name, const std::string &string_type, const std::string &bytes_type,
-               const std::string &secure_string_type, const std::string &secure_bytes_type)
+  TD_TL_writer(const std::string &tl_name, std::string string_type, std::string bytes_type,
+               std::string secure_string_type, std::string secure_bytes_type, uint8_t parser_types,
+               uint8_t storer_types)
       : TL_writer(tl_name)
-      , string_type(string_type)
-      , bytes_type(bytes_type)
-      , secure_string_type(secure_string_type)
-      , secure_bytes_type(secure_bytes_type) {
+      , string_type(std::move(string_type))
+      , bytes_type(std::move(bytes_type))
+      , secure_string_type(std::move(secure_string_type))
+      , secure_bytes_type(std::move(secure_bytes_type))
+      , parser_types(parser_types)
+      , storer_types(storer_types) {
   }
 
   int get_max_arity() const override;

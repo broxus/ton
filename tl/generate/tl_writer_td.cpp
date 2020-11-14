@@ -88,7 +88,7 @@ tl::TL_writer::Mode TD_TL_writer::get_storer_mode(int type) const {
 
 std::vector<std::string> TD_TL_writer::get_parsers() const {
   std::vector<std::string> parsers;
-  if (tl_name == "ton_api" || tl_name == "lite_api") {
+  if (parser_types & ParserType::unsafe_parser) {
     parsers.emplace_back("td::TlParser");
   }
   return parsers;
@@ -96,11 +96,13 @@ std::vector<std::string> TD_TL_writer::get_parsers() const {
 
 std::vector<std::string> TD_TL_writer::get_storers() const {
   std::vector<std::string> storers;
-  if (tl_name == "ton_api" || tl_name == "lite_api") {
+  if (storer_types & StorerType::unsafe_storer) {
     storers.emplace_back("td::TlStorerCalcLength");
     storers.emplace_back("td::TlStorerUnsafe");
   }
-  storers.emplace_back("td::TlStorerToString");
+  if (storer_types & StorerType::string_storer) {
+    storers.emplace_back("td::TlStorerToString");
+  }
   return storers;
 }
 

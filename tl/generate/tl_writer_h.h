@@ -35,8 +35,9 @@ class TD_TL_writer_h : public TD_TL_writer {
  public:
   TD_TL_writer_h(const std::string &tl_name, const std::string &string_type, const std::string &bytes_type,
                  const std::string &secure_string_type, const std::string &secure_bytes_type,
-                 const std::vector<std::string> &ext_include)
-      : TD_TL_writer(tl_name, string_type, bytes_type, secure_string_type, secure_bytes_type)
+                 const std::vector<std::string> &ext_include, uint8_t parser_types, uint8_t storer_types)
+      : TD_TL_writer(tl_name, string_type, bytes_type, secure_string_type, secure_bytes_type, parser_types,
+                     storer_types)
       , ext_include(ext_include) {
   }
 

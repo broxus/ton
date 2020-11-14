@@ -42,27 +42,36 @@ template <class WriterCpp = td::TD_TL_writer_cpp, class WriterH = td::TD_TL_writ
           class WriterHpp = td::TD_TL_writer_hpp>
 static void generate_cpp(const std::string &directory, const std::string &tl_name, const std::string &string_type,
                          const std::string &bytes_type, const std::string &secure_string_type,
-                         const std::string &secure_bytes_type, const std::vector<std::string> &ext_cpp_includes,
+                         const std::string &secure_bytes_type, uint8_t parser_types, uint8_t storer_types,
+                         const std::vector<std::string> &ext_cpp_includes,
                          const std::vector<std::string> &ext_h_includes) {
   std::string path = directory + "/" + tl_name;
   td::tl::tl_config config = td::tl::read_tl_config_from_file("scheme/" + tl_name + ".tlo");
+
+  td::tl::write_tl_to_file(config, path + ".cpp",
+                           WriterCpp(tl_name, string_type, bytes_type, secure_string_type, secure_bytes_type,
+                                     ext_cpp_includes, parser_types, storer_types));
+
+  td::tl::write_tl_to_file(config, path + ".h",
+                           WriterH(tl_name, string_type, bytes_type, secure_string_type, secure_bytes_type,
+                                   ext_h_includes, parser_types, storer_types));
+
   td::tl::write_tl_to_file(
-      config, path + ".cpp",
-      WriterCpp(tl_name, string_type, bytes_type, secure_string_type, secure_bytes_type, ext_cpp_includes));
-  td::tl::write_tl_to_file(
-      config, path + ".h",
-      WriterH(tl_name, string_type, bytes_type, secure_string_type, secure_bytes_type, ext_h_includes));
-  td::tl::write_tl_to_file(config, path + ".hpp",
-                           WriterHpp(tl_name, string_type, bytes_type, secure_string_type, secure_bytes_type));
+      config, path + ".hpp",
+      WriterHpp(tl_name, string_type, bytes_type, secure_string_type, secure_bytes_type, parser_types, storer_types));
 }
 
 int main() {
   generate_cpp("auto/tl", "ton_api", "std::string", "td::BufferSlice", "std::string", "td::BufferSlice",
+               td::TD_TL_writer::ParserType::unsafe_parser,
+               td::TD_TL_writer::StorerType::unsafe_storer | td::TD_TL_writer::StorerType::string_storer,
                {"\"tl/tl_object_parse.h\"", "\"tl/tl_object_store.h\"", "\"td/utils/int_types.h\"",
                 "\"crypto/common/bitstring.h\""},
                {"<string>", "\"td/utils/buffer.h\"", "\"crypto/common/bitstring.h\""});
 
   generate_cpp("auto/tl", "lite_api", "std::string", "td::BufferSlice", "std::string", "td::BufferSlice",
+               td::TD_TL_writer::ParserType::unsafe_parser,
+               td::TD_TL_writer::StorerType::unsafe_storer | td::TD_TL_writer::StorerType::string_storer,
                {"\"tl/tl_object_parse.h\"", "\"tl/tl_object_store.h\"", "\"td/utils/int_types.h\"",
                 "\"crypto/common/bitstring.h\""},
                {"<string>", "\"td/utils/buffer.h\"", "\"crypto/common/bitstring.h\""});
@@ -70,11 +79,14 @@ int main() {
 
 #ifdef TONLIB_ENABLE_JNI
   generate_cpp<td::TD_TL_writer_jni_cpp, td::TD_TL_writer_jni_h>(
-      "auto/tl", "tonlib_api", "std::string", "std::string", "td::SecureString", "td::SecureString",
+      "auto/tl", "tonlib_api", "std::string", "std::string", "td::SecureString", "td::SecureString",  //
+      0, td::TD_TL_writer::StorerType::string_storer,
       {"\"tl/tl_jni_object.h\"", "\"tl/tl_object_store.h\"", "\"td/utils/int_types.h\""},
       {"<string>", "\"td/utils/SharedSlice.h\""});
 #else
   generate_cpp<>("auto/tl", "tonlib_api", "std::string", "std::string", "td::SecureString", "td::SecureString",
+                 td::TD_TL_writer::ParserType::unsafe_parser,
+                 td::TD_TL_writer::StorerType::unsafe_storer | td::TD_TL_writer::StorerType::string_storer,
                  {"\"tl/tl_object_parse.h\"", "\"tl/tl_object_store.h\"", "\"td/utils/int_types.h\""},
                  {"<string>", "\"td/utils/SharedSlice.h\""});
 #endif

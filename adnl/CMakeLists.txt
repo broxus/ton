@@ -80,7 +80,7 @@ set(ADNL_LITE_SOURCE
 )
 
 #BEGIN internal
-if (NOT TON_ONLY_TONLIB)
+if (NOT TON_ONLY_TONLIB AND TON_USE_ROCKSDB)
 add_library(adnl STATIC ${ADNL_SOURCE})
 
 target_include_directories(adnl PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>)
