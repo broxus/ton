@@ -20,6 +20,7 @@
 
 #include <iostream>
 #include <cassert>
+#include <algorithm>
 
 namespace td {
 
@@ -53,13 +54,9 @@ bool TD_TL_writer::is_combinator_supported(const tl::tl_combinator *constructor)
     return false;
   }
 
-  for (std::size_t i = 0; i < constructor->args.size(); i++) {
-    if (constructor->args[i].type->get_type() == tl::NODE_TYPE_VAR_TYPE) {
-      return false;
-    }
-  }
-
-  return true;
+  const auto &args = constructor->args;
+  return std::all_of(args.begin(), args.end(),
+                     [](const auto &arg) { return arg.type->get_type() != tl::NODE_TYPE_VAR_TYPE; });
 }
 
 int TD_TL_writer::get_storer_type(const tl::tl_combinator *t, const std::string &storer_name) const {
@@ -92,7 +89,7 @@ tl::TL_writer::Mode TD_TL_writer::get_storer_mode(int type) const {
 std::vector<std::string> TD_TL_writer::get_parsers() const {
   std::vector<std::string> parsers;
   if (tl_name == "ton_api" || tl_name == "lite_api") {
-    parsers.push_back("td::TlParser");
+    parsers.emplace_back("td::TlParser");
   }
   return parsers;
 }
@@ -100,10 +97,10 @@ std::vector<std::string> TD_TL_writer::get_parsers() const {
 std::vector<std::string> TD_TL_writer::get_storers() const {
   std::vector<std::string> storers;
   if (tl_name == "ton_api" || tl_name == "lite_api") {
-    storers.push_back("td::TlStorerCalcLength");
-    storers.push_back("td::TlStorerUnsafe");
+    storers.emplace_back("td::TlStorerCalcLength");
+    storers.emplace_back("td::TlStorerUnsafe");
   }
-  storers.push_back("td::TlStorerToString");
+  storers.emplace_back("td::TlStorerToString");
   return storers;
 }
 
@@ -133,21 +130,21 @@ std::string TD_TL_writer::gen_class_name(std::string name) const {
   if (name == "#") {
     return "std::int32_t";
   }
-  for (std::size_t i = 0; i < name.size(); i++) {
-    if (!is_alnum(name[i])) {
-      name[i] = '_';
+  for (char &i : name) {
+    if (!is_alnum(i)) {
+      i = '_';
     }
   }
   return name;
 }
 
 std::string TD_TL_writer::gen_field_name(std::string name) const {
-  for (std::size_t i = 0; i < name.size(); i++) {
-    if (!is_alnum(name[i])) {
-      name[i] = '_';
+  for (char &i : name) {
+    if (!is_alnum(i)) {
+      i = '_';
     }
   }
-  assert(name.size() > 0);
+  assert(!name.empty());
   assert(name[name.size() - 1] != '_');
   return name + "_";
 }
@@ -217,7 +214,7 @@ std::string TD_TL_writer::gen_type_name(const tl::tl_tree_type *tree_type) const
     assert(t->arity == 1);
     assert(tree_type->children.size() == 1);
     assert(tree_type->children[0]->get_type() == tl::NODE_TYPE_TYPE);
-    const tl::tl_tree_type *child = static_cast<const tl::tl_tree_type *>(tree_type->children[0]);
+    const auto *child = dynamic_cast<const tl::tl_tree_type *>(tree_type->children[0]);
 
     return "std::vector<" + gen_type_name(child) + ">";
   }

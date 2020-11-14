@@ -3397,7 +3397,7 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
     return status_to_tonlib_api(public_key_r.move_as_error());
   }
   const auto public_key = public_key_r.move_as_ok().as_octet_string();
-  return tonlib_api::make_object<tonlib_api::key>(public_key.as_slice().str(), private_key.as_octet_string());
+  return tonlib_api::make_object<tonlib_api::keyPair>(public_key.as_slice().str(), private_key.as_octet_string());
 }
 
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::encrypt& request) {

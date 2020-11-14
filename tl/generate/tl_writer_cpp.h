@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace td {
@@ -50,9 +51,9 @@ class TD_TL_writer_cpp : public TD_TL_writer {
  public:
   TD_TL_writer_cpp(const std::string &tl_name, const std::string &string_type, const std::string &bytes_type,
                    const std::string &secure_string_type, const std::string &secure_bytes_type,
-                   const std::vector<std::string> &ext_include)
+                   std::vector<std::string> ext_include)
       : TD_TL_writer(tl_name, string_type, bytes_type, secure_string_type, secure_bytes_type)
-      , ext_include(ext_include) {
+      , ext_include(std::move(ext_include)) {
   }
 
   std::string gen_output_begin() const override;

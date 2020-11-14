@@ -78,7 +78,7 @@ std::string TD_TL_writer_cpp::gen_vars(const tl::tl_combinator *t, const tl::tl_
 
     int arg_type = a.type->get_type();
     if (arg_type == tl::NODE_TYPE_VAR_TYPE) {
-      const tl::tl_tree_var_type *var_type = static_cast<const tl::tl_tree_var_type *>(a.type);
+      const auto *var_type = dynamic_cast<const tl::tl_tree_var_type *>(a.type);
       assert(a.flags & tl::FLAG_EXCL);
       assert(var_type->var_num < static_cast<int>(vars.size()));
       assert(var_type->var_num >= 0);
@@ -89,12 +89,12 @@ std::string TD_TL_writer_cpp::gen_vars(const tl::tl_combinator *t, const tl::tl_
   }
 
   std::string res;
-  for (std::size_t i = 0; i < vars.size(); i++) {
-    if (!vars[i].is_type) {
-      assert(vars[i].parameter_num == -1);
-      assert(vars[i].function_arg_num == -1);
-      assert(vars[i].is_stored == false);
-      res += "  " + gen_class_name("#") + " " + gen_var_name(vars[i]) + ";\n";
+  for (auto &var : vars) {
+    if (!var.is_type) {
+      assert(var.parameter_num == -1);
+      assert(var.function_arg_num == -1);
+      assert(var.is_stored == false);
+      res += "  " + gen_class_name("#") + " " + gen_var_name(var) + ";\n";
     }
   }
   return res;
@@ -115,7 +115,7 @@ std::string TD_TL_writer_cpp::gen_function_vars(const tl::tl_combinator *t,
 
     int arg_type = a.type->get_type();
     if (arg_type == tl::NODE_TYPE_VAR_TYPE) {
-      const tl::tl_tree_var_type *var_type = static_cast<const tl::tl_tree_var_type *>(a.type);
+      const auto *var_type = dynamic_cast<const tl::tl_tree_var_type *>(a.type);
       assert(a.flags & tl::FLAG_EXCL);
       assert(var_type->var_num >= 0);
       assert(!vars[var_type->var_num].is_type);
@@ -164,8 +164,11 @@ std::string TD_TL_writer_cpp::gen_fetch_class_name(const tl::tl_tree_type *tree_
   if (name == "SecureString") {
     return "TlFetchString<" + secure_string_type + ">";
   }
-  if (name == "Bytes" || name == "SecureBytes") {
+  if (name == "Bytes") {
     return "TlFetchBytes<" + bytes_type + ">";
+  }
+  if (name == "SecureBytes") {
+    return "TlFetchBytes<" + secure_bytes_type + ">";
   }
   if (name == "Object") {
     return "TlFetchObject<" + gen_base_type_class_name(0) + ">";
@@ -178,14 +181,14 @@ std::string TD_TL_writer_cpp::gen_fetch_class_name(const tl::tl_tree_type *tree_
     assert(t->arity == 1);
     assert(tree_type->children.size() == 1);
     assert(tree_type->children[0]->get_type() == tl::NODE_TYPE_TYPE);
-    const tl::tl_tree_type *child = static_cast<const tl::tl_tree_type *>(tree_type->children[0]);
+    const auto *child = dynamic_cast<const tl::tl_tree_type *>(tree_type->children[0]);
 
     return "TlFetchVector<" + gen_full_fetch_class_name(child) + ">";
   }
 
   assert(!is_built_in_simple_type(name) && !is_built_in_complex_type(name));
-  for (std::size_t i = 0; i < tree_type->children.size(); i++) {
-    assert(tree_type->children[i]->get_type() == tl::NODE_TYPE_NAT_CONST);
+  for (auto i : tree_type->children) {
+    assert(i->get_type() == tl::NODE_TYPE_NAT_CONST);
   }
 
   assert(tree_type->children.empty());
@@ -231,7 +234,7 @@ std::string TD_TL_writer_cpp::gen_field_fetch(int field_num, const tl::arg &a, s
   if (a.type->get_type() == tl::NODE_TYPE_VAR_TYPE) {
     assert(parser_type == 1);
 
-    const tl::tl_tree_var_type *t = static_cast<const tl::tl_tree_var_type *>(a.type);
+    const auto *t = dynamic_cast<const tl::tl_tree_var_type *>(a.type);
     assert(a.flags == tl::FLAG_EXCL);
 
     assert(a.var_num == -1);
@@ -265,7 +268,7 @@ std::string TD_TL_writer_cpp::gen_field_fetch(int field_num, const tl::arg &a, s
   bool store_to_var_num = false;
   if (a.var_num >= 0) {
     assert(a.type->get_type() == tl::NODE_TYPE_TYPE);
-    assert(static_cast<const tl::tl_tree_type *>(a.type)->type->id == tl::ID_VAR_NUM);
+    assert(dynamic_cast<const tl::tl_tree_type *>(a.type)->type->id == tl::ID_VAR_NUM);
     assert(0 <= a.var_num && a.var_num < static_cast<int>(vars.size()));
     if (!vars[a.var_num].is_stored) {
       res += "if ((" + gen_var_name(vars[a.var_num]) + " = ";
@@ -279,7 +282,7 @@ std::string TD_TL_writer_cpp::gen_field_fetch(int field_num, const tl::arg &a, s
   res += field_name + (parser_type == 0 ? "(" : " = ");
 
   assert(a.type->get_type() == tl::NODE_TYPE_TYPE);
-  const tl::tl_tree_type *tree_type = static_cast<tl::tl_tree_type *>(a.type);
+  const auto *tree_type = dynamic_cast<tl::tl_tree_type *>(a.type);
   res += gen_type_fetch(field_name, tree_type, vars, parser_type);
   if (store_to_var_num) {
     res += ") < 0) { FAIL(\"Variable of type # can't be negative\"); }";
@@ -329,7 +332,7 @@ std::string TD_TL_writer_cpp::gen_vector_store(const std::string &field_name, co
   return "{ const std::vector<" + gen_type_name(t) + "> &v" + num + " = " + field_name +
          "; const std::uint32_t multiplicity" + num + " = static_cast<std::uint32_t>(v" + num +
          ".size()); const auto vector_name" + num + " = \"" + get_pretty_class_name("vector") +
-         "[\" + td::to_string(multiplicity" + num + ")+ \"]\"; s.store_class_begin(\"" +
+         "[\" + td::to_string(multiplicity" + num + R"()+ "]"; s.store_class_begin(")" +
          get_pretty_field_name(field_name) + "\", vector_name" + num +
          ".c_str()); "
          "for (std::uint32_t i" +
@@ -362,7 +365,7 @@ std::string TD_TL_writer_cpp::gen_store_class_name(const tl::tl_tree_type *tree_
     assert(t->arity == 1);
     assert(tree_type->children.size() == 1);
     assert(tree_type->children[0]->get_type() == tl::NODE_TYPE_TYPE);
-    const tl::tl_tree_type *child = static_cast<const tl::tl_tree_type *>(tree_type->children[0]);
+    const auto *child = dynamic_cast<const tl::tl_tree_type *>(tree_type->children[0]);
 
     return "TlStoreVector<" + gen_full_store_class_name(child) + ">";
   }
@@ -424,12 +427,12 @@ std::string TD_TL_writer_cpp::gen_type_store(const std::string &field_name, cons
   } else if (name == "Bytes" || name == "SecureBytes") {
     return "s.store_bytes_field(\"" + get_pretty_field_name(field_name) + "\", " + field_name + ");";
   } else if (name == "Vector") {
-    const tl::tl_tree_type *child = static_cast<const tl::tl_tree_type *>(tree_type->children[0]);
+    const auto *child = dynamic_cast<const tl::tl_tree_type *>(tree_type->children[0]);
     return gen_vector_store(field_name, child, vars, storer_type);
   } else {
     assert(tree_type->children.empty());
     return "if (" + field_name + " == nullptr) { s.store_field(\"" + get_pretty_field_name(field_name) +
-           "\", \"null\"); } else { " + field_name + "->store(s, \"" + get_pretty_field_name(field_name) + "\"); }";
+           R"(", "null"); } else { )" + field_name + "->store(s, \"" + get_pretty_field_name(field_name) + "\"); }";
   }
 }
 
@@ -439,7 +442,7 @@ std::string TD_TL_writer_cpp::gen_field_store(const tl::arg &a, std::vector<tl::
   std::string res = storer_type == 1 ? "    " : "  ";
 
   if (a.type->get_type() == tl::NODE_TYPE_VAR_TYPE) {
-    const tl::tl_tree_var_type *t = static_cast<const tl::tl_tree_var_type *>(a.type);
+    const auto *t = dynamic_cast<const tl::tl_tree_var_type *>(a.type);
     assert(a.flags == tl::FLAG_EXCL);
 
     assert(a.var_num == -1);
@@ -461,7 +464,7 @@ std::string TD_TL_writer_cpp::gen_field_store(const tl::arg &a, std::vector<tl::
     assert(0 <= a.var_num && a.var_num < static_cast<int>(vars.size()));
 
     assert(a.type->get_type() == tl::NODE_TYPE_TYPE);
-    assert(static_cast<const tl::tl_tree_type *>(a.type)->type->id == tl::ID_VAR_NUM);
+    assert(dynamic_cast<const tl::tl_tree_type *>(a.type)->type->id == tl::ID_VAR_NUM);
     assert(vars[a.var_num].is_stored);
     assert(!vars[a.var_num].is_type);
     return "";
@@ -481,7 +484,7 @@ std::string TD_TL_writer_cpp::gen_field_store(const tl::arg &a, std::vector<tl::
 
   if (a.var_num >= 0) {
     assert(a.type->get_type() == tl::NODE_TYPE_TYPE);
-    assert(static_cast<const tl::tl_tree_type *>(a.type)->type->id == tl::ID_VAR_NUM);
+    assert(dynamic_cast<const tl::tl_tree_type *>(a.type)->type->id == tl::ID_VAR_NUM);
     assert(a.var_num < static_cast<int>(vars.size()));
     if (!vars[a.var_num].is_stored) {
       field_name = "(" + gen_var_name(vars[a.var_num]) + " = " + field_name + ")";
@@ -493,7 +496,7 @@ std::string TD_TL_writer_cpp::gen_field_store(const tl::arg &a, std::vector<tl::
   }
 
   assert(a.type->get_type() == tl::NODE_TYPE_TYPE);
-  const tl::tl_tree_type *tree_type = static_cast<tl::tl_tree_type *>(a.type);
+  const tl::tl_tree_type *tree_type = dynamic_cast<tl::tl_tree_type *>(a.type);
   res += gen_type_store(field_name, tree_type, vars, storer_type);
   if (a.exist_var_num >= 0) {
     res += " }";
@@ -562,8 +565,8 @@ std::string TD_TL_writer_cpp::gen_fetch_function_begin(const std::string &parser
 std::string TD_TL_writer_cpp::gen_fetch_function_end(bool has_parent, int field_num,
                                                      const std::vector<tl::var_description> &vars,
                                                      int parser_type) const {
-  for (std::size_t i = 0; i < vars.size(); i++) {
-    assert(vars[i].is_stored);
+  for (auto var : vars) {
+    assert(var.is_stored);
   }
 
   if (parser_type == 0) {
@@ -612,8 +615,8 @@ std::string TD_TL_writer_cpp::gen_fetch_function_result_any_end(bool is_proxy) c
 std::string TD_TL_writer_cpp::gen_store_function_begin(const std::string &storer_name, const std::string &class_name,
                                                        int arity, std::vector<tl::var_description> &vars,
                                                        int storer_type) const {
-  for (std::size_t i = 0; i < vars.size(); i++) {
-    vars[i].is_stored = false;
+  for (auto &var : vars) {
+    var.is_stored = false;
   }
 
   if (storer_type == -1) {
@@ -633,8 +636,8 @@ std::string TD_TL_writer_cpp::gen_store_function_begin(const std::string &storer
 
 std::string TD_TL_writer_cpp::gen_store_function_end(const std::vector<tl::var_description> &vars,
                                                      int storer_type) const {
-  for (std::size_t i = 0; i < vars.size(); i++) {
-    assert(vars[i].is_stored);
+  for (auto var : vars) {
+    assert(var.is_stored);
   }
 
   if (storer_type == -1) {
