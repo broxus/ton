@@ -158,8 +158,11 @@ std::string TD_TL_writer_cpp::gen_fetch_class_name(const tl::tl_tree_type *tree_
       name == "Int256") {
     return "TlFetch" + name;
   }
-  if (name == "String" || name == "SecureString") {
+  if (name == "String") {
     return "TlFetchString<" + string_type + ">";
+  }
+  if (name == "SecureString") {
+    return "TlFetchString<" + secure_string_type + ">";
   }
   if (name == "Bytes" || name == "SecureBytes") {
     return "TlFetchBytes<" + bytes_type + ">";
