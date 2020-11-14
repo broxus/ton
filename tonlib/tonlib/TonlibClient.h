@@ -160,7 +160,7 @@ class TonlibClient : public td::actor::Actor {
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::getLogTags& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::addLogMessage& request);
 
-  static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::generateKeyPair& request);
+  static object_ptr<tonlib_api::Object> do_static_request(tonlib_api::generateKeyPair& request);
 
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::encrypt& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::decrypt& request);

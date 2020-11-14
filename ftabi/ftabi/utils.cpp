@@ -15,7 +15,6 @@
 
 namespace ftabi {
 namespace tonlib_api = ton::tonlib_api;
-constexpr static auto STD_ADDRESS_BIT_LENGTH = 2 /* tag */ + 1 /* maybe */ + 8 /* workchain */ + 256 /* addr */;
 constexpr static uint32_t SIGNATURE_LENGTH = 64;
 
 namespace details {

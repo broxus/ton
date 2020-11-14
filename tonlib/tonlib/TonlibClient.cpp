@@ -3390,14 +3390,28 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
   return tonlib_api::make_object<tonlib_api::ok>();
 }
 
-tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::generateKeyPair& request) {
-  const auto private_key = ton::privkeys::Ed25519::random().export_key();
-  auto public_key_r = private_key.get_public_key();
-  if (public_key_r.is_error()) {
-    return status_to_tonlib_api(public_key_r.move_as_error());
+auto generate_key_pair(tonlib_api::generateKeyPair& request)
+    -> td::Result<tonlib_api::object_ptr<tonlib_api::keyPair>> {
+  Mnemonic::Options options{};
+  options.words_count = request.word_count_;
+  options.password = std::move(request.password_);
+  options.entropy = std::move(request.entropy_);
+  TRY_RESULT(mnemonic, Mnemonic::create_new(std::move(options)))
+
+  const auto private_key = mnemonic.to_private_key();
+  TRY_RESULT(public_key, private_key.get_public_key())
+
+  return tonlib_api::make_object<tonlib_api::keyPair>(public_key.as_octet_string().as_slice().str(),
+                                                      private_key.as_octet_string(), mnemonic.get_words());
+}
+
+tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(tonlib_api::generateKeyPair& request) {
+  auto result = generate_key_pair(request);
+  if (result.is_error()) {
+    return status_to_tonlib_api(result.move_as_error());
+  } else {
+    return result.move_as_ok();
   }
-  const auto public_key = public_key_r.move_as_ok().as_octet_string();
-  return tonlib_api::make_object<tonlib_api::keyPair>(public_key.as_slice().str(), private_key.as_octet_string());
 }
 
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::encrypt& request) {

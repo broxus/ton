@@ -36,7 +36,7 @@ exportedPemKey pem:secureString = ExportedPemKey;
 exportedEncryptedKey data:secureBytes = ExportedEncryptedKey;
 exportedUnencryptedKey data:secureBytes = ExportedUnencryptedKey;
 
-keyPair public_key:bytes private_key:secureBytes = KeyPair;
+keyPair public_key:bytes private_key:secureBytes mnemonic:vector<secureString> = KeyPair;
 
 bip39Hints words:vector<string> = Bip39Hints;
 
@@ -147,7 +147,7 @@ ftabi.valueBytes param:ftabi.Param value:bytes = ftabi.Value;
 ftabi.valueGram param:ftabi.Param value:int64 = ftabi.Value;
 ftabi.valueTime param:ftabi.Param value:int64 = ftabi.Value;
 ftabi.valueExpire param:ftabi.Param value:int32 = ftabi.Value;
-ftabi.valuePublicKey param:ftabi.Param value:SecureString = ftabi.Value;
+ftabi.valuePublicKey param:ftabi.Param value:secureString = ftabi.Value;
 
 ftabi.namedParam name:string param:ftabi.Param = ftabi.NamedParam;
 ftabi.namedValue name:string value:ftabi.Value = ftabi.NamedValue;
@@ -759,7 +759,7 @@ importEncryptedKey local_password:secureBytes key_password:secureBytes exported_
 importUnencryptedKey local_password:secureBytes  exported_unencrypted_key:exportedUnencryptedKey = Key;
 changeLocalPassword input_key:InputKey new_local_password:secureBytes = Key;
 
-generateKeyPair = KeyPair;
+generateKeyPair word_count:int32 password:secureString entropy:secureString = KeyPair;
 
 encrypt decrypted_data:secureBytes secret:secureBytes = Data;
 decrypt encrypted_data:secureBytes secret:secureBytes = Data;
