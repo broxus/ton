@@ -84,9 +84,17 @@ int main() {
       {"\"tl/tl_jni_object.h\"", "\"tl/tl_object_store.h\"", "\"td/utils/int_types.h\""},
       {"<string>", "\"td/utils/SharedSlice.h\""});
 #else
+
+#ifdef TONLIB_FULL_API
+  const auto tonlib_parsers = td::TD_TL_writer::ParserType::unsafe_parser;
+  const auto tonlib_storers = td::TD_TL_writer::StorerType::unsafe_storer | td::TD_TL_writer::StorerType::string_storer;
+#else
+  const auto tonlib_parsers = 0;
+  const auto tonlib_storers = td::TD_TL_writer::StorerType::string_storer;
+#endif
+
   generate_cpp<>("auto/tl", "tonlib_api", "std::string", "std::string", "td::SecureString", "td::SecureString",
-                 td::TD_TL_writer::ParserType::unsafe_parser,
-                 td::TD_TL_writer::StorerType::unsafe_storer | td::TD_TL_writer::StorerType::string_storer,
+                 tonlib_parsers, tonlib_storers,
                  {"\"tl/tl_object_parse.h\"", "\"tl/tl_object_store.h\"", "\"td/utils/int_types.h\""},
                  {"<string>", "\"td/utils/SharedSlice.h\""});
 #endif

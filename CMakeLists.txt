@@ -82,6 +82,7 @@ option(TON_USE_JEMALLOC "Use \"ON\" to enable JeMalloc." OFF)
 #END internal
 
 option(TONLIB_ENABLE_JNI "Use \"ON\" to enable JNI-compatible TonLib API.")
+option(TONLIB_FULL_API "Use \"ON\" to generate unsafe parsers and storers." OFF)
 option(TON_USE_ASAN "Use \"ON\" to enable AddressSanitizer." OFF)
 option(TON_USE_TSAN "Use \"ON\" to enable ThreadSanitizer." OFF)
 option(TON_USE_UBSAN "Use \"ON\" to enable UndefinedBehaviorSanitizer." OFF)
