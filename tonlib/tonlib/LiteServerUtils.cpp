@@ -784,18 +784,21 @@ auto parse_account_state(const td::Ref<vm::CellSlice>& csr)
 
       TRY_RESULT(special, parse_maybe(parse_account_special, state_init.special))
       td::BufferSlice code, data;
+      std::string code_hash, data_hash;
       if (has_code) {
+        code_hash = code_cell->get_hash().as_slice().str();
         TRY_RESULT_ASSIGN(code, vm::std_boc_serialize(code_cell))
       }
       if (has_data) {
+        data_hash = data_cell->get_hash().as_slice().str();
         TRY_RESULT_ASSIGN(data, vm::std_boc_serialize(data_cell))
       }
 
       TRY_RESULT(library, parse_simple_libs(state_init.library))
 
       return tonlib_api::make_object<tonlib_api::liteServer_accountStateActive>(
-          has_split_depth, split_depth, std::move(special), has_code, code.as_slice().str(), has_data,
-          data.as_slice().str(), std::move(library));
+          has_split_depth, split_depth, std::move(special), has_code, code.as_slice().str(), code_hash, has_data,
+          data.as_slice().str(), data_hash, std::move(library));
     }
     case block::gen::AccountState::account_frozen: {
       block::gen::AccountState::Record_account_frozen record;

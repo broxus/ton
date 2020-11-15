@@ -564,14 +564,18 @@ liteServer.accountStateUninit = liteServer.AccountState;
 //@param key    int256
 liteServer.simpleLib key:bytes is_public:Bool root:bytes  = liteServer.SimpleLib;
 liteServer.tickTock tick:Bool tock:Bool = liteServer.TickTock;
+//@param code_hash  int256
+//@param data_hash  int256
 liteServer.accountStateActive
     has_split_depth:Bool
     split_depth:int32
     special:liteServer.TickTock
     has_code:Bool
     code:bytes
+    code_hash:bytes
     has_data:Bool
     data:bytes
+    data_hash:bytes
     library:vector<liteServer.simpleLib> = liteServer.AccountState;
 //@param state_hash         int256
 liteServer.accountStateFrozen state_hash:bytes = liteServer.AccountState;
