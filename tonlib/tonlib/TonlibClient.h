@@ -334,12 +334,16 @@ class TonlibClient : public td::actor::Actor {
                         td::Promise<object_ptr<tonlib_api::liteServer_block>>&& promise);
   td::Status do_request(const tonlib_api::liteServer_getBlockHeader& block_header,
                         td::Promise<object_ptr<tonlib_api::liteServer_blockHeader>>&& promise);
-  td::Status do_request(const tonlib_api::liteServer_getAccount& request,
+  td::Status do_request(tonlib_api::liteServer_getAccount& request,
                         td::Promise<object_ptr<tonlib_api::liteServer_account>>&& promise);
+  td::Status do_request(tonlib_api::liteServer_getRawAccount& request,
+                        td::Promise<object_ptr<tonlib_api::liteServer_rawAccount>>&& promise);
   td::Status do_request(const tonlib_api::liteServer_getOneTransaction& transaction_info,
                         td::Promise<object_ptr<tonlib_api::liteServer_transaction>>&& promise);
   td::Status do_request(const tonlib_api::liteServer_getTransactions& transaction_list,
                         td::Promise<object_ptr<tonlib_api::liteServer_transactionList>>&& promise);
+  td::Status do_request(const tonlib_api::liteServer_getRawTransactions& transaction_list,
+                        td::Promise<object_ptr<tonlib_api::liteServer_rawTransactionList>>&& promise);
   td::Status do_request(const tonlib_api::liteServer_lookupBlock& block_header,
                         td::Promise<object_ptr<tonlib_api::liteServer_block>>&& promise);
   td::Status do_request(const tonlib_api::liteServer_listBlockTransactions& block_transactions,
@@ -352,6 +356,7 @@ class TonlibClient : public td::actor::Actor {
                         td::Promise<object_ptr<tonlib_api::liteServer_configInfo>>&& promise);
   td::Status do_request(tonlib_api::liteServer_getPastElections& request,
                         td::Promise<object_ptr<tonlib_api::liteServer_pastElections>>&& promise);
+
   td::Status do_request(const tonlib_api::query_estimateFees& request,
                         td::Promise<object_ptr<tonlib_api::query_fees>>&& promise);
   td::Status do_request(const tonlib_api::query_send& request, td::Promise<object_ptr<tonlib_api::ok>>&& promise);

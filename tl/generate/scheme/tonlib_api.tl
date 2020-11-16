@@ -470,6 +470,8 @@ liteServer.transaction
     hash_update:liteServer.HashUpdate
     desc:liteServer.TransactionDescr = liteServer.Transaction;
 liteServer.transactionList ids:vector<ton.blockIdExt> transactions:vector<liteServer.transaction> = liteServer.TransactionList;
+liteServer.rawTransaction data:bytes = liteServer.RawTransaction;
+liteServer.rawTransactionList items:vector<liteServer.rawTransaction> = liteServer.RawTransactionList;
 liteServer.globalVersion version:int32 capabilities:int64 = liteServer.GlobalVersion;
 //@param root_hash  int256
 //@param file_hash  int256
@@ -588,6 +590,12 @@ liteServer.account
     last_trans_hash:bytes
     balance:liteServer.CurrencyCollection
     state:liteServer.AccountState = liteServer.Account;
+liteServer.rawAccount
+    gen_utime:int32
+    gen_lt:int64
+    last_trans_lt:int64
+    last_trans_hash:bytes
+    data:bytes = liteServer.RawAccount;
 liteServer.blockState
     utime:int32
     lt:int64
@@ -849,9 +857,12 @@ liteServer.getState id:ton.blockIdExt = liteServer.BlockState;
 liteServer.getBlock id:ton.blockIdExt = liteServer.Block;
 liteServer.getBlockHeader id:ton.blockIdExt mode:int32 = liteServer.BlockHeader;
 liteServer.getAccount id:ton.blockIdExt account:liteServer.accountId = liteServer.Account;
+liteServer.getRawAccount id:ton.blockIdExt account:liteServer.accountId = liteServer.RawAccount;
 liteServer.getOneTransaction id:ton.blockIdExt account:liteServer.accountId lt:int64 = liteServer.Transaction;
 //@param hash   int256
 liteServer.getTransactions count:int32 account:liteServer.accountId lt:int64 hash:bytes = liteServer.TransactionList;
+//@param hash   int256
+liteServer.getRawTransactions count:int32 account:liteServer.accountId lt:int64 hash:bytes = liteServer.RawTransactionList;
 //@param lt     int64 if mode & 2
 //@param utime  int32 if mode & 4
 liteServer.lookupBlock mode:int32 id:ton.blockId lt:int64 utime:int32 = liteServer.Block;

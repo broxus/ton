@@ -2632,39 +2632,71 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getBlockHeader&
   return td::Status::OK();
 }
 
-td::Status TonlibClient::do_request(const tonlib_api::liteServer_getAccount& request,
+auto parse_account_params(tonlib_api_ptr<tonlib_api::ton_blockIdExt>&& id,
+                          tonlib_api_ptr<tonlib_api::liteServer_accountId>&& account)
+    -> td::Result<std::tuple<lite_api_ptr<lite_api::tonNode_blockIdExt>, lite_api_ptr<lite_api::liteServer_accountId>,
+                             ton::BlockIdExt, block::StdAddress>> {
+  TRY_RESULT(root_hash, to_bits256(id->root_hash_, "id.root_hash"))
+  TRY_RESULT(file_hash, to_bits256(id->file_hash_, "id.file_hash"))
+  auto block_id = ton::BlockIdExt(id->workchain_, id->shard_, id->seqno_, root_hash, file_hash);
+  TRY_RESULT(lite_api_id, to_lite_api(*id))
+
+  TRY_RESULT(address, to_lite_api(*account))
+  auto workchain = address->workchain_;
+  auto account_id = address->id_;
+  return std::make_tuple(std::move(lite_api_id), std::move(address), std::move(block_id),
+                         block::StdAddress(workchain, account_id));
+}
+
+auto parse_account_info(const ton::BlockIdExt& block_id, const block::StdAddress& addr,
+                        lite_api_ptr<lite_api::liteServer_accountState>&& account_state)
+    -> td::Result<block::AccountState::Info> {
+  block::AccountState state;
+  state.blk = ton::create_block_id(account_state->id_);
+  state.shard_blk = ton::create_block_id(account_state->shardblk_);
+  state.shard_proof = std::move(account_state->shard_proof_);
+  state.proof = std::move(account_state->proof_);
+  state.state = std::move(account_state->state_);
+  TRY_RESULT(info, state.validate(block_id, addr));
+  if (info.root.is_null()) {
+    return td::Status::Error("account not found");
+  }
+  return info;
+}
+
+td::Status TonlibClient::do_request(tonlib_api::liteServer_getAccount& request,
                                     td::Promise<object_ptr<tonlib_api::liteServer_account>>&& promise) {
-  const auto& id = *request.id_;
-  TRY_RESULT(root_hash, to_bits256(id.root_hash_, "id.root_hash"))
-  TRY_RESULT(file_hash, to_bits256(id.file_hash_, "id.file_hash"))
-  const auto block_id = ton::BlockIdExt(id.workchain_, id.shard_, id.seqno_, root_hash, file_hash);
-  TRY_RESULT(lite_api_id, to_lite_api(*request.id_))
+  TRY_RESULT(params, parse_account_params(std::move(request.id_), std::move(request.account_)))
+  auto [lite_api_id, account, block_id, addr] = std::move(params);
 
-  TRY_RESULT(account, to_lite_api(*request.account_))
-  auto workchain = account->workchain_;
-  auto account_id = account->id_;
-  client_.send_query(
+  client_.send_query(  //
       lite_api::liteServer_getAccountState(std::move(lite_api_id), std::move(account)),
-      promise.wrap([block_id, workchain, account_id](lite_api_ptr<lite_api::liteServer_accountState>&& account_state)
+      promise.wrap([block_id = std::move(block_id),
+                    addr = std::move(addr)](lite_api_ptr<lite_api::liteServer_accountState>&& account_state)
                        -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_account>> {
-        block::AccountState state;
-        state.blk = ton::create_block_id(account_state->id_);
-        state.shard_blk = ton::create_block_id(account_state->shardblk_);
-        state.shard_proof = std::move(account_state->shard_proof_);
-        state.proof = std::move(account_state->proof_);
-        state.state = std::move(account_state->state_);
-        auto info_r = state.validate(block_id, block::StdAddress(workchain, account_id));
-        if (info_r.is_error()) {
-          return info_r.move_as_error();
-        }
-        auto account_info = info_r.move_as_ok();
+        TRY_RESULT(info, parse_account_info(block_id, addr, std::move(account_state)))
+        auto account_csr = vm::load_cell_slice_ref(info.root);
+        return parse_account(account_csr, info.last_trans_hash);
+      }));
+  return td::Status::OK();
+}
 
-        if (account_info.root.is_null()) {
-          return td::Status::Error("account not found");
-        }
-        auto account_csr = vm::load_cell_slice_ref(account_info.root);
+td::Status TonlibClient::do_request(tonlib_api::liteServer_getRawAccount& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_rawAccount>>&& promise) {
+  TRY_RESULT(params, parse_account_params(std::move(request.id_), std::move(request.account_)))
+  auto [lite_api_id, account, block_id, addr] = std::move(params);
 
-        return parse_account(account_csr, account_info.last_trans_hash);
+  client_.send_query(  //
+      lite_api::liteServer_getAccountState(std::move(lite_api_id), std::move(account)),
+      promise.wrap([block_id = std::move(block_id),
+                    addr = std::move(addr)](lite_api_ptr<lite_api::liteServer_accountState>&& account_state)
+                       -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_rawAccount>> {
+        TRY_RESULT(info, parse_account_info(block_id, addr, std::move(account_state)))
+        TRY_RESULT(data, vm::std_boc_serialize(info.root))
+
+        return tonlib_api::make_object<tonlib_api::liteServer_rawAccount>(
+            info.gen_utime, info.gen_lt, info.last_trans_lt, info.last_trans_hash.as_slice().str(),
+            data.as_slice().str());
       }));
   return td::Status::OK();
 }
@@ -2718,6 +2750,29 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getTransactions
         }
 
         return tonlib_api::make_object<tonlib_api::liteServer_transactionList>(std::move(ids), std::move(transactions));
+      }));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::liteServer_getRawTransactions& request,
+                                    td::Promise<object_ptr<tonlib_api::liteServer_rawTransactionList>>&& promise) {
+  TRY_RESULT(account, to_lite_api(*request.account_))
+  TRY_RESULT(hash, to_bits256(request.hash_, "hash"))
+  client_.send_query(  //
+      lite_api::liteServer_getTransactions(request.count_, std::move(account), request.lt_, hash),
+      promise.wrap([](lite_api_ptr<lite_api::liteServer_transactionList>&& transaction_list)
+                       -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_rawTransactionList>> {
+        TRY_RESULT(list, vm::std_boc_deserialize_multi(std::move(transaction_list->transactions_)))
+
+        std::vector<tonlib_api_ptr<tonlib_api::liteServer_rawTransaction>> transactions;
+        transactions.reserve(transaction_list->transactions_.size());
+        for (auto&& item : list) {
+          TRY_RESULT(transaction, vm::std_boc_serialize(item))
+          transactions.emplace_back(
+              tonlib_api::make_object<tonlib_api::liteServer_rawTransaction>(transaction.as_slice().str()));
+        }
+
+        return tonlib_api::make_object<tonlib_api::liteServer_rawTransactionList>(std::move(transactions));
       }));
   return td::Status::OK();
 }
