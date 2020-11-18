@@ -118,9 +118,13 @@ auto bytes_from_json(td::JsonValue& object) -> td::Result<std::vector<uint8_t>> 
   return result;
 }
 
-auto secure_bytes_from_json(td::JsonValue& object) -> td::Result<td::SecureString> {
-  TRY_STATUS(check_value_type(object, td::JsonValue::Type::String))
-  return base64_decode_secure(object.get_string());
+auto key_from_json(td::JsonValue& object) -> td::Result<td::SecureString> {
+  TRY_RESULT(raw, big_int_from_json(object))
+  td::SecureString key_bytes(32);
+  if (!raw.export_bytes(reinterpret_cast<unsigned char*>(key_bytes.data()), key_bytes.size(), false)) {
+    return td::Status::Error(400, "invalid key format");
+  }
+  return key_bytes;
 }
 
 auto boc_from_json(td::JsonValue& object) -> td::Result<td::Ref<vm::Cell>> {
@@ -519,7 +523,7 @@ auto value_fixed_array_from_json(const ParamRef& param, td::JsonValue& object) -
 auto value_pubkey_from_json(const ParamRef& param, td::JsonValue& object) -> td::Result<ValueRef> {
   td::optional<td::SecureString> key{};
   if (object.type() != td::JsonValue::Type::Null) {
-    TRY_RESULT(raw, secure_bytes_from_json(object))
+    TRY_RESULT(raw, key_from_json(object))
     key.emplace(std::move(raw));
   }
   return ValueRef{ValuePublicKey{param, std::move(key)}};
@@ -640,11 +644,7 @@ auto function_call_from_json(const Function& function, td::JsonValue& object) ->
       TRY_STATUS(check_value_type(value, td::JsonValue::Type::Boolean))
       internal = value.get_boolean();
     } else if (key == "key" && value.type() != td::JsonValue::Type::Null) {
-      TRY_RESULT(raw, big_int_from_json(value))
-      td::SecureString key_bytes(32);
-      if (!raw.export_bytes(reinterpret_cast<unsigned char*>(key_bytes.data()), key_bytes.size(), false)) {
-        return td::Status::Error(400, "invalid private key format");
-      }
+      TRY_RESULT(key_bytes, key_from_json(value))
       td::Ed25519::PrivateKey pkey(std::move(key_bytes));
       TRY_STATUS(pkey.get_public_key())
 
