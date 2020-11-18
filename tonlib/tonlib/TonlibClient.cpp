@@ -2543,8 +2543,7 @@ td::Status TonlibClient::do_request(const tonlib_api::raw_createQueryTvc& reques
   if (!request.init_state_.empty()) {
     TRY_RESULT_PREFIX_ASSIGN(init_state, vm::std_boc_deserialize(request.init_state_),
                              TonlibError::InvalidBagOfCells("init_state"));
-    const auto hash = init_state->get_hash();
-    if (!account_address.addr.bits().equals(hash.bits(), 256)) {
+    if (account_address.addr != init_state->get_hash().bits()) {
       return TonlibError::InvalidStateInitAddress();
     }
   }

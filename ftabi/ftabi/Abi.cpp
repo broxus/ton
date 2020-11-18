@@ -93,9 +93,9 @@ auto big_int_from_json(td::JsonValue& object) -> td::Result<td::BigInt256> {
   const auto str_length = static_cast<int>(value.size() - prefix_length);
 
   td::BigInt256 number;
-  if (is_hex && number.parse_hex(str, str_length) < 0) {
+  if (is_hex && number.parse_hex(str, str_length) <= 0) {
     return td::Status::Error(400, "invalid hex value");
-  } else if (!is_hex && number.parse_dec(str, str_length) < 0) {
+  } else if (!is_hex && number.parse_dec(str, str_length) <= 0) {
     return td::Status::Error(400, "invalid decimal value");
   }
   if (is_negative) {
@@ -128,6 +128,9 @@ auto key_from_json(td::JsonValue& object) -> td::Result<td::SecureString> {
 }
 
 auto boc_from_json(td::JsonValue& object) -> td::Result<td::Ref<vm::Cell>> {
+  if (object.type() == td::JsonValue::Type::Null) {
+    return td::Ref<vm::Cell>{};
+  }
   TRY_RESULT(bytes, bytes_str_from_json(object))
   return vm::std_boc_deserialize(bytes, true);
 }

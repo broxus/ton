@@ -376,7 +376,9 @@ auto ValueCell::serialize() const -> td::Result<std::vector<BuilderData>> {
   }
 
   vm::CellBuilder cb{};
-  CHECK(cb.store_ref_bool(value));
+  if (value.not_null()) {
+    CHECK(cb.store_ref_bool(value));
+  }
   return std::vector<BuilderData>{cb.finalize()};
 }
 
