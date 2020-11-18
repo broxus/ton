@@ -124,7 +124,7 @@ auto key_from_json(td::JsonValue& object) -> td::Result<td::SecureString> {
   if (!raw.export_bytes(reinterpret_cast<unsigned char*>(key_bytes.data()), key_bytes.size(), false)) {
     return td::Status::Error(400, "invalid key format");
   }
-  return key_bytes;
+  return std::move(key_bytes);
 }
 
 auto boc_from_json(td::JsonValue& object) -> td::Result<td::Ref<vm::Cell>> {
