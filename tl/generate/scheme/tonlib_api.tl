@@ -221,7 +221,7 @@ actionRwallet action:rwallet.actionInit = Action;
 fees in_fwd_fee:int53 storage_fee:int53 gas_fee:int53 fwd_fee:int53 = Fees;
 query.fees source_fees:fees destination_fees:vector<fees> = query.Fees;
 // query.emulationResult exit_code:int32 fees:fees = query.EmulationResult;
-query.info id:int53 valid_until:int53 body_hash:bytes body:bytes init_state:bytes = query.Info;
+query.info id:int53 valid_until:int53 message_hash:bytes body_hash:bytes body:bytes init_state:bytes = query.Info;
 
 tvm.slice bytes:bytes = tvm.Slice;
 tvm.cell bytes:bytes = tvm.Cell;

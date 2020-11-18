@@ -155,6 +155,10 @@ class Query {
     return raw_.new_state;
   }
 
+  vm::CellHash get_message_hash() const {
+    return raw_.message->get_hash();
+  }
+
   vm::CellHash get_body_hash() const {
     return raw_.message_body->get_hash();
   }
@@ -2422,8 +2426,9 @@ td::Result<tonlib_api_ptr<tonlib_api::query_info>> TonlibClient::get_query_info(
     return TonlibError::InvalidQueryId();
   }
   return tonlib_api::make_object<tonlib_api::query_info>(
-      id, it->second->get_valid_until(), it->second->get_body_hash().as_slice().str(),
-      to_bytes(it->second->get_message_body()), to_bytes(it->second->get_init_state()));
+      id, it->second->get_valid_until(), it->second->get_message_hash().as_slice().str(),
+      it->second->get_body_hash().as_slice().str(), to_bytes(it->second->get_message_body()),
+      to_bytes(it->second->get_init_state()));
 }
 
 void TonlibClient::finish_create_query(td::Result<td::unique_ptr<Query>> r_query,
