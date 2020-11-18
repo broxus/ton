@@ -640,8 +640,15 @@ auto function_call_from_json(const Function& function, td::JsonValue& object) ->
       TRY_STATUS(check_value_type(value, td::JsonValue::Type::Boolean))
       internal = value.get_boolean();
     } else if (key == "key" && value.type() != td::JsonValue::Type::Null) {
-      TRY_RESULT(raw, secure_bytes_from_json(value))
-      private_key.emplace(std::move(raw));
+      TRY_RESULT(raw, big_int_from_json(value))
+      td::SecureString key_bytes(32);
+      if (!raw.export_bytes(reinterpret_cast<unsigned char*>(key_bytes.data()), key_bytes.size(), false)) {
+        return td::Status::Error(400, "invalid private key format");
+      }
+      td::Ed25519::PrivateKey pkey(std::move(key_bytes));
+      TRY_STATUS(pkey.get_public_key())
+
+      private_key.emplace(std::move(pkey));
     }
   }
 
