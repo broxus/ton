@@ -2735,7 +2735,7 @@ td::Status TonlibClient::do_request(const tonlib_api::liteServer_getTransactions
       promise.wrap([workchain, account_id](lite_api_ptr<lite_api::liteServer_transactionList>&& transaction_list)
                        -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_transactionList>> {
         if (transaction_list->ids_.empty()) {
-          return td::Status::Error("transactions not found");
+          return tonlib_api::make_object<tonlib_api::liteServer_transactionList>();
         }
 
         std::vector<tonlib_api_ptr<tonlib_api::ton_blockIdExt>> ids;
