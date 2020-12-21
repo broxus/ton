@@ -367,6 +367,7 @@ struct ValueMap : Value {
 
   std::vector<std::pair<ValueRef, ValueRef>> values;
 };
+*/
 
 struct ParamMap : Param {
   explicit ParamMap(ParamRef key, ParamRef value)
@@ -380,17 +381,17 @@ struct ParamMap : Param {
     return "map(" + key->type_signature() + "," + value->type_signature() + ")";
   }
   auto default_value() const -> td::Result<ValueRef> final {
-    return ValueMap{ParamRef{make_copy()}, {}};
+    //TODO: return ValueMap{ParamRef{make_copy()}, {}};
+    return ValueRef{};
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
-    return new ParamMap{name_, key, value};
+    return new ParamMap{key, value};
   }
 
   ParamRef key;
   ParamRef value;
 };
-*/
 
 struct ValueAddress : Value {
   explicit ValueAddress(ParamRef param, const block::StdAddress& value);

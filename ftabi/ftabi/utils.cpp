@@ -522,11 +522,11 @@ auto ValueMap::make_copy() const -> Value* {
   return new ValueMap{param_, values};
 }
 
-auto ParamMap::to_tonlib_api() const -> ApiParam {
-  return tonlib_api::make_object<tonlib_api::ftabi_paramMap>(name_, key->to_tonlib_api(), value->to_tonlib_api());
-}
-
 */
+
+auto ParamMap::to_tonlib_api() const -> ApiParam {
+  return tonlib_api::make_object<tonlib_api::ftabi_paramMap>(key->to_tonlib_api(), value->to_tonlib_api());
+}
 
 // value address
 
