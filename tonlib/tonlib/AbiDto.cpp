@@ -36,11 +36,11 @@ auto parse_param(tonlib_api::ftabi_Param& param) -> td::Result<ftabi::ParamRef> 
             return ftabi::ParamRef{ftabi::ParamFixedArray{std::move(itemType), static_cast<uint32_t>(param.size_)}};
           },
           [](const tonlib_api::ftabi_paramCell& param) -> ReturnType { return ftabi::ParamRef{ftabi::ParamCell{}}; },
-          // [](const tonlib_api::ftabi_paramMap& param) -> ReturnType {
-          //   TRY_RESULT(keyType, parse_param(*param.keyType_))
-          //   TRY_RESULT(valueType, parse_param(*param.valueType_))
-          //   return ftabi::ParamRef{ftabi::ParamMap{std::move(keyType), std::move(valueType)}};
-          // },
+          [](const tonlib_api::ftabi_paramMap& param) -> ReturnType {
+            TRY_RESULT(keyType, parse_param(*param.keyType_))
+            TRY_RESULT(valueType, parse_param(*param.valueType_))
+            return ftabi::ParamRef{ftabi::ParamMap{std::move(keyType), std::move(valueType)}};
+          },
           [](const tonlib_api::ftabi_paramAddress& param) -> ReturnType {
             return ftabi::ParamRef{ftabi::ParamAddress{}};
           },
