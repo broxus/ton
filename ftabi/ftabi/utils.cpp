@@ -596,7 +596,7 @@ ValueBytes::ValueBytes(ParamRef param, std::vector<uint8_t> value) : Value{std::
 }
 
 auto ValueBytes::serialize() const -> td::Result<std::vector<BuilderData>> {
-  if (param_->type() != ParamType::Bytes || param_->type() != ParamType::FixedBytes) {
+  if (param_->type() != ParamType::Bytes && param_->type() != ParamType::FixedBytes) {
     return td::Status::Error("invalid param type. bytes or fixed bytes expected");
   }
 

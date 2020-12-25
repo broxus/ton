@@ -18,7 +18,27 @@
 */
 #include "WalletInterface.h"
 
+#include "ftabi/Abi.hpp"
+
 namespace ton {
+namespace {
+auto transfer_with_comment() -> const td::Ref<ftabi::Function>& {
+  static td::Ref<ftabi::Function> function;
+  if (function.is_null()) {
+    function = td::Ref<ftabi::Function>{
+      ftabi::Function{
+        "transfer",
+        {},
+        ftabi::make_params(ftabi::ParamBytes{}),
+        {},
+        0x00000000u
+      }
+    };
+  }
+  return function;
+}
+} //
+
 td::Result<td::uint64> WalletInterface::get_balance(td::uint64 account_balance, td::uint32 now) const {
   return TRY_VM([&]() -> td::Result<td::uint64> {
     Answer answer = this->run_get_method(Args().set_method_id("balance").set_balance(account_balance).set_now(now));
@@ -81,9 +101,26 @@ void WalletInterface::store_gift_message(vm::CellBuilder &cb, const Gift &gift) 
 
   if (gift.is_encrypted) {
     cb.store_long(1, 32);
+    vm::CellString::store(cb, gift.message, 35 * 8).ensure();
   } else {
-    cb.store_long(0, 32);
+    std::vector<uint8_t> encoded_string;
+    encoded_string.resize(gift.message.size());
+    std::memcpy(encoded_string.data(), gift.message.data(), gift.message.size());
+
+    const auto inputs = ftabi::ValueRef(
+      ftabi::ValueBytes{ftabi::ParamRef{ftabi::ParamBytes{}}, encoded_string});
+
+    auto body_r = transfer_with_comment()->encode_input(
+      /*header*/ {}, 
+      {inputs}, 
+      /*internal*/ true, 
+      td::optional<td::Ed25519::PrivateKey>{});
+
+    if (body_r.is_error()) {
+      std::cout << body_r.move_as_error().message().c_str() << std::endl;
+    } else {
+      CHECK(cb.append_cellslice_bool(body_r.move_as_ok()))
+    }
   }
-  vm::CellString::store(cb, gift.message, 35 * 8).ensure();
 }
 }  // namespace ton
