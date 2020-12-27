@@ -102,7 +102,7 @@ void WalletInterface::store_gift_message(vm::CellBuilder &cb, const Gift &gift) 
   if (gift.is_encrypted) {
     cb.store_long(1, 32);
     vm::CellString::store(cb, gift.message, 35 * 8).ensure();
-  } else {
+  } else if (!gift.message.empty()) {
     std::vector<uint8_t> encoded_string;
     encoded_string.resize(gift.message.size());
     std::memcpy(encoded_string.data(), gift.message.data(), gift.message.size());
