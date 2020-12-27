@@ -126,6 +126,17 @@ td::Result<ftabi::ValueRef> parse_value(tonlib_api::ftabi_Value& value) {
             TRY_RESULT(cell, from_bytes(value.value_->bytes_));
             return ftabi::ValueRef{ftabi::ValueCell(std::move(param), std::move(cell))};
           },
+          [](const tonlib_api::ftabi_valueMap& value) -> ReturnType {
+            TRY_RESULT(param, parse_param(*value.param_))
+            std::vector<std::pair<ftabi::ValueRef, ftabi::ValueRef>> values{};
+            values.reserve(value.values_.size());
+            for (const auto &item : value.values_) {
+              TRY_RESULT(keyValue, parse_value(*item->key_))
+              TRY_RESULT(valueValue, parse_value(*item->value_))
+              values.emplace_back(std::make_pair(std::move(keyValue), std::move(valueValue)));
+            }
+            return ftabi::ValueRef{ftabi::ValueMap(std::move(param), std::move(values))};
+          },
           [](const tonlib_api::ftabi_valueAddress& value) -> ReturnType {
             TRY_RESULT(param, parse_param(*value.param_))
             const auto& account_address = value.value_->account_address_;

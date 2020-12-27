@@ -16,6 +16,7 @@
 namespace ftabi {
 namespace tonlib_api = ton::tonlib_api;
 constexpr static uint32_t SIGNATURE_LENGTH = 64;
+constexpr static uint32_t STD_ADDRESS_BIT_LENGTH = 267;
 
 namespace details {
 auto to_bytes(td::Ref<vm::Cell> cell) -> std::string {
@@ -416,7 +417,6 @@ auto ParamCell::to_tonlib_api() const -> ApiParam {
 
 // value map
 
-/*
 ValueMap::ValueMap(ParamRef param, std::vector<std::pair<ValueRef, ValueRef>> values)
     : Value{std::move(param)}, values{std::move(values)} {
 }
@@ -430,22 +430,16 @@ auto ValueMap::serialize() const -> td::Result<std::vector<BuilderData>> {
   const auto& param_value = *param->value;
 
   uint32_t bit_len{};
-  std::unique_ptr<block::gen::TLB> value_type{};
-  if (param_key.type() == ParamType::Uint) {
+  if (param_key.type() == ParamType::Uint || param_key.type() == ParamType::Int) {
     bit_len = param_key.bit_len();
-    value_type = std::make_unique<block::gen::UInt>(bit_len);
-  } else if (param_key.type() == ParamType::Int) {
-    bit_len = param_key.bit_len();
-    value_type = std::make_unique<block::gen::Int>(bit_len);
   } else if (param_key.type() == ParamType::Address) {
     bit_len = STD_ADDRESS_BIT_LENGTH;
-    value_type = std::make_unique<block::gen::MsgAddress>();
   } else {
     return td::Status::Error("only integer and std address values can be used as keys");
   }
 
   vm::CellBuilder cb{};
-  block::gen::HashmapE map(static_cast<int>(bit_len), *value_type);
+  block::gen::HashmapE map(static_cast<int>(bit_len), tlb::Anything{});
   for (const auto& item : values) {
     TRY_RESULT(serialized_key, item.first->serialize())
     if (serialized_key.size() != 1) {
@@ -485,15 +479,25 @@ auto ValueMap::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceDat
     return td::Status::Error("only integer and std address values can be used as keys");
   }
 
-  vm::Dictionary dictionary{cursor, static_cast<int>(bit_len)};
-  for (const auto& item : dictionary) {
+  std::vector<std::pair<ValueRef, ValueRef>> result;
+
+  TRY_RESULT(root, details::get_dictionary(cursor))
+  vm::Dictionary dictionary{root, static_cast<int>(bit_len)};
+  for (auto&& item : dictionary) {
+    TRY_RESULT(key, param_key.default_value())
+    td::Ref<vm::Cell> key_cell{};
+    vm::CellBuilder{}.store_bits(item.first, bit_len).finalize_to(key_cell);
+    TRY_STATUS(key.write().deserialize(vm::load_cell_slice_ref(key_cell), true))
+
     TRY_RESULT(value, param_value.default_value())
-    SliceData cloned{item.second};
-    TRY_RESULT(deserialized, value.write().deserialize(std::move(cloned), true))
+    TRY_STATUS(value.write().deserialize(std::move(item.second), true))
+
+    result.emplace_back(std::make_pair(std::move(key), std::move(value)));
   }
 
-  // TODO: implement deserialization
-  return td::Status::Error("not implemented yet");
+  values = std::move(result);
+
+  return std::move(cursor);
 }
 
 auto ValueMap::to_string() const -> std::string {
@@ -513,16 +517,21 @@ auto ValueMap::to_string() const -> std::string {
 }
 
 auto ValueMap::to_tonlib_api() const -> ApiValue {
-  // TODO: implement api conversion
-  auto status = td::Status::Error("not implemented yet");
-  return nullptr;
+  std::vector<tonlib_api::object_ptr<tonlib_api::ftabi_valueMapItem>> result{};
+  result.reserve(values.size());
+
+  for (const auto& [key, value] : values) {
+    result.emplace_back(tonlib_api::make_object<tonlib_api::ftabi_valueMapItem>(
+      key->to_tonlib_api(), value->to_tonlib_api()));
+  }
+
+  return tonlib_api::make_object<tonlib_api::ftabi_valueMap>(
+    param_->to_tonlib_api(), std::move(result));
 }
 
 auto ValueMap::make_copy() const -> Value* {
   return new ValueMap{param_, values};
 }
-
-*/
 
 auto ParamMap::to_tonlib_api() const -> ApiParam {
   return tonlib_api::make_object<tonlib_api::ftabi_paramMap>(key->to_tonlib_api(), value->to_tonlib_api());

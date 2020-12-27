@@ -356,7 +356,6 @@ struct ParamCell : Param {
   }
 };
 
-/*
 struct ValueMap : Value {
   explicit ValueMap(ParamRef param, std::vector<std::pair<ValueRef, ValueRef>> values);
   auto serialize() const -> td::Result<std::vector<BuilderData>> final;
@@ -367,7 +366,6 @@ struct ValueMap : Value {
 
   std::vector<std::pair<ValueRef, ValueRef>> values;
 };
-*/
 
 struct ParamMap : Param {
   explicit ParamMap(ParamRef key, ParamRef value)
@@ -381,8 +379,7 @@ struct ParamMap : Param {
     return "map(" + key->type_signature() + "," + value->type_signature() + ")";
   }
   auto default_value() const -> td::Result<ValueRef> final {
-    //TODO: return ValueMap{ParamRef{make_copy()}, {}};
-    return ValueRef{};
+    return ValueMap{ParamRef{make_copy()}, {}};
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {
