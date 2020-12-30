@@ -160,7 +160,7 @@ auto ContractAbi::create_function(std::string name) -> td::Result<Function> {
 
   if (function.id.has_value()) {
     return Function{std::move(name), std::move(function_header), std::move(function_inputs),
-                    std::move(function_outputs), function.id.value()};
+                    std::move(function_outputs), *function.id};
   } else {
     return Function{std::move(name), std::move(function_header), std::move(function_inputs),
                     std::move(function_outputs)};
@@ -236,10 +236,10 @@ auto param_from_string(const std::string& /*name*/, const std::string& type,
     result = ParamRef{ParamBool{}};
   }  // tuple
   else if (basic_type == "tuple") {
-    if (!components.has_value() || components.value().empty()) {
+    if (!components.has_value() || components->empty()) {
       return td::Status::Error(400, tuple_components_not_found);
     }
-    result = ParamRef{ParamTuple{std::move(components.value())}};
+    result = ParamRef{ParamTuple{*components}};
   }  // bytes
   else if (basic_type == "bytes") {
     result = ParamRef{ParamBytes{}};
@@ -269,8 +269,8 @@ auto param_from_string(const std::string& /*name*/, const std::string& type,
     return td::Status::Error(400, unknown_param_type);
   }
 
-  if (array_size.has_value() && array_size.value() > 0) {
-    return ParamRef{ParamFixedArray{std::move(result), array_size.value()}};
+  if (array_size.has_value() && *array_size > 0) {
+    return ParamRef{ParamFixedArray{std::move(result), *array_size}};
   } else if (array_size.has_value()) {
     return ParamRef{ParamArray{std::move(result)}};
   } else {
@@ -321,9 +321,9 @@ auto abi_named_param_from_json(td::JsonValue& object) -> td::Result<std::pair<st
   TRY_STATUS(check_missing_field("name", param_name))
   TRY_STATUS(check_missing_field("type", param_type))
 
-  TRY_RESULT(param, param_from_string(param_name.value(), param_type.value(), std::move(components)))
+  TRY_RESULT(param, param_from_string(*param_name, *param_type, std::move(components)))
 
-  return std::make_pair(param_name.value(), std::move(param));
+  return std::make_pair(*param_name, std::move(param));
 }
 
 auto abi_param_from_json(td::JsonValue& object) -> td::Result<ParamRef> {
@@ -410,8 +410,8 @@ auto abi_function_from_json(td::JsonValue& object) -> td::Result<FunctionAbi> {
   TRY_STATUS(check_missing_field("inputs", input_params))
   TRY_STATUS(check_missing_field("outputs", output_params))
 
-  return FunctionAbi{std::move(function_name.value()), std::move(input_params.value()),
-                     std::move(output_params.value()), std::move(function_id)};
+  return FunctionAbi{std::move(*function_name), std::move(*input_params),
+                     std::move(*output_params), std::move(*function_id)};
 }
 
 auto abi_functions_from_json(td::JsonValue& object) -> td::Result<std::unordered_map<std::string, FunctionAbi>> {
