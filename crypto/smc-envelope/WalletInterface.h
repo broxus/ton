@@ -34,6 +34,7 @@ namespace ton {
 class WalletInterface : public SmartContract {
  public:
   struct Gift {
+    td::int32 send_mode{3};
     block::StdAddress destination;
     td::int64 gramms;
 

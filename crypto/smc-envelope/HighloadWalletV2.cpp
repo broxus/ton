@@ -50,12 +50,8 @@ td::Result<td::Ref<vm::Cell>> HighloadWalletV2::make_a_gift_message(const td::Ed
   vm::Dictionary messages(16);
   for (size_t i = 0; i < gifts.size(); i++) {
     auto& gift = gifts[i];
-    td::int32 send_mode = 3;
-    if (gift.gramms == -1) {
-      send_mode += 128;
-    }
     vm::CellBuilder cb;
-    cb.store_long(send_mode, 8).store_ref(create_int_message(gift));
+    cb.store_long(gift.send_mode, 8).store_ref(create_int_message(gift));
     auto key = messages.integer_key(td::make_refint(i), 16, false);
     messages.set_builder(key.bits(), 16, cb);
   }

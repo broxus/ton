@@ -31,7 +31,7 @@ class Wallet {
   static td::Ref<vm::Cell> get_init_message(const td::Ed25519::PrivateKey& private_key) noexcept;
   static td::Ref<vm::Cell> make_a_gift_message(const td::Ed25519::PrivateKey& private_key, td::uint32 seqno,
                                                td::uint32 valid_until, td::int64 gramms, td::Slice message,
-                                               const block::StdAddress& dest_address) noexcept;
+                                               const block::StdAddress& dest_address, td::int32 send_mode) noexcept;
 
   static td::Ref<vm::Cell> get_init_code() noexcept;
   static vm::CellHash get_init_code_hash() noexcept;

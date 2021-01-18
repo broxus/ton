@@ -158,11 +158,7 @@ class RestrictedWallet : public WalletBase<RestrictedWallet, RestrictedWalletTra
     cb.store_long(seqno, 32);
 
     for (auto& gift : gifts) {
-      td::int32 send_mode = 3;
-      if (gift.gramms == -1) {
-        send_mode += 128;
-      }
-      cb.store_long(send_mode, 8).store_ref(create_int_message(gift));
+      cb.store_long(gift.send_mode, 8).store_ref(create_int_message(gift));
     }
 
     auto message_outer = cb.finalize();
