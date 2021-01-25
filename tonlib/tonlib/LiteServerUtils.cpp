@@ -1034,14 +1034,14 @@ auto parse_integer_array(const td::Ref<vm::Cell>& cell)
   std::vector<td::int32> result;
   vm::Dictionary mandatory_params{cell, 32};
   for (const auto& item : mandatory_params) {
-    result.emplace_back(item.first.get_int(32));
+    result.emplace_back(static_cast<td::int32>(item.first.get_int(32)));
   }
   return tonlib_api::make_object<tonlib_api::liteServer_configParams>(std::move(result));
 }
 
 auto parse_config_proposal_setup(const td::Ref<vm::Cell>& cell)
     -> td::Result<tonlib_api_ptr<tonlib_api::liteServer_configProposalSetup>> {
-  block::gen::ConfigProposalSetup::Record proposal_setup;
+  block::gen::ConfigProposalSetup::Record proposal_setup{};
   if (cell.is_null() || !tlb::unpack_cell(std::move(cell), proposal_setup)) {
     return td::Status::Error("failed to unpack config proposal setup");
   }

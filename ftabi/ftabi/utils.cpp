@@ -521,12 +521,11 @@ auto ValueMap::to_tonlib_api() const -> ApiValue {
   result.reserve(values.size());
 
   for (const auto& [key, value] : values) {
-    result.emplace_back(tonlib_api::make_object<tonlib_api::ftabi_valueMapItem>(
-      key->to_tonlib_api(), value->to_tonlib_api()));
+    result.emplace_back(
+        tonlib_api::make_object<tonlib_api::ftabi_valueMapItem>(key->to_tonlib_api(), value->to_tonlib_api()));
   }
 
-  return tonlib_api::make_object<tonlib_api::ftabi_valueMap>(
-    param_->to_tonlib_api(), std::move(result));
+  return tonlib_api::make_object<tonlib_api::ftabi_valueMap>(param_->to_tonlib_api(), std::move(result));
 }
 
 auto ValueMap::make_copy() const -> Value* {
@@ -1368,17 +1367,18 @@ static auto prepare_vm_c7(ton::UnixTime now, ton::LogicalTime lt, td::Ref<vm::Ce
   return vm::make_tuple_ref(std::move(tuple));
 }
 
-auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
-                    FunctionCallRef&& function_call) -> td::Result<std::vector<ValueRef>> {
+auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
+                    td::Ref<vm::Cell>&& root, FunctionRef&& function, FunctionCallRef&& function_call)
+    -> td::Result<std::vector<ValueRef>> {
   TRY_RESULT(message_body, function->encode_input(function_call))
-  return run_smc_method(address, std::move(info), std::move(function), {}, std::move(message_body));
+  return run_smc_method(address, gen_lt, gen_utime, std::move(root), std::move(function), {}, std::move(message_body));
 }
 
-auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
-                    td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
-    -> td::Result<std::vector<ValueRef>> {
+auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
+                    td::Ref<vm::Cell>&& root, FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init,
+                    td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>> {
   try {
-    if (info.root.is_null()) {
+    if (root.is_null()) {
       LOG(ERROR) << "account state of " << address.workchain << ":" << address.addr.to_hex() << " is empty";
       return td::Status::Error(PSLICE() << "account state of " << address.workchain << ":" << address.addr.to_hex()
                                         << " is empty");
@@ -1388,7 +1388,7 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
     block::gen::Account::Record_account acc;
     block::gen::AccountStorage::Record store;
     block::CurrencyCollection balance;
-    if (!(tlb::unpack_cell(info.root, acc) && tlb::csr_unpack(acc.storage, store) &&
+    if (!(tlb::unpack_cell(root, acc) && tlb::csr_unpack(acc.storage, store) &&
           balance.validate_unpack(store.balance))) {
       LOG(ERROR) << "error unpacking account state";
       return td::Status::Error("error unpacking account state");
@@ -1443,7 +1443,7 @@ auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&
 
     // initialize registers with SmartContractInfo
     auto my_addr = td::make_ref<vm::CellSlice>(acc.addr->clone());
-    vm.set_c7(prepare_vm_c7(info.gen_utime, info.gen_lt, my_addr, balance));
+    vm.set_c7(prepare_vm_c7(gen_utime, gen_lt, my_addr, balance));
 
     // execute
     LOG(DEBUG) << "starting VM to run method of smart contract " << address.workchain << ":" << address.addr.to_hex();

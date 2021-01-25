@@ -372,8 +372,7 @@ struct ParamMap : Param {
       : Param{ParamType::Map}, key{std::move(key)}, value{std::move(value)} {
   }
   template <typename K, typename V>
-  explicit ParamMap(K&& key, V&& value)
-      : Param{ParamType::Map}, key{std::forward(key)}, value{std::forward(value)} {
+  explicit ParamMap(K&& key, V&& value) : Param{ParamType::Map}, key{std::forward(key)}, value{std::forward(value)} {
   }
   auto type_signature() const -> std::string final {
     return "map(" + key->type_signature() + "," + value->type_signature() + ")";
@@ -721,10 +720,12 @@ auto generate_state_init(const td::Ref<vm::Cell>& tvc, const td::Ed25519::Public
 
 auto unpack_result_message_body(vm::CellSlice& cs) -> td::Result<td::Ref<vm::CellSlice>>;
 
-auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
-                    FunctionCallRef&& function_call) -> td::Result<std::vector<ValueRef>>;
-auto run_smc_method(const block::StdAddress& address, block::AccountState::Info&& info, FunctionRef&& function,
-                    td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
+auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
+                    td::Ref<vm::Cell>&& root, FunctionRef&& function, FunctionCallRef&& function_call)
     -> td::Result<std::vector<ValueRef>>;
+
+auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
+                    td::Ref<vm::Cell>&& root, FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init,
+                    td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>>;
 
 }  // namespace ftabi

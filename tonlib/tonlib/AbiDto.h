@@ -28,9 +28,9 @@ auto parse_named_values(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_named
 auto parse_header_values(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_namedValue>>& values)
     -> td::Result<std::unordered_map<std::string, ftabi::ValueRef>>;
 
-auto parse_function(const tonlib_api::ftabi_function& value) -> td::Result<ftabi::Function>;
+auto parse_function(const tonlib_api::ftabi_function& value) -> td::Result<td::Ref<ftabi::Function>>;
 auto parse_function_call(const ftabi::Function& function, tonlib_api_ptr<tonlib_api::ftabi_FunctionCall>& value)
-    -> td::Result<ftabi::FunctionCall>;
+    -> td::Result<td::Ref<ftabi::FunctionCall>>;
 
 auto compute_function_signature(const tonlib_api::ftabi_computeFunctionSignature& request)
     -> td::Result<tonlib_api_ptr<tonlib_api::Object>>;

@@ -833,6 +833,7 @@ ftabi.createFunction name:string header:vector<ftabi.namedParam> inputs:vector<f
 ftabi.getFunction abi:string name:string = ftabi.Function;
 ftabi.createMessageBody function:ftabi.Function call:ftabi.FunctionCall = ftabi.MessageBody;
 ftabi.runLocal address:AccountAddress function:ftabi.Function call:ftabi.FunctionCall = ftabi.DecodedOutput;
+ftabi.runLocalCached address:AccountAddress gen_lt:int64 gen_utime:int32 state:bytes function:ftabi.Function call:ftabi.FunctionCall = ftabi.DecodedOutput;
 ftabi.decodeOutput function:ftabi.Function data:bytes = ftabi.DecodedOutput;
 ftabi.decodeInput function:ftabi.Function data:bytes internal:Bool = ftabi.DecodedInput;
 ftabi.generateStateInit tvc:bytes public_key:bytes = ftabi.StateInit;
