@@ -19,6 +19,9 @@ namespace tonlib {
 
 AccountState::AccountState(block::StdAddress address, RawAccountState&& raw, td::uint32 wallet_id)
     : address_(std::move(address)), raw_(std::move(raw)), wallet_id_(wallet_id) {
+  if (raw_.code.not_null()) {
+    code_hash_ = raw_.code->get_hash();
+  }
   guess_type();
 }
 
@@ -179,7 +182,7 @@ auto AccountState::to_fullAccountState() const -> td::Result<tonlib_api_ptr<tonl
   return tonlib_api::make_object<tonlib_api::fullAccountState>(
       tonlib_api::make_object<tonlib_api::accountAddress>(get_address().rserialize(true)), get_balance(),
       to_transaction_id(raw().info), to_tonlib_api(raw().block_id), get_sync_time(), std::move(account_state),
-      get_wallet_revision());
+      code_hash_.as_slice().str(), get_wallet_revision());
 }
 
 auto AccountState::get_wallet() const -> td::unique_ptr<ton::WalletInterface> {
@@ -314,45 +317,44 @@ auto AccountState::guess_type() -> WalletType {
     wallet_type_ = WalletType::Empty;
     return wallet_type_;
   }
-  auto code_hash = raw_.code->get_hash();
-  auto o_revision = ton::WalletV3::guess_revision(code_hash);
+  auto o_revision = ton::WalletV3::guess_revision(code_hash_);
   if (o_revision) {
     wallet_type_ = WalletType::WalletV3;
     wallet_revision_ = o_revision.value();
     return wallet_type_;
   }
-  o_revision = ton::HighloadWalletV2::guess_revision(code_hash);
+  o_revision = ton::HighloadWalletV2::guess_revision(code_hash_);
   if (o_revision) {
     wallet_type_ = WalletType::HighloadWalletV2;
     wallet_revision_ = o_revision.value();
     return wallet_type_;
   }
-  o_revision = ton::HighloadWallet::guess_revision(code_hash);
+  o_revision = ton::HighloadWallet::guess_revision(code_hash_);
   if (o_revision) {
     wallet_type_ = WalletType::HighloadWalletV1;
     wallet_revision_ = o_revision.value();
     return wallet_type_;
   }
-  o_revision = ton::ManualDns::guess_revision(code_hash);
+  o_revision = ton::ManualDns::guess_revision(code_hash_);
   if (o_revision) {
     wallet_type_ = WalletType::ManualDns;
     wallet_revision_ = o_revision.value();
     return wallet_type_;
   }
-  o_revision = ton::PaymentChannel::guess_revision(code_hash);
+  o_revision = ton::PaymentChannel::guess_revision(code_hash_);
   if (o_revision) {
     wallet_type_ = WalletType::PaymentChannel;
     wallet_revision_ = o_revision.value();
     return wallet_type_;
   }
-  o_revision = ton::RestrictedWallet::guess_revision(code_hash);
+  o_revision = ton::RestrictedWallet::guess_revision(code_hash_);
   if (o_revision) {
     wallet_type_ = WalletType::RestrictedWallet;
     wallet_revision_ = o_revision.value();
     return wallet_type_;
   }
 
-  LOG(WARNING) << "Unknown code hash: " << td::base64_encode(code_hash.as_slice());
+  LOG(WARNING) << "Unknown code hash: " << td::base64_encode(code_hash_.as_slice());
   wallet_type_ = WalletType::Unknown;
   return wallet_type_;
 }

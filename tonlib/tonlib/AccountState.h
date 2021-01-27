@@ -137,6 +137,7 @@ class AccountState {
  private:
   block::StdAddress address_;
   RawAccountState raw_;
+  vm::CellHash code_hash_{};
   WalletType wallet_type_{Unknown};
   td::int32 wallet_revision_{0};
   td::uint32 wallet_id_{0};

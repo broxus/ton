@@ -90,7 +90,15 @@ pchan.statePayout A:int64 B:int64 = pchan.State;
 pchan.accountState config:pchan.config state:pchan.State description:string = AccountState;
 uninited.accountState frozen_hash:bytes = AccountState;
 
-fullAccountState address:accountAddress balance:int64 last_transaction_id:internal.transactionId block_id:ton.blockIdExt sync_utime:int53 account_state:AccountState revision:int32 = FullAccountState;
+fullAccountState
+    address:accountAddress
+    balance:int64
+    last_transaction_id:internal.transactionId
+    block_id:ton.blockIdExt
+    sync_utime:int53
+    account_state:AccountState
+    code_hash:bytes
+    revision:int32 = FullAccountState;
 
 accountRevisionList revisions:vector<fullAccountState> = AccountRevisionList;
 accountList accounts:vector<fullAccountState> = AccountList;
