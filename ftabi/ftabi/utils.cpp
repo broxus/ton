@@ -1377,45 +1377,52 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     td::Ref<vm::Cell>&& root, FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init,
                     td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>> {
+  if (root.is_null()) {
+    LOG(ERROR) << "account state of " << address.workchain << ":" << address.addr.to_hex() << " is empty";
+    return td::Status::Error(PSLICE() << "account state of " << address.workchain << ":" << address.addr.to_hex()
+                                      << " is empty");
+  }
+
+  // unpack account state
+  block::gen::Account::Record_account acc;
+  block::gen::AccountStorage::Record store;
+  block::CurrencyCollection balance;
+  if (!(tlb::unpack_cell(root, acc) && tlb::csr_unpack(acc.storage, store) && balance.validate_unpack(store.balance))) {
+    LOG(ERROR) << "error unpacking account state";
+    return td::Status::Error("error unpacking account state");
+  }
+
+  // validate account state
+  switch (block::gen::t_AccountState.get_tag(*store.state)) {
+    case block::gen::AccountState::account_uninit:
+      LOG(ERROR) << "account " << address.workchain << ":" << address.addr.to_hex()
+                 << " not initialized yet (cannot run any methods)";
+      return td::Status::Error(PSLICE() << "account " << address.workchain << ":" << address.addr.to_hex()
+                                        << " not initialized yet (cannot run any methods)");
+    case block::gen::AccountState::account_frozen:
+      LOG(ERROR) << "account " << address.workchain << ":" << address.addr.to_hex()
+                 << " frozen (cannot run any methods)";
+      return td::Status::Error(PSLICE() << "account " << address.workchain << ":" << address.addr.to_hex()
+                                        << " frozen (cannot run any methods)");
+    default:
+      break;
+  }
+
+  CHECK(store.state.write().fetch_ulong(1) == 1)  // account_init$1 _:StateInit = AccountState;
+  block::gen::StateInit::Record state_init;
+  CHECK(tlb::csr_unpack(store.state, state_init));
+
+  return run_smc_method(address, gen_lt, gen_utime, balance, state_init.data->prefetch_ref(),
+                        state_init.code->prefetch_ref(), std::move(function), std::move(message_state_init),
+                        std::move(message_body));
+}
+
+auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
+                    const block::CurrencyCollection& balance, td::Ref<vm::Cell>&& data, td::Ref<vm::Cell>&& code,
+                    FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
+    -> td::Result<std::vector<ValueRef>> {
   try {
-    if (root.is_null()) {
-      LOG(ERROR) << "account state of " << address.workchain << ":" << address.addr.to_hex() << " is empty";
-      return td::Status::Error(PSLICE() << "account state of " << address.workchain << ":" << address.addr.to_hex()
-                                        << " is empty");
-    }
-
-    // unpack account state
-    block::gen::Account::Record_account acc;
-    block::gen::AccountStorage::Record store;
-    block::CurrencyCollection balance;
-    if (!(tlb::unpack_cell(root, acc) && tlb::csr_unpack(acc.storage, store) &&
-          balance.validate_unpack(store.balance))) {
-      LOG(ERROR) << "error unpacking account state";
-      return td::Status::Error("error unpacking account state");
-    }
-
-    // validate account state
-    switch (block::gen::t_AccountState.get_tag(*store.state)) {
-      case block::gen::AccountState::account_uninit:
-        LOG(ERROR) << "account " << address.workchain << ":" << address.addr.to_hex()
-                   << " not initialized yet (cannot run any methods)";
-        return td::Status::Error(PSLICE() << "account " << address.workchain << ":" << address.addr.to_hex()
-                                          << " not initialized yet (cannot run any methods)");
-      case block::gen::AccountState::account_frozen:
-        LOG(ERROR) << "account " << address.workchain << ":" << address.addr.to_hex()
-                   << " frozen (cannot run any methods)";
-        return td::Status::Error(PSLICE() << "account " << address.workchain << ":" << address.addr.to_hex()
-                                          << " frozen (cannot run any methods)");
-      default:
-        break;
-    }
-
-    CHECK(store.state.write().fetch_ulong(1) == 1)  // account_init$1 _:StateInit = AccountState;
-    block::gen::StateInit::Record state_init;
-    CHECK(tlb::csr_unpack(store.state, state_init));
-
     // encode message and it's body
-
     auto ext_in_message = ton::GenericAccount::create_ext_message(block::StdAddress{address.workchain, address.addr},
                                                                   message_state_init, message_body);
 
@@ -1434,15 +1441,15 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
 
     vm::init_op_cp0();
 
-    vm::VmState vm{state_init.code->prefetch_ref(),
+    vm::VmState vm{code,
                    std::move(stack),
                    vm::GasLimits{1'000'000'000},
                    /* flags */ 1,
-                   state_init.data->prefetch_ref(),
+                   data,
                    vm::VmLog{}};
 
     // initialize registers with SmartContractInfo
-    auto my_addr = td::make_ref<vm::CellSlice>(acc.addr->clone());
+    auto my_addr = vm::load_cell_slice_ref(vm::CellBuilder{}.store_bits(address.addr.bits(), 256).finalize());
     vm.set_c7(prepare_vm_c7(gen_utime, gen_lt, my_addr, balance));
 
     // execute
