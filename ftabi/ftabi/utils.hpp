@@ -348,7 +348,7 @@ struct ParamCell : Param {
     return "cell";
   }
   auto default_value() const -> td::Result<ValueRef> final {
-    return ValueCell{ParamRef{make_copy()}, td::Ref<vm::Cell>{}};
+    return ValueCell{ParamRef{make_copy()}, vm::CellBuilder{}.finalize()};
   }
   auto to_tonlib_api() const -> ApiParam final;
   auto make_copy() const -> Param* final {

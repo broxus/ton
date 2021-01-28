@@ -670,10 +670,12 @@ auto ValueBytes::deserialize(SliceData&& cursor, bool last) -> td::Result<SliceD
   if (!result_buffer.empty() && result_buffer.size() != total_size) {
     return td::Status::Error("size of fixed bytes is not correspond to expected size");
   }
+  result_buffer.resize(total_size);
 
   total_size = 0;
   for (const auto& slice : slices) {
     std::memcpy(result_buffer.data() + total_size, slice.data(), slice.size());
+    total_size += slice.size();
   }
 
   value = std::move(result_buffer);
@@ -1485,12 +1487,16 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
 
       while (actions_cs.size_refs()) {
         td::Ref<vm::Cell> next;
-        CHECK(actions_cs.fetch_ref_to(next))
+        if (!actions_cs.fetch_ref_to(next)) {
+          return td::Status::Error("Failed to fetch next action");
+        }
 
         unsigned long long magic;
         if (actions_cs.fetch_ulong_bool(32, magic) && magic == 0x0ec3c86du && actions_cs.size_refs() == 1) {
           td::Ref<vm::Cell> msg;
-          CHECK(actions_cs.fetch_ref_to(msg))
+          if (!actions_cs.fetch_ref_to(msg)) {
+            return td::Status::Error("Failed to fetch message");
+          }
 
           auto msg_cs = vm::load_cell_slice(msg);
           if (msg_cs.prefetch_ulong(2) != 3) {
