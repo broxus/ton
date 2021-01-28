@@ -726,11 +726,11 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
 
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     td::Ref<vm::Cell>&& root, FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init,
-                    td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>>;
+                    td::Ref<vm::Cell>&& message_body, bool internal) -> td::Result<std::vector<ValueRef>>;
 
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     const block::CurrencyCollection& balance, td::Ref<vm::Cell>&& data, td::Ref<vm::Cell>&& code,
-                    FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
-    -> td::Result<std::vector<ValueRef>>;
+                    FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body,
+                    bool internal) -> td::Result<std::vector<ValueRef>>;
 
 }  // namespace ftabi
