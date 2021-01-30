@@ -1373,13 +1373,12 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
                     td::Ref<vm::Cell>&& root, FunctionRef&& function, FunctionCallRef&& function_call)
     -> td::Result<std::vector<ValueRef>> {
   TRY_RESULT(message_body, function->encode_input(function_call))
-  return run_smc_method(address, gen_lt, gen_utime, std::move(root), std::move(function), {}, std::move(message_body),
-                        function_call->internal);
+  return run_smc_method(address, gen_lt, gen_utime, std::move(root), std::move(function), {}, std::move(message_body));
 }
 
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     td::Ref<vm::Cell>&& root, FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init,
-                    td::Ref<vm::Cell>&& message_body, bool internal) -> td::Result<std::vector<ValueRef>> {
+                    td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>> {
   if (root.is_null()) {
     LOG(ERROR) << "account state of " << address.workchain << ":" << address.addr.to_hex() << " is empty";
     return td::Status::Error(PSLICE() << "account state of " << address.workchain << ":" << address.addr.to_hex()
@@ -1417,13 +1416,13 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
 
   return run_smc_method(address, gen_lt, gen_utime, balance, state_init.data->prefetch_ref(),
                         state_init.code->prefetch_ref(), std::move(function), std::move(message_state_init),
-                        std::move(message_body), internal);
+                        std::move(message_body));
 }
 
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     const block::CurrencyCollection& balance, td::Ref<vm::Cell>&& data, td::Ref<vm::Cell>&& code,
-                    FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body,
-                    bool internal) -> td::Result<std::vector<ValueRef>> {
+                    FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
+    -> td::Result<std::vector<ValueRef>> {
   try {
     // encode message and it's body
     auto ext_in_message = ton::GenericAccount::create_ext_message(block::StdAddress{address.workchain, address.addr},
@@ -1439,7 +1438,7 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
     stack.write().push_smallint(0);
     stack.write().push_cell(ext_in_message);
     stack.write().push_cellslice(message_body_cs);
-    stack.write().push_smallint(internal ? 0 : -1);
+    stack.write().push_smallint(-1);
 
     // create vm
     LOG(DEBUG) << "creating VM";
@@ -1452,7 +1451,7 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
                    vm::VmLog{}};
 
     // initialize registers with SmartContractInfo
-    auto my_addr = vm::load_cell_slice_ref(vm::CellBuilder{}.store_bits(address.addr.bits(), 256).finalize());
+    auto my_addr = block::tlb::t_MsgAddressInt.pack_std_address(address);
     vm.set_c7(prepare_vm_c7(gen_utime, gen_lt, my_addr, balance));
 
     // execute

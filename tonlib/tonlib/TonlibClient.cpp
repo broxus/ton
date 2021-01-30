@@ -3697,8 +3697,7 @@ auto run_local_cached_split(tonlib_api::ftabi_runLocalCachedSplit& request)
 
   TRY_RESULT(values, ftabi::run_smc_method(account_address, static_cast<ton::LogicalTime>(request.gen_lt_),
                                            static_cast<td::uint32>(request.gen_utime_), balance, std::move(data),
-                                           std::move(code), std::move(function), {}, std::move(message_body),
-                                           function_call->internal));
+                                           std::move(code), std::move(function), {}, std::move(message_body)));
   auto result = to_tonlib_api(values);
   return tonlib_api::make_object<tonlib_api::ftabi_decodedOutput>(std::move(result));
 }
