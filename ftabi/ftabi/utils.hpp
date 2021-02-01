@@ -581,6 +581,8 @@ struct ParamPublicKey : Param {
 auto fill_signature(const td::optional<td::SecureString>& signature, BuilderData&& cell) -> td::Result<BuilderData>;
 auto pack_cells_into_chain(std::vector<BuilderData>&& cells) -> td::Result<BuilderData>;
 auto pack_into_cell(const std::vector<ValueRef>& values) -> td::Result<td::Ref<vm::Cell>>;
+auto unpack_from_cell(const td::Ref<vm::Cell>& cell, const std::vector<ParamRef>& params)
+    -> td::Result<std::vector<ValueRef>>;
 
 using HeaderParams = std::vector<std::pair<std::string, ParamRef>>;
 using InputParams = std::vector<ParamRef>;

@@ -179,6 +179,7 @@ class TonlibClient : public td::actor::Actor {
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_decodeInput& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_generateStateInit& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_packIntoCell& request);
+  static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_unpackFromCell& request);
 
   static object_ptr<tonlib_api::Object> do_static_request(tonlib_api::ftabi_runLocalCached& request);
   static object_ptr<tonlib_api::Object> do_static_request(tonlib_api::ftabi_runLocalCachedSplit& request);
@@ -244,6 +245,8 @@ class TonlibClient : public td::actor::Actor {
   td::Status do_request(const tonlib_api::ftabi_generateStateInit& request, P&&);
   template <class P>
   td::Status do_request(const tonlib_api::ftabi_packIntoCell& request, P&&);
+  template <class P>
+  td::Status do_request(const tonlib_api::ftabi_unpackFromCell& request, P&&);
 
   template <class P>
   td::Status do_request(const tonlib_api::ftabi_runLocalCached& request, P&&);

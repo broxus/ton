@@ -982,6 +982,12 @@ auto pack_into_cell(const std::vector<ValueRef>& values) -> td::Result<td::Ref<v
   return cell;
 }
 
+auto unpack_from_cell(const td::Ref<vm::Cell>& cell, const std::vector<ParamRef>& params)
+    -> td::Result<std::vector<ValueRef>> {
+  auto data = vm::load_cell_slice_ref(cell);
+  return decode_params(std::move(data), params);
+}
+
 auto check_params(const std::vector<ValueRef>& values, const std::vector<ParamRef>& params) -> bool {
   if (values.size() != params.size()) {
     return false;

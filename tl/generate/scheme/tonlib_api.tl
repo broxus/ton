@@ -847,6 +847,7 @@ ftabi.decodeOutput function:ftabi.Function data:bytes = ftabi.DecodedOutput;
 ftabi.decodeInput function:ftabi.Function data:bytes internal:Bool = ftabi.DecodedInput;
 ftabi.generateStateInit tvc:bytes public_key:bytes = ftabi.StateInit;
 ftabi.packIntoCell values:vector<ftabi.Value> = tvm.Cell;
+ftabi.unpackFromCell cell:tvm.Cell params:vector<ftabi.Param> = ftabi.DecodedOutput;
 
 dns.resolve account_address:accountAddress name:string category:int32 ttl:int32 = dns.Resolved;
 
