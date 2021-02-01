@@ -3640,6 +3640,20 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
   return result.move_as_ok();
 }
 
+auto pack_into_cell(const tonlib_api::ftabi_packIntoCell& request) -> td::Result<tonlib_api_ptr<tonlib_api::tvm_cell>> {
+  TRY_RESULT(values, parse_values(request.values_))
+  TRY_RESULT(cell, ftabi::pack_into_cell(values))
+  return tonlib_api::make_object<tonlib_api::tvm_cell>(to_bytes(cell));
+}
+
+tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_packIntoCell& request) {
+  auto result = pack_into_cell(request);
+  if (result.is_error()) {
+    return status_to_tonlib_api(result.move_as_error());
+  }
+  return result.move_as_ok();
+}
+
 auto run_local_cached(tonlib_api::ftabi_runLocalCached& request)
     -> td::Result<tonlib_api::object_ptr<tonlib_api::Object>> {
   if (request.state_.empty()) {
@@ -3915,6 +3929,11 @@ td::Status TonlibClient::do_request(const tonlib_api::ftabi_decodeInput& request
 }
 template <class P>
 td::Status TonlibClient::do_request(const tonlib_api::ftabi_generateStateInit& request, P&&) {
+  UNREACHABLE();
+  return TonlibError::Internal();
+}
+template <class P>
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_packIntoCell& request, P&&) {
   UNREACHABLE();
   return TonlibError::Internal();
 }

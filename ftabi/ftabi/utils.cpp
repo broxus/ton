@@ -970,6 +970,18 @@ auto pack_cells_into_chain(std::vector<BuilderData>&& cells) -> td::Result<Build
   return td::Status::Error("empty packed data");
 }
 
+auto pack_into_cell(const std::vector<ValueRef>& values) -> td::Result<td::Ref<vm::Cell>> {
+  std::vector<BuilderData> cells;
+
+  for (const auto& input : values) {
+    TRY_RESULT(builder_data, input->serialize())
+    cells.insert(cells.end(), builder_data.begin(), builder_data.end());
+  }
+
+  TRY_RESULT(cell, pack_cells_into_chain(std::move(cells)))
+  return cell;
+}
+
 auto check_params(const std::vector<ValueRef>& values, const std::vector<ParamRef>& params) -> bool {
   if (values.size() != params.size()) {
     return false;

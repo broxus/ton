@@ -846,6 +846,7 @@ ftabi.runLocalCachedSplit address:AccountAddress gen_lt:int64 gen_utime:int32 ba
 ftabi.decodeOutput function:ftabi.Function data:bytes = ftabi.DecodedOutput;
 ftabi.decodeInput function:ftabi.Function data:bytes internal:Bool = ftabi.DecodedInput;
 ftabi.generateStateInit tvc:bytes public_key:bytes = ftabi.StateInit;
+ftabi.packIntoCell values:vector<ftabi.Value> = tvm.Cell;
 
 dns.resolve account_address:accountAddress name:string category:int32 ttl:int32 = dns.Resolved;
 
