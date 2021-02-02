@@ -138,7 +138,7 @@ auto ValueInt::to_tonlib_api() const -> ApiValue {
     return tonlib_api::make_object<tonlib_api::ftabi_valueInt>(param_->to_tonlib_api(), value.to_long());
   } else {
     td::BufferSlice bytes(32);
-    CHECK(value.export_bytes(bytes.as_slice().ubegin(), bytes.size(), value.sgn()))
+    CHECK(value.export_bytes(bytes.as_slice().ubegin(), bytes.size(), false))
     return tonlib_api::make_object<tonlib_api::ftabi_valueBigInt>(param_->to_tonlib_api(), bytes.as_slice().str());
   }
 }
