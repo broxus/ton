@@ -770,26 +770,23 @@ auto parse_account_state(const td::Ref<vm::CellSlice>& csr)
         return td::Status::Error("failed to unpack account active state");
       }
 
-      bool has_split_depth, has_code, has_data;
+      bool has_split_depth;
       td::int32 split_depth{};
       td::Ref<vm::Cell> code_cell, data_cell;
       if (!state_init.split_depth.write().fetch_bool_to(has_split_depth) ||
           (has_split_depth && !state_init.split_depth.write().fetch_int_to(5, split_depth)) ||
-          !state_init.code.write().fetch_bool_to(has_code) ||
-          (has_code && !state_init.code.write().fetch_ref_to(code_cell)) ||
-          !state_init.data.write().fetch_bool_to(has_data) ||
-          (has_data && !state_init.data.write().fetch_ref_to(data_cell))) {
+          !state_init.code.write().fetch_maybe_ref(code_cell) || !state_init.data.write().fetch_maybe_ref(data_cell)) {
         return td::Status::Error("failed to unpack account state init");
       }
 
       TRY_RESULT(special, parse_maybe(parse_account_special, state_init.special))
       td::BufferSlice code, data;
       std::string code_hash, data_hash;
-      if (has_code) {
+      if (code_cell.not_null()) {
         code_hash = code_cell->get_hash().as_slice().str();
         TRY_RESULT_ASSIGN(code, vm::std_boc_serialize(code_cell))
       }
-      if (has_data) {
+      if (data_cell.not_null()) {
         data_hash = data_cell->get_hash().as_slice().str();
         TRY_RESULT_ASSIGN(data, vm::std_boc_serialize(data_cell))
       }
@@ -797,8 +794,8 @@ auto parse_account_state(const td::Ref<vm::CellSlice>& csr)
       TRY_RESULT(library, parse_simple_libs(state_init.library))
 
       return tonlib_api::make_object<tonlib_api::liteServer_accountStateActive>(
-          has_split_depth, split_depth, std::move(special), has_code, code.as_slice().str(), code_hash, has_data,
-          data.as_slice().str(), data_hash, std::move(library));
+          has_split_depth, split_depth, std::move(special), code_cell.not_null(), code.as_slice().str(), code_hash,
+          data_cell.not_null(), data.as_slice().str(), data_hash, std::move(library));
     }
     case block::gen::AccountState::account_frozen: {
       block::gen::AccountState::Record_account_frozen record;
