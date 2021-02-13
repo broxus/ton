@@ -1531,6 +1531,10 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
       }
     }
 
+    if (function->has_output()) {
+      return td::Status::Error("No output messages produced");
+    }
+
     return std::vector<ValueRef>{};
   } catch (vm::VmVirtError& err) {
     LOG(ERROR) << "virtualization error while parsing runSmcMethod result: " << err.get_msg();
