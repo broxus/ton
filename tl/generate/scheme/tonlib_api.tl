@@ -789,6 +789,7 @@ kdf password:secureBytes salt:secureBytes iterations:int32 = Data;
 
 unpackAccountAddress account_address:string = UnpackedAccountAddress;
 packAccountAddress account_address:unpackedAccountAddress = AccountAddress;
+convertIntoPacked account_address:string bounceable:Bool = AccountAddress;
 getBip39Hints prefix:string = Bip39Hints;
 
 //raw.init initial_account_state:raw.initialAccountState = Ok;

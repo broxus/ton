@@ -985,6 +985,7 @@ bool TonlibClient::is_static_request(td::int32 id) {
     case tonlib_api::getAccountAddress::ID:
     case tonlib_api::packAccountAddress::ID:
     case tonlib_api::unpackAccountAddress::ID:
+    case tonlib_api::convertIntoPacked::ID:
     case tonlib_api::getBip39Hints::ID:
     case tonlib_api::setLogStream::ID:
     case tonlib_api::getLogStream::ID:
@@ -1235,6 +1236,16 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
   return tonlib_api::make_object<tonlib_api::unpackedAccountAddress>(
       account_address.workchain, account_address.bounceable, account_address.testnet,
       account_address.addr.as_slice().str());
+}
+
+tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::convertIntoPacked& request) {
+  auto r_account_address = get_account_address(request.account_address_);
+  if (r_account_address.is_error()) {
+    return status_to_tonlib_api(r_account_address.move_as_error());
+  }
+  auto account_address = r_account_address.move_as_ok();
+  account_address.bounceable = request.bounceable_;
+  return tonlib_api::make_object<tonlib_api::accountAddress>(account_address.rserialize());
 }
 
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::packAccountAddress& request) {
@@ -3835,6 +3846,11 @@ td::Status TonlibClient::do_request(const tonlib_api::packAccountAddress& reques
 }
 template <class P>
 td::Status TonlibClient::do_request(const tonlib_api::unpackAccountAddress& request, P&&) {
+  UNREACHABLE();
+  return TonlibError::Internal();
+}
+template <class P>
+td::Status TonlibClient::do_request(const tonlib_api::convertIntoPacked& request, P&&) {
   UNREACHABLE();
   return TonlibError::Internal();
 }

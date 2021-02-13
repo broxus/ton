@@ -149,6 +149,7 @@ class TonlibClient : public td::actor::Actor {
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::getAccountAddress& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::packAccountAddress& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::unpackAccountAddress& request);
+  static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::convertIntoPacked& request);
   static object_ptr<tonlib_api::Object> do_static_request(tonlib_api::getBip39Hints& request);
 
   static object_ptr<tonlib_api::Object> do_static_request(tonlib_api::setLogStream& request);
@@ -192,6 +193,8 @@ class TonlibClient : public td::actor::Actor {
   td::Status do_request(const tonlib_api::packAccountAddress& request, P&&);
   template <class P>
   td::Status do_request(const tonlib_api::unpackAccountAddress& request, P&&);
+  template <class P>
+  td::Status do_request(const tonlib_api::convertIntoPacked& request, P&&);
   template <class P>
   td::Status do_request(tonlib_api::getBip39Hints& request, P&&);
 
