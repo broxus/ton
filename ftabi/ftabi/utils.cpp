@@ -298,8 +298,12 @@ auto ValueArray::to_string() const -> std::string {
 }
 
 auto ValueArray::to_tonlib_api() const -> ApiValue {
-  // TODO: add tonlib api
-  return nullptr;
+  std::vector<ApiValue> api_values{};
+  api_values.reserve(values.size());
+  for (const auto& item : values) {
+    api_values.emplace_back(item->to_tonlib_api());
+  }
+  return tonlib_api::make_object<tonlib_api::ftabi_valueArray>(param_->to_tonlib_api(), std::move(api_values));
 }
 
 auto ValueArray::make_copy() const -> Value* {
