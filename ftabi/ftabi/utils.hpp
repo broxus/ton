@@ -642,7 +642,8 @@ auto decode_header(SliceData&& data, const HeaderParams& header_params, bool int
     -> td::Result<std::tuple<SliceData, uint32_t, std::vector<ValueRef>>>;
 auto decode_input_id(SliceData&& data, const HeaderParams& header_params, bool internal) -> td::Result<uint32_t>;
 auto decode_output_id(SliceData&& data) -> td::Result<uint32_t>;
-auto decode_params(SliceData&& data, const std::vector<ParamRef>& params) -> td::Result<std::vector<ValueRef>>;
+auto decode_params(SliceData&& data, const std::vector<ParamRef>& params, bool allow_partial)
+    -> td::Result<std::vector<ValueRef>>;
 
 struct FunctionCall : public td::CntObject {
   explicit FunctionCall(InputValues&& inputs);

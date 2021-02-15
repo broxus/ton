@@ -989,7 +989,7 @@ auto pack_into_cell(const std::vector<ValueRef>& values) -> td::Result<td::Ref<v
 auto unpack_from_cell(const td::Ref<vm::Cell>& cell, const std::vector<ParamRef>& params)
     -> td::Result<std::vector<ValueRef>> {
   auto data = vm::load_cell_slice_ref(cell);
-  return decode_params(std::move(data), params);
+  return decode_params(std::move(data), params, true);
 }
 
 auto check_params(const std::vector<ValueRef>& values, const std::vector<ParamRef>& params) -> bool {
@@ -1083,7 +1083,8 @@ auto decode_output_id(SliceData&& data) -> td::Result<uint32_t> {
   return static_cast<uint32_t>(output_id);
 }
 
-auto decode_params(SliceData&& data, const std::vector<ParamRef>& params) -> td::Result<std::vector<ValueRef>> {
+auto decode_params(SliceData&& data, const std::vector<ParamRef>& params, bool allow_partial)
+    -> td::Result<std::vector<ValueRef>> {
   std::vector<ValueRef> results;
 
   for (size_t i = 0; i < params.size(); ++i) {
@@ -1093,7 +1094,7 @@ auto decode_params(SliceData&& data, const std::vector<ParamRef>& params) -> td:
     results.emplace_back(std::move(default_value));
   }
 
-  if (!data->empty_ext()) {
+  if (!allow_partial && !data->empty_ext()) {
     return td::Status::Error("incomplete deserialization");
   }
 
@@ -1181,7 +1182,7 @@ auto Function::decode_input(SliceData&& data, bool internal) const
     return td::Status::Error("invalid input_id");
   }
 
-  TRY_RESULT(values, decode_params(std::move(cursor), inputs_));
+  TRY_RESULT(values, decode_params(std::move(cursor), inputs_, false));
   return std::make_pair(std::move(header_values), std::move(values));
 }
 
@@ -1195,7 +1196,7 @@ auto Function::decode_output(SliceData&& data) const -> td::Result<std::vector<V
     return td::Status::Error("invalid output_id");
   }
 
-  return decode_params(std::move(data), outputs_);
+  return decode_params(std::move(data), outputs_, false);
 }
 
 auto Function::encode_header(const HeaderValues& header, bool internal) const -> td::Result<std::vector<BuilderData>> {
