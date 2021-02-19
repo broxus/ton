@@ -591,7 +591,7 @@ auto ValueAddress::to_string() const -> std::string {
 
 auto ValueAddress::to_tonlib_api() const -> ApiValue {
   return tonlib_api::make_object<tonlib_api::ftabi_valueAddress>(
-      param_->to_tonlib_api(), tonlib_api::make_object<tonlib_api::accountAddress>(value.rserialize()));
+      param_->to_tonlib_api(), tonlib_api::make_object<tonlib_api::accountAddress>(value.rserialize(true)));
 }
 
 auto ValueAddress::make_copy() const -> Value* {

@@ -1245,7 +1245,7 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
   }
   auto account_address = r_account_address.move_as_ok();
   account_address.bounceable = request.bounceable_;
-  return tonlib_api::make_object<tonlib_api::accountAddress>(account_address.rserialize());
+  return tonlib_api::make_object<tonlib_api::accountAddress>(account_address.rserialize(true));
 }
 
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::packAccountAddress& request) {
