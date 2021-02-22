@@ -1394,14 +1394,14 @@ static auto prepare_vm_c7(ton::UnixTime now, ton::LogicalTime lt, td::Ref<vm::Ce
 
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     td::Ref<vm::Cell>&& root, FunctionRef&& function, FunctionCallRef&& function_call)
-    -> td::Result<std::vector<ValueRef>> {
+    -> td::Result<TvmOutput> {
   TRY_RESULT(message_body, function->encode_input(function_call))
   return run_smc_method(address, gen_lt, gen_utime, std::move(root), std::move(function), {}, std::move(message_body));
 }
 
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     td::Ref<vm::Cell>&& root, FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init,
-                    td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>> {
+                    td::Ref<vm::Cell>&& message_body) -> td::Result<TvmOutput> {
   if (root.is_null()) {
     LOG(ERROR) << "account state of " << address.workchain << ":" << address.addr.to_hex() << " is empty";
     return td::Status::Error(PSLICE() << "account state of " << address.workchain << ":" << address.addr.to_hex()
@@ -1445,7 +1445,7 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     const block::CurrencyCollection& balance, td::Ref<vm::Cell>&& data, td::Ref<vm::Cell>&& code,
                     FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
-    -> td::Result<std::vector<ValueRef>> {
+    -> td::Result<TvmOutput> {
   try {
     // encode message and it's body
     auto ext_in_message = ton::GenericAccount::create_ext_message(block::StdAddress{address.workchain, address.addr},
@@ -1500,7 +1500,7 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
     LOG(DEBUG) << "VM terminated with exit code " << exit_code;
 
     if (exit_code != 0) {
-      return td::Status::Error(PSLICE() << "VM terminated with non-zero exit code " << exit_code);
+      return TvmOutput{/*success*/ false, exit_code};
     }
 
     // process output messages
@@ -1527,7 +1527,7 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
 
           TRY_RESULT(body, unpack_result_message_body(msg_cs))
           TRY_RESULT(result, function->decode_output(std::move(body)))
-          return result;
+          return TvmOutput{/*success*/ true, exit_code, result};
         } else {
           LOG(ERROR) << "Failed to read message";
         }
@@ -1540,7 +1540,7 @@ auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, t
       return td::Status::Error("No output messages produced");
     }
 
-    return std::vector<ValueRef>{};
+    return TvmOutput{/*success*/ true, exit_code};
   } catch (vm::VmVirtError& err) {
     LOG(ERROR) << "virtualization error while parsing runSmcMethod result: " << err.get_msg();
     return td::Status::Error(PSLICE() << "virtualization error while parsing runSmcMethod result: " << err.get_msg());

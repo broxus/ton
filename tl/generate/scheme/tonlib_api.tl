@@ -177,6 +177,7 @@ ftabi.functionCallInternalSigned header_values:vector<ftabi.namedValue> input_va
 
 ftabi.decodedInput header_values:vector<ftabi.Value> values:vector<ftabi.Value> = ftabi.DecodedInput;
 ftabi.decodedOutput values:vector<ftabi.Value> = ftabi.DecodedOutput;
+ftabi.tvmOutput success:Bool exit_code:int32 values:vector<ftabi.Value> = ftabi.TvmOutput;
 
 ftabi.jsonDecodedInput value:string = ftabi.JsonDecodedInput;
 ftabi.jsonDecodedOutput value:string = ftabi.JsonDecodedOutput;
@@ -842,9 +843,9 @@ ftabi.computeFunctionSignature name:string inputs:vector<ftabi.Param> outputs:ve
 ftabi.createFunction name:string header:vector<ftabi.namedParam> inputs:vector<ftabi.Param> outputs:vector<ftabi.Param> = ftabi.Function;
 ftabi.getFunction abi:string name:string = ftabi.Function;
 ftabi.createMessageBody function:ftabi.Function call:ftabi.FunctionCall = ftabi.MessageBody;
-ftabi.runLocal address:AccountAddress function:ftabi.Function call:ftabi.FunctionCall = ftabi.DecodedOutput;
-ftabi.runLocalCached address:AccountAddress gen_lt:int64 gen_utime:int32 state:bytes function:ftabi.Function call:ftabi.FunctionCall = ftabi.DecodedOutput;
-ftabi.runLocalCachedSplit address:AccountAddress gen_lt:int64 gen_utime:int32 balance:int64 data:bytes code:bytes function:ftabi.Function call:ftabi.FunctionCall = ftabi.DecodedOutput;
+ftabi.runLocal address:AccountAddress function:ftabi.Function call:ftabi.FunctionCall = ftabi.TvmOutput;
+ftabi.runLocalCached address:AccountAddress gen_lt:int64 gen_utime:int32 state:bytes function:ftabi.Function call:ftabi.FunctionCall = ftabi.TvmOutput;
+ftabi.runLocalCachedSplit address:AccountAddress gen_lt:int64 gen_utime:int32 balance:int64 data:bytes code:bytes function:ftabi.Function call:ftabi.FunctionCall = ftabi.TvmOutput;
 ftabi.decodeOutput function:ftabi.Function data:bytes = ftabi.DecodedOutput;
 ftabi.decodeInput function:ftabi.Function data:bytes internal:Bool = ftabi.DecodedInput;
 ftabi.generateStateInit tvc:bytes public_key:bytes = ftabi.StateInit;

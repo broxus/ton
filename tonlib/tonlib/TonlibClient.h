@@ -402,7 +402,7 @@ class TonlibClient : public td::actor::Actor {
                         td::Promise<object_ptr<tonlib_api::smc_runResult>>&& promise);
 
   td::Status do_request(tonlib_api::ftabi_runLocal& request,
-                        td::Promise<object_ptr<tonlib_api::ftabi_decodedOutput>>&& promise);
+                        td::Promise<object_ptr<tonlib_api::ftabi_tvmOutput>>&& promise);
 
   td::Status do_request(const tonlib_api::dns_resolve& request,
                         td::Promise<object_ptr<tonlib_api::dns_resolved>>&& promise);

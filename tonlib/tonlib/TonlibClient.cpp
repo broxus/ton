@@ -3054,7 +3054,7 @@ td::Status TonlibClient::do_request(const tonlib_api::smc_runGetMethod& request,
 }
 
 td::Status TonlibClient::do_request(tonlib_api::ftabi_runLocal& request,
-                                    td::Promise<tonlib_api_ptr<tonlib_api::ftabi_decodedOutput>>&& promise) {
+                                    td::Promise<tonlib_api_ptr<tonlib_api::ftabi_tvmOutput>>&& promise) {
   if (!request.address_) {
     return TonlibError::EmptyField("address");
   }
@@ -3069,7 +3069,7 @@ td::Status TonlibClient::do_request(tonlib_api::ftabi_runLocal& request,
   TRY_RESULT(function, parse_function(*request.function_))
   TRY_RESULT(function_call, parse_function_call(*function, request.call_))
 
-  using ReturnType = tonlib_api_ptr<tonlib_api::ftabi_decodedOutput>;
+  using ReturnType = tonlib_api_ptr<tonlib_api::ftabi_tvmOutput>;
 
   auto actor_id = actor_id_++;
   actors_[actor_id] = td::actor::create_actor<GetRawAccountState>(
@@ -3077,16 +3077,15 @@ td::Status TonlibClient::do_request(tonlib_api::ftabi_runLocal& request,
       actor_shared(this, actor_id),
       promise.wrap([address = account_address, function,
                     function_call](RawAccountState&& state) mutable -> td::Result<ReturnType> {
-        auto values_r =
+        auto output_r =
             ftabi::run_smc_method(address, state.info.gen_lt, state.info.gen_utime, std::move(state.info.root),
                                   std::move(function), std::move(function_call));
-        if (values_r.is_error()) {
-          return values_r.move_as_error();
+        if (output_r.is_error()) {
+          return output_r.move_as_error();
         }
-        auto values = values_r.move_as_ok();
+        auto output = output_r.move_as_ok();
 
-        auto results = to_tonlib_api(values);
-        return tonlib_api::make_object<tonlib_api::ftabi_decodedOutput>(std::move(results));
+        return to_tonlib_api(output);
       }));
   return td::Status::OK();
 }
@@ -3703,11 +3702,10 @@ auto run_local_cached(tonlib_api::ftabi_runLocalCached& request)
   TRY_RESULT(function_call, parse_function_call(*function, request.call_))
   TRY_RESULT(root, vm::std_boc_deserialize(request.state_))
 
-  TRY_RESULT(values, ftabi::run_smc_method(account_address, static_cast<ton::LogicalTime>(request.gen_lt_),
+  TRY_RESULT(result, ftabi::run_smc_method(account_address, static_cast<ton::LogicalTime>(request.gen_lt_),
                                            static_cast<td::uint32>(request.gen_utime_), std::move(root),
                                            std::move(function), std::move(function_call)));
-  auto result = to_tonlib_api(values);
-  return tonlib_api::make_object<tonlib_api::ftabi_decodedOutput>(std::move(result));
+  return to_tonlib_api(result);
 }
 
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(tonlib_api::ftabi_runLocalCached& request) {
@@ -3741,11 +3739,10 @@ auto run_local_cached_split(tonlib_api::ftabi_runLocalCachedSplit& request)
   const auto balance = block::CurrencyCollection(request.balance_);
   TRY_RESULT(message_body, function->encode_input(function_call))
 
-  TRY_RESULT(values, ftabi::run_smc_method(account_address, static_cast<ton::LogicalTime>(request.gen_lt_),
+  TRY_RESULT(result, ftabi::run_smc_method(account_address, static_cast<ton::LogicalTime>(request.gen_lt_),
                                            static_cast<td::uint32>(request.gen_utime_), balance, std::move(data),
                                            std::move(code), std::move(function), {}, std::move(message_body)));
-  auto result = to_tonlib_api(values);
-  return tonlib_api::make_object<tonlib_api::ftabi_decodedOutput>(std::move(result));
+  return to_tonlib_api(result);
 }
 
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(tonlib_api::ftabi_runLocalCachedSplit& request) {

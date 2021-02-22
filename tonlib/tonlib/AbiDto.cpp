@@ -386,4 +386,9 @@ auto to_tonlib_api(const std::vector<std::pair<std::string, ftabi::ValueRef>>& n
   return results;
 }
 
+auto to_tonlib_api(const ftabi::TvmOutput& output) -> tonlib_api_ptr<tonlib_api::ftabi_tvmOutput> {
+  return tonlib_api::make_object<tonlib_api::ftabi_tvmOutput>(output.success, output.exit_code,
+                                                              to_tonlib_api(output.values));
+}
+
 }  // namespace tonlib

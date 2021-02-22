@@ -719,6 +719,12 @@ class Function : public td::CntObject {
 using FunctionRef = td::Ref<Function>;
 using FunctionCallRef = td::Ref<FunctionCall>;
 
+struct TvmOutput {
+  bool success{};
+  td::int32 exit_code;
+  std::vector<ValueRef> values;
+};
+
 auto generate_state_init(const td::Ref<vm::Cell>& tvc, const td::Ed25519::PublicKey& public_key)
     -> td::Result<td::Ref<vm::Cell>>;
 
@@ -726,15 +732,15 @@ auto unpack_result_message_body(vm::CellSlice& cs) -> td::Result<td::Ref<vm::Cel
 
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     td::Ref<vm::Cell>&& root, FunctionRef&& function, FunctionCallRef&& function_call)
-    -> td::Result<std::vector<ValueRef>>;
+    -> td::Result<TvmOutput>;
 
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     td::Ref<vm::Cell>&& root, FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init,
-                    td::Ref<vm::Cell>&& message_body) -> td::Result<std::vector<ValueRef>>;
+                    td::Ref<vm::Cell>&& message_body) -> td::Result<TvmOutput>;
 
 auto run_smc_method(const block::StdAddress& address, ton::LogicalTime gen_lt, td::uint32 gen_utime,
                     const block::CurrencyCollection& balance, td::Ref<vm::Cell>&& data, td::Ref<vm::Cell>&& code,
                     FunctionRef&& function, td::Ref<vm::Cell>&& message_state_init, td::Ref<vm::Cell>&& message_body)
-    -> td::Result<std::vector<ValueRef>>;
+    -> td::Result<TvmOutput>;
 
 }  // namespace ftabi
