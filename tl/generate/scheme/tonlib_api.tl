@@ -173,7 +173,6 @@ ftabi.functionCallJson value:string = ftabi.FunctionCall;
 ftabi.functionCallExternal header_values:vector<ftabi.namedValue> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
 ftabi.functionCallExternalSigned header_values:vector<ftabi.namedValue> input_values:vector<ftabi.Value> key:secureBytes = ftabi.FunctionCall;
 ftabi.functionCallInternal header_values:vector<ftabi.namedValue> input_values:vector<ftabi.Value> = ftabi.FunctionCall;
-ftabi.functionCallInternalSigned header_values:vector<ftabi.namedValue> input_values:vector<ftabi.Value> key:secureBytes = ftabi.FunctionCall;
 
 ftabi.decodedInput header_values:vector<ftabi.Value> values:vector<ftabi.Value> = ftabi.DecodedInput;
 ftabi.decodedOutput values:vector<ftabi.Value> = ftabi.DecodedOutput;

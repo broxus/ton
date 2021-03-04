@@ -245,7 +245,7 @@ auto parse_function_call(const ftabi::Function& function, tonlib_api_ptr<tonlib_
           [&function](tonlib_api::ftabi_functionCallJson& value) -> ReturnType {
             TRY_RESULT(json, td::json_decode(td::MutableSlice{value.value_}))
             TRY_RESULT(call, ftabi::function_call_from_json(function, json));
-            return td::Ref<ftabi::FunctionCall>{std::move(call)};
+            return td::Ref<ftabi::FunctionCall>{call};
           },
           [](const tonlib_api::ftabi_functionCallExternal& value) -> ReturnType {
             TRY_RESULT(headerValues, parse_header_values(value.header_values_))
@@ -264,13 +264,6 @@ auto parse_function_call(const ftabi::Function& function, tonlib_api_ptr<tonlib_
             TRY_RESULT(inputValues, parse_values(value.input_values_))
             return td::Ref<ftabi::FunctionCall>{ftabi::FunctionCall(std::move(headerValues), std::move(inputValues),
                                                                     true, td::optional<td::Ed25519::PrivateKey>{})};
-          },
-          [](tonlib_api::ftabi_functionCallInternalSigned& value) -> ReturnType {
-            TRY_RESULT(headerValues, parse_header_values(value.header_values_))
-            TRY_RESULT(inputValues, parse_values(value.input_values_))
-            return td::Ref<ftabi::FunctionCall>{ftabi::FunctionCall(
-                std::move(headerValues), std::move(inputValues), true,
-                td::optional<td::Ed25519::PrivateKey>{td::Ed25519::PrivateKey(std::move(value.key_))})};
           }));
 }
 
