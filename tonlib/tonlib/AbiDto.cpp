@@ -236,7 +236,8 @@ auto parse_function(const tonlib_api::ftabi_function& value) -> td::Result<td::R
       ftabi::Function(std::move(name), std::move(header), std::move(inputs), std::move(outputs))};
 }
 
-auto parse_function_call(const ftabi::Function& function, tonlib_api_ptr<tonlib_api::ftabi_FunctionCall>& value)
+auto parse_function_call(KeyStorage& key_storage, const ftabi::Function& function,
+                         const tonlib_api_ptr<tonlib_api::ftabi_FunctionCall>& value)
     -> td::Result<td::Ref<ftabi::FunctionCall>> {
   using ReturnType = td::Result<td::Ref<ftabi::FunctionCall>>;
   return downcast_call2<ReturnType>(
@@ -252,12 +253,19 @@ auto parse_function_call(const ftabi::Function& function, tonlib_api_ptr<tonlib_
             TRY_RESULT(inputValues, parse_values(value.input_values_))
             return td::Ref<ftabi::FunctionCall>{ftabi::FunctionCall(std::move(headerValues), std::move(inputValues))};
           },
-          [](tonlib_api::ftabi_functionCallExternalSigned& value) -> ReturnType {
+          [&](tonlib_api::ftabi_functionCallExternalSigned& value) -> ReturnType {
             TRY_RESULT(headerValues, parse_header_values(value.header_values_))
             TRY_RESULT(inputValues, parse_values(value.input_values_))
+
+            if (!value.key_) {
+              return TonlibError::EmptyField("key");
+            }
+            TRY_RESULT(input_key, from_tonlib_api(*value.key_));
+            TRY_RESULT(key, key_storage.load_private_key(std::move(input_key)))
+
             return td::Ref<ftabi::FunctionCall>{ftabi::FunctionCall(
                 std::move(headerValues), std::move(inputValues), false,
-                td::optional<td::Ed25519::PrivateKey>{td::Ed25519::PrivateKey(std::move(value.key_))})};
+                td::optional<td::Ed25519::PrivateKey>{td::Ed25519::PrivateKey(std::move(key.private_key))})};
           },
           [](const tonlib_api::ftabi_functionCallInternal& value) -> ReturnType {
             TRY_RESULT(headerValues, parse_header_values(value.header_values_))
@@ -310,16 +318,6 @@ auto get_function_from_abi(tonlib_api::ftabi_getFunction& request) -> td::Result
   return tonlib_api::make_object<tonlib_api::ftabi_function>(  //
       function.name, to_tonlib_api(contract_abi.header), to_tonlib_api(function.inputs),
       to_tonlib_api(function.outputs), input_id, output_id);
-}
-
-auto create_message_body(tonlib_api::ftabi_createMessageBody& request)
-    -> td::Result<tonlib_api_ptr<tonlib_api::Object>> {
-  TRY_RESULT(function, parse_function(*request.function_))
-  TRY_RESULT(function_call, parse_function_call(*function, request.call_))
-  TRY_RESULT(body, function->encode_input(function_call))
-  TRY_RESULT(serialized, vm::std_boc_serialize(body))
-  std::string str{serialized.data(), serialized.size()};
-  return tonlib_api::make_object<tonlib_api::ftabi_messageBody>(str);
 }
 
 auto decode_output(const tonlib_api::ftabi_decodeOutput& request) -> td::Result<tonlib_api_ptr<tonlib_api::Object>> {

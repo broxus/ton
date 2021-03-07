@@ -1005,12 +1005,9 @@ bool TonlibClient::is_static_request(td::int32 id) {
     case tonlib_api::ftabi_computeFunctionSignature::ID:
     case tonlib_api::ftabi_createFunction::ID:
     case tonlib_api::ftabi_getFunction::ID:
-    case tonlib_api::ftabi_createMessageBody::ID:
     case tonlib_api::ftabi_generateStateInit::ID:
     case tonlib_api::ftabi_packIntoCell::ID:
     case tonlib_api::ftabi_unpackFromCell::ID:
-    case tonlib_api::ftabi_runLocalCached::ID:
-    case tonlib_api::ftabi_runLocalCachedSplit::ID:
       return true;
     default:
       return false;
@@ -3053,6 +3050,30 @@ td::Status TonlibClient::do_request(const tonlib_api::smc_runGetMethod& request,
   return td::Status::OK();
 }
 
+void create_message_body(KeyStorage& key_storage, const tonlib_api::ftabi_createMessageBody& request,
+                         td::Promise<tonlib_api_ptr<tonlib_api::ftabi_messageBody>>&& promise) {
+  TRY_RESULT_PROMISE(promise, function, parse_function(*request.function_))
+  TRY_RESULT_PROMISE(promise, function_call, parse_function_call(key_storage, *function, request.call_))
+  TRY_RESULT_PROMISE(promise, body, function->encode_input(function_call))
+  TRY_RESULT_PROMISE(promise, serialized, vm::std_boc_serialize(body))
+
+  std::string str{serialized.data(), serialized.size()};
+  promise.set_result(tonlib_api::make_object<tonlib_api::ftabi_messageBody>(str));
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_createMessageBody& request,
+                                    td::Promise<object_ptr<tonlib_api::ftabi_messageBody>>&& promise) {
+  if (request.function_ == nullptr) {
+    return TonlibError::EmptyField("function");
+  }
+  if (request.call_ == nullptr) {
+    return TonlibError::EmptyField("call");
+  }
+
+  create_message_body(key_storage_, request, std::forward<std::decay_t<decltype(promise)>>(promise));
+  return td::Status::OK();
+}
+
 td::Status TonlibClient::do_request(tonlib_api::ftabi_runLocal& request,
                                     td::Promise<tonlib_api_ptr<tonlib_api::ftabi_tvmOutput>>&& promise) {
   if (!request.address_) {
@@ -3067,7 +3088,7 @@ td::Status TonlibClient::do_request(tonlib_api::ftabi_runLocal& request,
 
   TRY_RESULT(account_address, get_account_address(request.address_->account_address_));
   TRY_RESULT(function, parse_function(*request.function_))
-  TRY_RESULT(function_call, parse_function_call(*function, request.call_))
+  TRY_RESULT(function_call, parse_function_call(key_storage_, *function, request.call_))
 
   using ReturnType = tonlib_api_ptr<tonlib_api::ftabi_tvmOutput>;
 
@@ -3087,6 +3108,93 @@ td::Status TonlibClient::do_request(tonlib_api::ftabi_runLocal& request,
 
         return to_tonlib_api(output);
       }));
+  return td::Status::OK();
+}
+
+auto unpack_from_cell(const tonlib_api::ftabi_unpackFromCell& request)
+    -> td::Result<tonlib_api_ptr<tonlib_api::ftabi_decodedOutput>> {
+  TRY_RESULT(cell, from_bytes(request.cell_->bytes_))
+  TRY_RESULT(params, parse_params(request.params_))
+  TRY_RESULT(values, ftabi::unpack_from_cell(cell, params))
+  return tonlib_api::make_object<tonlib_api::ftabi_decodedOutput>(to_tonlib_api(values));
+}
+
+tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_unpackFromCell& request) {
+  if (request.cell_ == nullptr) {
+    return status_to_tonlib_api(TonlibError::EmptyField("cell"));
+  }
+  auto result = unpack_from_cell(request);
+  if (result.is_error()) {
+    return status_to_tonlib_api(result.move_as_error());
+  }
+  return result.move_as_ok();
+}
+
+void run_local_cached(KeyStorage& key_storage, const tonlib_api::ftabi_runLocalCached& request,
+                      td::Promise<tonlib_api_ptr<tonlib_api::ftabi_tvmOutput>>&& promise) {
+  TRY_RESULT_PROMISE(promise, account_address, get_account_address(request.address_->account_address_));
+  TRY_RESULT_PROMISE(promise, function, parse_function(*request.function_))
+  TRY_RESULT_PROMISE(promise, function_call, parse_function_call(key_storage, *function, request.call_))
+  TRY_RESULT_PROMISE(promise, root, vm::std_boc_deserialize(request.state_))
+
+  TRY_RESULT_PROMISE(promise, result,
+                     ftabi::run_smc_method(account_address, static_cast<ton::LogicalTime>(request.gen_lt_),
+                                           static_cast<td::uint32>(request.gen_utime_), std::move(root),
+                                           std::move(function), std::move(function_call)))
+
+  promise.set_result(to_tonlib_api(result));
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_runLocalCached& request,
+                                    td::Promise<object_ptr<tonlib_api::ftabi_tvmOutput>>&& promise) {
+  if (request.state_.empty()) {
+    return TonlibError::EmptyField("state");
+  }
+  if (!request.function_) {
+    return TonlibError::EmptyField("function");
+  }
+  if (!request.call_) {
+    return TonlibError::EmptyField("call");
+  }
+
+  run_local_cached(key_storage_, request, std::forward<std::decay_t<decltype(promise)>>(promise));
+  return td::Status::OK();
+}
+
+void run_local_cached_split(KeyStorage& key_storage, const tonlib_api::ftabi_runLocalCachedSplit& request,
+                            td::Promise<tonlib_api_ptr<tonlib_api::ftabi_tvmOutput>>&& promise) {
+  TRY_RESULT_PROMISE(promise, account_address, get_account_address(request.address_->account_address_));
+  TRY_RESULT_PROMISE(promise, function, parse_function(*request.function_))
+  TRY_RESULT_PROMISE(promise, function_call, parse_function_call(key_storage, *function, request.call_))
+  TRY_RESULT_PROMISE(promise, data, vm::std_boc_deserialize(request.data_))
+  TRY_RESULT_PROMISE(promise, code, vm::std_boc_deserialize(request.code_))
+  const auto balance = block::CurrencyCollection(request.balance_);
+  TRY_RESULT_PROMISE(promise, message_body, function->encode_input(function_call))
+
+  TRY_RESULT_PROMISE(promise, result,
+                     ftabi::run_smc_method(account_address, static_cast<ton::LogicalTime>(request.gen_lt_),
+                                           static_cast<td::uint32>(request.gen_utime_), balance, std::move(data),
+                                           std::move(code), std::move(function), {}, std::move(message_body)))
+
+  promise.set_result(to_tonlib_api(result));
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_runLocalCachedSplit& request,
+                                    td::Promise<object_ptr<tonlib_api::ftabi_tvmOutput>>&& promise) {
+  if (request.data_.empty()) {
+    return TonlibError::EmptyField("data");
+  }
+  if (request.code_.empty()) {
+    return TonlibError::EmptyField("code");
+  }
+  if (!request.function_) {
+    return TonlibError::EmptyField("function");
+  }
+  if (!request.call_) {
+    return TonlibError::EmptyField("call");
+  }
+
+  run_local_cached_split(key_storage_, request, std::forward<std::decay_t<decltype(promise)>>(promise));
   return td::Status::OK();
 }
 
@@ -3599,20 +3707,6 @@ TonlibClient::object_ptr<tonlib_api::Object> TonlibClient::do_static_request(ton
   return result.move_as_ok();
 }
 
-tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(tonlib_api::ftabi_createMessageBody& request) {
-  if (request.function_ == nullptr) {
-    return status_to_tonlib_api(TonlibError::EmptyField("function"));
-  }
-  if (request.call_ == nullptr) {
-    return status_to_tonlib_api(TonlibError::EmptyField("call"));
-  }
-  auto result = create_message_body(request);
-  if (result.is_error()) {
-    return status_to_tonlib_api(result.move_as_error());
-  }
-  return result.move_as_ok();
-}
-
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_decodeOutput& request) {
   if (request.function_ == nullptr) {
     return status_to_tonlib_api(TonlibError::EmptyField("function"));
@@ -3669,93 +3763,6 @@ auto pack_into_cell(const tonlib_api::ftabi_packIntoCell& request) -> td::Result
 
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_packIntoCell& request) {
   auto result = pack_into_cell(request);
-  if (result.is_error()) {
-    return status_to_tonlib_api(result.move_as_error());
-  }
-  return result.move_as_ok();
-}
-
-auto unpack_from_cell(const tonlib_api::ftabi_unpackFromCell& request)
-    -> td::Result<tonlib_api_ptr<tonlib_api::ftabi_decodedOutput>> {
-  TRY_RESULT(cell, from_bytes(request.cell_->bytes_))
-  TRY_RESULT(params, parse_params(request.params_))
-  TRY_RESULT(values, ftabi::unpack_from_cell(cell, params))
-  return tonlib_api::make_object<tonlib_api::ftabi_decodedOutput>(to_tonlib_api(values));
-}
-
-tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_unpackFromCell& request) {
-  if (request.cell_ == nullptr) {
-    return status_to_tonlib_api(TonlibError::EmptyField("cell"));
-  }
-  auto result = unpack_from_cell(request);
-  if (result.is_error()) {
-    return status_to_tonlib_api(result.move_as_error());
-  }
-  return result.move_as_ok();
-}
-
-auto run_local_cached(tonlib_api::ftabi_runLocalCached& request)
-    -> td::Result<tonlib_api::object_ptr<tonlib_api::Object>> {
-  if (request.state_.empty()) {
-    return TonlibError::EmptyField("state");
-  }
-  if (!request.function_) {
-    return TonlibError::EmptyField("function");
-  }
-  if (!request.call_) {
-    return TonlibError::EmptyField("call");
-  }
-
-  TRY_RESULT(account_address, get_account_address(request.address_->account_address_));
-  TRY_RESULT(function, parse_function(*request.function_))
-  TRY_RESULT(function_call, parse_function_call(*function, request.call_))
-  TRY_RESULT(root, vm::std_boc_deserialize(request.state_))
-
-  TRY_RESULT(result, ftabi::run_smc_method(account_address, static_cast<ton::LogicalTime>(request.gen_lt_),
-                                           static_cast<td::uint32>(request.gen_utime_), std::move(root),
-                                           std::move(function), std::move(function_call)));
-  return to_tonlib_api(result);
-}
-
-tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(tonlib_api::ftabi_runLocalCached& request) {
-  auto result = run_local_cached(request);
-  if (result.is_error()) {
-    return status_to_tonlib_api(result.move_as_error());
-  }
-  return result.move_as_ok();
-}
-
-auto run_local_cached_split(tonlib_api::ftabi_runLocalCachedSplit& request)
-    -> td::Result<tonlib_api::object_ptr<tonlib_api::Object>> {
-  if (request.data_.empty()) {
-    return TonlibError::EmptyField("data");
-  }
-  if (request.code_.empty()) {
-    return TonlibError::EmptyField("code");
-  }
-  if (!request.function_) {
-    return TonlibError::EmptyField("function");
-  }
-  if (!request.call_) {
-    return TonlibError::EmptyField("call");
-  }
-
-  TRY_RESULT(account_address, get_account_address(request.address_->account_address_));
-  TRY_RESULT(function, parse_function(*request.function_))
-  TRY_RESULT(function_call, parse_function_call(*function, request.call_))
-  TRY_RESULT(data, vm::std_boc_deserialize(request.data_))
-  TRY_RESULT(code, vm::std_boc_deserialize(request.code_))
-  const auto balance = block::CurrencyCollection(request.balance_);
-  TRY_RESULT(message_body, function->encode_input(function_call))
-
-  TRY_RESULT(result, ftabi::run_smc_method(account_address, static_cast<ton::LogicalTime>(request.gen_lt_),
-                                           static_cast<td::uint32>(request.gen_utime_), balance, std::move(data),
-                                           std::move(code), std::move(function), {}, std::move(message_body)));
-  return to_tonlib_api(result);
-}
-
-tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(tonlib_api::ftabi_runLocalCachedSplit& request) {
-  auto result = run_local_cached_split(request);
   if (result.is_error()) {
     return status_to_tonlib_api(result.move_as_error());
   }
@@ -3956,11 +3963,6 @@ td::Status TonlibClient::do_request(tonlib_api::ftabi_getFunction& request, P&&)
   return TonlibError::Internal();
 }
 template <class P>
-td::Status TonlibClient::do_request(const tonlib_api::ftabi_createMessageBody& request, P&&) {
-  UNREACHABLE();
-  return TonlibError::Internal();
-}
-template <class P>
 td::Status TonlibClient::do_request(const tonlib_api::ftabi_decodeOutput& request, P&&) {
   UNREACHABLE();
   return TonlibError::Internal();
@@ -3982,16 +3984,6 @@ td::Status TonlibClient::do_request(const tonlib_api::ftabi_packIntoCell& reques
 }
 template <class P>
 td::Status TonlibClient::do_request(const tonlib_api::ftabi_unpackFromCell& request, P&&) {
-  UNREACHABLE();
-  return TonlibError::Internal();
-}
-template <class P>
-td::Status TonlibClient::do_request(const tonlib_api::ftabi_runLocalCached& request, P&&) {
-  UNREACHABLE();
-  return TonlibError::Internal();
-}
-template <class P>
-td::Status TonlibClient::do_request(const tonlib_api::ftabi_runLocalCachedSplit& request, P&&) {
   UNREACHABLE();
   return TonlibError::Internal();
 }
