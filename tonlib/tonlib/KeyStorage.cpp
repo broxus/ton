@@ -18,6 +18,7 @@
 */
 #include "KeyStorage.h"
 
+#include "tonlib/keys/bip39.h"
 #include "tonlib/keys/Mnemonic.h"
 #include "tonlib/keys/DecryptedKey.h"
 #include "tonlib/keys/EncryptedKey.h"
@@ -28,6 +29,8 @@
 #include "td/utils/port/path.h"
 #include "td/utils/crypto.h"
 #include "td/utils/PathView.h"
+
+#include "ftabi/Mnemonic.hpp"
 
 namespace tonlib {
 namespace {
@@ -61,7 +64,14 @@ td::Result<KeyStorage::Key> KeyStorage::create_new_key(td::Slice local_password,
   create_options.entropy = td::SecureString(entropy);
   TRY_RESULT(mnemonic, Mnemonic::create_new(std::move(create_options)));
 
-  return save_key(DecryptedKey(std::move(mnemonic)), local_password);
+  return save_key(DecryptedKey(mnemonic), local_password);
+}
+
+td::Result<KeyStorage::Key> KeyStorage::create_new_ftabi_key(td::Slice local_password, td::Slice derivation_path) {
+  const auto dictionary = Mnemonic::normalize_and_split(td::SecureString(bip39_english()));
+  TRY_RESULT(mnemonic, ftabi::mnemonic::generate_key(dictionary, derivation_path))
+
+  return save_key(DecryptedKey(std::move(mnemonic.first), std::move(mnemonic.second)), local_password);
 }
 
 td::Result<DecryptedKey> KeyStorage::export_decrypted_key(InputKey input_key) {

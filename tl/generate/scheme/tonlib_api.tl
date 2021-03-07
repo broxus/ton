@@ -770,6 +770,7 @@ options.setConfig config:config = options.ConfigInfo;
 options.validateConfig config:config = options.ConfigInfo;
 
 createNewKey local_password:secureBytes mnemonic_password:secureBytes random_extra_seed:secureBytes = Key;
+createNewFtabiKey local_password:secureBytes derivation_path:string = Key;
 deleteKey key:key = Ok;
 deleteAllKeys = Ok;
 exportKey input_key:InputKey = ExportedKey;

@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.0.2 FATAL_ERROR)
 set(FTABI_SOURCE
   ftabi/Abi.cpp
   ftabi/Abi.hpp
+  ftabi/Mnemonic.cpp
+  ftabi/Mnemonic.hpp
   ftabi/utils.cpp
   ftabi/utils.hpp)
 

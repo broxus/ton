@@ -56,6 +56,7 @@ class KeyStorage {
   void set_key_value(std::shared_ptr<KeyValue> kv);
 
   td::Result<Key> create_new_key(td::Slice local_password, td::Slice key_password, td::Slice entropy);
+  td::Result<Key> create_new_ftabi_key(td::Slice local_password, td::Slice derivation_path);
 
   td::Result<ExportedKey> export_key(InputKey input_key);
   td::Result<ExportedPemKey> export_pem_key(InputKey input_key, td::Slice key_password);

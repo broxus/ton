@@ -3264,6 +3264,15 @@ td::Status TonlibClient::do_request(const tonlib_api::createNewKey& request,
   return td::Status::OK();
 }
 
+td::Status TonlibClient::do_request(const tonlib_api::createNewFtabiKey& request,
+                                    td::Promise<object_ptr<tonlib_api::key>>&& promise) {
+  TRY_RESULT_PREFIX(key, key_storage_.create_new_ftabi_key(request.local_password_, request.derivation_path_),
+                    TonlibError::Internal())
+  TRY_RESULT(key_bytes, public_key_from_bytes(key.public_key.as_slice()));
+  promise.set_value(tonlib_api::make_object<tonlib_api::key>(key_bytes.serialize(true), std::move(key.secret)));
+  return td::Status::OK();
+}
+
 td::Status TonlibClient::do_request(const tonlib_api::exportKey& request,
                                     td::Promise<object_ptr<tonlib_api::exportedKey>>&& promise) {
   if (!request.input_key_) {
