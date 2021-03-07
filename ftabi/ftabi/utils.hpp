@@ -79,6 +79,12 @@ struct Param : public td::CntObject {
     return *dynamic_cast<const T*>(this);
   }
 
+  template <typename T>
+  auto is() const -> bool {
+    static_assert(std::is_base_of_v<Param, T>);
+    return dynamic_cast<const T*>(this) != nullptr;
+  }
+
  protected:
   ParamType param_type_;
 };
@@ -677,10 +683,13 @@ class Function : public td::CntObject {
       -> td::Result<std::pair<std::vector<ValueRef>, std::vector<ValueRef>>>;
   auto decode_output(SliceData&& data) const -> td::Result<std::vector<ValueRef>>;
 
-  auto encode_header(const HeaderValues& header, bool internal) const -> td::Result<std::vector<BuilderData>>;
+  auto encode_header(const HeaderValues& header, bool internal,
+                     const td::optional<td::Ed25519::PrivateKey>& private_key) const
+      -> td::Result<std::vector<BuilderData>>;
 
   auto create_unsigned_call(const HeaderValues& header, const InputValues& inputs, bool internal,
-                            bool reserve_sign) const -> td::Result<std::pair<BuilderData, vm::CellHash>>;
+                            const td::optional<td::Ed25519::PrivateKey>& private_key) const
+      -> td::Result<std::pair<BuilderData, vm::CellHash>>;
 
   auto make_copy() const -> Function* final;
 

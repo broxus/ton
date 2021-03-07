@@ -1156,7 +1156,7 @@ auto Function::encode_input(const td::Ref<FunctionCall>& call) const -> td::Resu
 
 auto Function::encode_input(const HeaderValues& header, const InputValues& inputs, bool internal,
                             const td::optional<td::Ed25519::PrivateKey>& private_key) const -> td::Result<BuilderData> {
-  TRY_RESULT(unsigned_call, create_unsigned_call(header, inputs, internal, !!private_key))
+  TRY_RESULT(unsigned_call, create_unsigned_call(header, inputs, internal, private_key))
   auto message = std::move(unsigned_call.first);
   const auto& hash = unsigned_call.second;
 
@@ -1199,7 +1199,9 @@ auto Function::decode_output(SliceData&& data) const -> td::Result<std::vector<V
   return decode_params(std::move(data), outputs_, false);
 }
 
-auto Function::encode_header(const HeaderValues& header, bool internal) const -> td::Result<std::vector<BuilderData>> {
+auto Function::encode_header(const HeaderValues& header, bool internal,
+                             const td::optional<td::Ed25519::PrivateKey>& private_key) const
+    -> td::Result<std::vector<BuilderData>> {
   std::vector<BuilderData> result{};
   if (!internal) {
     for (const auto& item : header_) {
@@ -1208,7 +1210,14 @@ auto Function::encode_header(const HeaderValues& header, bool internal) const ->
 
       auto it = header.find(name);
       if (it == header.end()) {
-        TRY_RESULT(default_value, param->default_value());
+        ValueRef default_value;
+        if (name == "pubkey" && param->is<ParamPublicKey>() && private_key) {
+          TRY_RESULT(public_key, private_key.value().get_public_key())
+          default_value = ValueRef{ValuePublicKey{param, public_key.as_octet_string()}};
+        } else {
+          TRY_RESULT_ASSIGN(default_value, param->default_value());
+        }
+
         TRY_RESULT(builder_data, default_value->serialize());
         TRY_RESULT(cell, pack_cells_into_chain(std::move(builder_data)))
         result.emplace_back(std::move(cell));
@@ -1232,18 +1241,19 @@ auto Function::encode_header(const HeaderValues& header, bool internal) const ->
 }
 
 auto Function::create_unsigned_call(const HeaderValues& header, const InputValues& inputs, bool internal,
-                                    bool reserve_sign) const -> td::Result<std::pair<BuilderData, vm::CellHash>> {
+                                    const td::optional<td::Ed25519::PrivateKey>& private_key) const
+    -> td::Result<std::pair<BuilderData, vm::CellHash>> {
   if (!check_params(inputs, inputs_)) {
     return td::Status::Error("invalid inputs");
   }
 
-  TRY_RESULT(cells, encode_header(header, internal))
+  TRY_RESULT(cells, encode_header(header, internal, private_key))
 
   uint32_t remove_bits = 1;
 
   if (!internal) {
     vm::CellBuilder cb{};
-    if (reserve_sign) {
+    if (private_key) {
       uint8_t signature_buffer[SIGNATURE_LENGTH] = {};
       CHECK(cb.store_ones_bool(1) && cb.store_bytes_bool(signature_buffer, SIGNATURE_LENGTH))
       remove_bits += SIGNATURE_LENGTH * 8;
