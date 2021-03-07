@@ -268,10 +268,9 @@ auto parse_function_call(KeyStorage& key_storage, const ftabi::Function& functio
                 td::optional<td::Ed25519::PrivateKey>{td::Ed25519::PrivateKey(std::move(key.private_key))})};
           },
           [](const tonlib_api::ftabi_functionCallInternal& value) -> ReturnType {
-            TRY_RESULT(headerValues, parse_header_values(value.header_values_))
             TRY_RESULT(inputValues, parse_values(value.input_values_))
-            return td::Ref<ftabi::FunctionCall>{ftabi::FunctionCall(std::move(headerValues), std::move(inputValues),
-                                                                    true, td::optional<td::Ed25519::PrivateKey>{})};
+            return td::Ref<ftabi::FunctionCall>{
+                ftabi::FunctionCall({}, std::move(inputValues), true, td::optional<td::Ed25519::PrivateKey>{})};
           }));
 }
 
