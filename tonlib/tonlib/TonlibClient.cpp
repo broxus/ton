@@ -3372,15 +3372,6 @@ td::Status TonlibClient::do_request(const tonlib_api::createNewKey& request,
   return td::Status::OK();
 }
 
-td::Status TonlibClient::do_request(const tonlib_api::createNewFtabiKey& request,
-                                    td::Promise<object_ptr<tonlib_api::key>>&& promise) {
-  TRY_RESULT_PREFIX(key, key_storage_.create_new_ftabi_key(request.local_password_, request.derivation_path_),
-                    TonlibError::Internal())
-  TRY_RESULT(key_bytes, public_key_from_bytes(key.public_key.as_slice()));
-  promise.set_value(tonlib_api::make_object<tonlib_api::key>(key_bytes.serialize(true), std::move(key.secret)));
-  return td::Status::OK();
-}
-
 td::Status TonlibClient::do_request(const tonlib_api::exportKey& request,
                                     td::Promise<object_ptr<tonlib_api::exportedKey>>&& promise) {
   if (!request.input_key_) {
@@ -3501,6 +3492,54 @@ td::Status TonlibClient::do_request(const tonlib_api::changeLocalPassword& reque
   }
   TRY_RESULT(input_key, from_tonlib_api(*request.input_key_));
   TRY_RESULT(key, key_storage_.change_local_password(std::move(input_key), std::move(request.new_local_password_)));
+  promise.set_value(tonlib_api::make_object<tonlib_api::key>(key.public_key.as_slice().str(), std::move(key.secret)));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_createNewKey& request,
+                                    td::Promise<object_ptr<tonlib_api::key>>&& promise) {
+  TRY_RESULT_PREFIX(key, key_storage_.create_new_ftabi_key(request.local_password_, request.derivation_path_),
+                    TonlibError::Internal())
+  TRY_RESULT(key_bytes, public_key_from_bytes(key.public_key.as_slice()));
+  promise.set_value(tonlib_api::make_object<tonlib_api::key>(key_bytes.serialize(true), std::move(key.secret)));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_exportKey& request,
+                                    td::Promise<object_ptr<tonlib_api::ftabi_exportedKey>>&& promise) {
+  if (!request.input_key_) {
+    return TonlibError::EmptyField("input_key");
+  }
+  TRY_RESULT(input_key, from_tonlib_api(*request.input_key_));
+  TRY_RESULT(exported_key, key_storage_.export_ftabi_key(std::move(input_key)));
+  promise.set_value(tonlib_api::make_object<tonlib_api::ftabi_exportedKey>(std::move(exported_key.mnemonic_words),
+                                                                           exported_key.derivation_path));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_importKey& request,
+                                    td::Promise<object_ptr<tonlib_api::key>>&& promise) {
+  if (!request.exported_key_) {
+    return TonlibError::EmptyField("exported_key");
+  }
+  TRY_RESULT(key, key_storage_.import_ftabi_key(request.local_password_,
+                                                KeyStorage::ExportedFtabiKey{
+                                                    std::move(request.exported_key_->word_list_),
+                                                    std::move(request.exported_key_->derivation_path_),
+                                                }));
+  TRY_RESULT(key_bytes, public_key_from_bytes(key.public_key.as_slice()));
+  promise.set_value(tonlib_api::make_object<tonlib_api::key>(key_bytes.serialize(true), std::move(key.secret)));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_changeLocalPassword& request,
+                                    td::Promise<object_ptr<tonlib_api::key>>&& promise) {
+  if (!request.input_key_) {
+    return TonlibError::EmptyField("input_key");
+  }
+  TRY_RESULT(input_key, from_tonlib_api(*request.input_key_));
+  TRY_RESULT(key,
+             key_storage_.change_local_ftabi_password(std::move(input_key), std::move(request.new_local_password_)));
   promise.set_value(tonlib_api::make_object<tonlib_api::key>(key.public_key.as_slice().str(), std::move(key.secret)));
   return td::Status::OK();
 }

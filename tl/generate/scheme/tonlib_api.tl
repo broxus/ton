@@ -184,6 +184,8 @@ ftabi.jsonDecodedOutput value:string = ftabi.JsonDecodedOutput;
 //@param hash   int256
 ftabi.stateInit data:bytes hash:bytes = ftabi.StateInit;
 
+ftabi.exportedKey word_list:vector<secureString> derivation_path:string = ftabi.ExportedKey;
+
 //
 // DNS
 //
@@ -770,7 +772,6 @@ options.setConfig config:config = options.ConfigInfo;
 options.validateConfig config:config = options.ConfigInfo;
 
 createNewKey local_password:secureBytes mnemonic_password:secureBytes random_extra_seed:secureBytes = Key;
-createNewFtabiKey local_password:secureBytes derivation_path:string = Key;
 deleteKey key:key = Ok;
 deleteAllKeys = Ok;
 exportKey input_key:InputKey = ExportedKey;
@@ -782,6 +783,11 @@ importPemKey local_password:secureBytes key_password:secureBytes exported_key:ex
 importEncryptedKey local_password:secureBytes key_password:secureBytes exported_encrypted_key:exportedEncryptedKey = Key;
 importUnencryptedKey local_password:secureBytes  exported_unencrypted_key:exportedUnencryptedKey = Key;
 changeLocalPassword input_key:InputKey new_local_password:secureBytes = Key;
+
+ftabi.createNewKey local_password:secureBytes derivation_path:string = Key;
+ftabi.exportKey input_key:InputKey = ftabi.ExportedKey;
+ftabi.importKey local_password:secureBytes exported_key:ftabi.exportedKey = Key;
+ftabi.changeLocalPassword input_key:InputKey new_local_password:secureBytes = Key;
 
 generateKeyPair word_count:int32 password:secureString entropy:secureString = KeyPair;
 

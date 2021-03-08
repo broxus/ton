@@ -40,6 +40,10 @@ class KeyStorage {
   struct ExportedKey {
     std::vector<td::SecureString> mnemonic_words;
   };
+  struct ExportedFtabiKey {
+    std::vector<td::SecureString> mnemonic_words;
+    std::string derivation_path;
+  };
   struct ExportedPemKey {
     td::SecureString pem;
   };
@@ -59,15 +63,19 @@ class KeyStorage {
   td::Result<Key> create_new_ftabi_key(td::Slice local_password, td::Slice derivation_path);
 
   td::Result<ExportedKey> export_key(InputKey input_key);
+  td::Result<ExportedFtabiKey> export_ftabi_key(InputKey input_key);
   td::Result<ExportedPemKey> export_pem_key(InputKey input_key, td::Slice key_password);
   td::Result<ExportedEncryptedKey> export_encrypted_key(InputKey input_key, td::Slice key_password);
   td::Result<ExportedUnencryptedKey> export_unencrypted_key(InputKey input_key);
+
   td::Result<Key> change_local_password(InputKey input_key, td::Slice new_local_password);
+  td::Result<Key> change_local_ftabi_password(InputKey input_key, td::Slice new_local_password);
 
   td::Status delete_key(const Key& key);
   td::Status delete_all_keys();
 
   td::Result<Key> import_key(td::Slice local_password, td::Slice mnemonic_password, ExportedKey exported_key);
+  td::Result<Key> import_ftabi_key(td::Slice local_password, ExportedFtabiKey exported_key);
   td::Result<Key> import_pem_key(td::Slice local_password, td::Slice key_password, ExportedPemKey exported_key);
   td::Result<Key> import_encrypted_key(td::Slice local_password, td::Slice key_password,
                                        ExportedEncryptedKey exported_key);
@@ -81,8 +89,5 @@ class KeyStorage {
 
  private:
   std::shared_ptr<KeyValue> kv_;
-
-  td::Result<Key> save_key(const DecryptedKey& mnemonic, td::Slice local_password);
-  td::Result<DecryptedKey> export_decrypted_key(InputKey input_key);
 };
 }  // namespace tonlib

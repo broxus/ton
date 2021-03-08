@@ -27,26 +27,25 @@
 
 namespace tonlib {
 
+struct EncryptedKey;
+
 struct RawDecryptedKey {
   std::vector<td::SecureString> mnemonic_words;
   td::SecureString private_key;
 
   template <class StorerT>
   void store(StorerT &storer) const {
-    using td::store;
-    store(mnemonic_words, storer);
-    store(private_key, storer);
+    td::store(mnemonic_words, storer);  // mnemonic first
+    td::store(private_key, storer);     // private key second
   }
 
   template <class ParserT>
   void parse(ParserT &parser) {
-    using td::parse;
-    parse(mnemonic_words, parser);
-    parse(private_key, parser);
+    td::parse(mnemonic_words, parser);  // mnemonic first
+    td::parse(private_key, parser);     // private key second
   }
 };
 
-struct EncryptedKey;
 struct DecryptedKey {
   DecryptedKey() = delete;
   explicit DecryptedKey(const Mnemonic &mnemonic);
@@ -54,6 +53,39 @@ struct DecryptedKey {
   DecryptedKey(RawDecryptedKey key);
 
   std::vector<td::SecureString> mnemonic_words;
+  td::Ed25519::PrivateKey private_key;
+
+  EncryptedKey encrypt(td::Slice local_password, td::Slice secret = {}) const;
+};
+
+struct RawDecryptedFtabiKey {
+  std::vector<td::SecureString> mnemonic_words;
+  std::string derivation_path;
+  td::SecureString private_key;
+
+  template <class StorerT>
+  void store(StorerT &storer) const {
+    td::store(mnemonic_words, storer);   // mnemonic first
+    td::store(private_key, storer);      // private key second
+    td::store(derivation_path, storer);  // derivation path third
+  }
+
+  template <class ParserT>
+  void parse(ParserT &parser) {
+    td::parse(mnemonic_words, parser);   // mnemonic first
+    td::parse(private_key, parser);      // private key second
+    td::parse(derivation_path, parser);  // derivation path third
+  }
+};
+
+struct DecryptedFtabiKey {
+  DecryptedFtabiKey() = delete;
+  DecryptedFtabiKey(std::vector<td::SecureString> mnemonic_words, std::string derivation_path,
+                    td::Ed25519::PrivateKey key);
+  DecryptedFtabiKey(RawDecryptedFtabiKey key);
+
+  std::vector<td::SecureString> mnemonic_words;
+  std::string derivation_path;
   td::Ed25519::PrivateKey private_key;
 
   EncryptedKey encrypt(td::Slice local_password, td::Slice secret = {}) const;

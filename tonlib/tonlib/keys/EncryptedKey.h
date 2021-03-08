@@ -32,7 +32,8 @@ struct EncryptedKey {
   td::Ed25519::PublicKey public_key;
   td::SecureString secret;
 
-  td::Result<DecryptedKey> decrypt(td::Slice local_password, bool check_public_key = true, bool old = false) const;
+  template <typename T>
+  td::Result<T> decrypt(td::Slice local_password, bool check_public_key = true, bool old = false) const;
 };
 
 }  // namespace tonlib

@@ -25,17 +25,9 @@
 #include "td/utils/crypto.h"
 
 namespace tonlib {
-DecryptedKey::DecryptedKey(const Mnemonic &mnemonic)
-    : mnemonic_words(mnemonic.get_words()), private_key(mnemonic.to_private_key()) {
-}
-DecryptedKey::DecryptedKey(std::vector<td::SecureString> mnemonic_words, td::Ed25519::PrivateKey key)
-    : mnemonic_words(std::move(mnemonic_words)), private_key(std::move(key)) {
-}
-DecryptedKey::DecryptedKey(RawDecryptedKey key)
-    : DecryptedKey(std::move(key.mnemonic_words), td::Ed25519::PrivateKey(key.private_key.copy())) {
-}
+namespace {
 
-EncryptedKey DecryptedKey::encrypt(td::Slice local_password, td::Slice old_secret) const {
+auto make_secrets(td::Slice local_password, td::Slice old_secret) -> std::pair<td::SecureString, td::SecureString> {
   td::SecureString secret(32);
   if (old_secret.size() == td::as_slice(secret).size()) {
     secret.as_mutable_slice().copy_from(old_secret);
@@ -47,11 +39,56 @@ EncryptedKey DecryptedKey::encrypt(td::Slice local_password, td::Slice old_secre
   td::SecureString encryption_secret =
       SimpleEncryption::kdf(as_slice(decrypted_secret), "TON local key", EncryptedKey::PBKDF_ITERATIONS);
 
+  return std::make_pair(std::move(secret), std::move(encryption_secret));
+}
+
+}  // namespace
+
+DecryptedKey::DecryptedKey(const Mnemonic &mnemonic)
+    : mnemonic_words(mnemonic.get_words()), private_key(mnemonic.to_private_key()) {
+}
+DecryptedKey::DecryptedKey(std::vector<td::SecureString> mnemonic_words, td::Ed25519::PrivateKey key)
+    : mnemonic_words(std::move(mnemonic_words)), private_key(std::move(key)) {
+}
+DecryptedKey::DecryptedKey(RawDecryptedKey key)
+    : DecryptedKey(std::move(key.mnemonic_words), td::Ed25519::PrivateKey(key.private_key.copy())) {
+}
+
+EncryptedKey DecryptedKey::encrypt(td::Slice local_password, td::Slice old_secret) const {
+  auto [secret, encryption_secret] = make_secrets(local_password, old_secret);
+
   std::vector<td::SecureString> mnemonic_words_copy;
+  mnemonic_words_copy.reserve(mnemonic_words.size());
   for (auto &w : mnemonic_words) {
     mnemonic_words_copy.push_back(w.copy());
   }
   auto data = td::serialize_secure(RawDecryptedKey{std::move(mnemonic_words_copy), private_key.as_octet_string()});
+  auto encrypted_data = SimpleEncryption::encrypt_data(data, as_slice(encryption_secret));
+
+  return EncryptedKey{std::move(encrypted_data), private_key.get_public_key().move_as_ok(), std::move(secret)};
+}
+
+DecryptedFtabiKey::DecryptedFtabiKey(std::vector<td::SecureString> mnemonic_words, std::string derivation_path,
+                                     td::Ed25519::PrivateKey key)
+    : mnemonic_words(std::move(mnemonic_words))
+    , derivation_path(std::move(derivation_path))
+    , private_key(std::move(key)) {
+}
+DecryptedFtabiKey::DecryptedFtabiKey(RawDecryptedFtabiKey key)
+    : DecryptedFtabiKey(std::move(key.mnemonic_words), key.derivation_path,
+                        td::Ed25519::PrivateKey(key.private_key.copy())) {
+}
+
+EncryptedKey DecryptedFtabiKey::encrypt(td::Slice local_password, td::Slice old_secret) const {
+  auto [secret, encryption_secret] = make_secrets(local_password, old_secret);
+
+  std::vector<td::SecureString> mnemonic_words_copy;
+  mnemonic_words_copy.reserve(mnemonic_words.size());
+  for (auto &w : mnemonic_words) {
+    mnemonic_words_copy.push_back(w.copy());
+  }
+  auto data = td::serialize_secure(
+      RawDecryptedFtabiKey{std::move(mnemonic_words_copy), derivation_path, private_key.as_octet_string()});
   auto encrypted_data = SimpleEncryption::encrypt_data(data, as_slice(encryption_secret));
 
   return EncryptedKey{std::move(encrypted_data), private_key.get_public_key().move_as_ok(), std::move(secret)};
