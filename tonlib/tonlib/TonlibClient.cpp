@@ -1008,6 +1008,8 @@ bool TonlibClient::is_static_request(td::int32 id) {
     case tonlib_api::ftabi_generateStateInit::ID:
     case tonlib_api::ftabi_packIntoCell::ID:
     case tonlib_api::ftabi_unpackFromCell::ID:
+    case tonlib_api::ftabi_packPublicKey::ID:
+    case tonlib_api::ftabi_unpackPublicKey::ID:
       return true;
     default:
       return false;
@@ -3130,6 +3132,22 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
   return result.move_as_ok();
 }
 
+tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_packPublicKey& request) {
+  auto public_key_r = public_key_from_bytes(request.public_key_);
+  if (public_key_r.is_error()) {
+    return status_to_tonlib_api(public_key_r.move_as_error());
+  }
+  return tonlib_api::make_object<tonlib_api::ftabi_unpackedPublicKey>(public_key_r.move_as_ok().serialize(true));
+}
+
+tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_unpackPublicKey& request) {
+  auto public_key_r = get_public_key(request.public_key_);
+  if (public_key_r.is_error()) {
+    return status_to_tonlib_api(public_key_r.move_as_error());
+  }
+  return tonlib_api::make_object<tonlib_api::ftabi_packedPublicKey>(public_key_r.ok().key);
+}
+
 void run_local_cached(KeyStorage& key_storage, const tonlib_api::ftabi_runLocalCached& request,
                       td::Promise<tonlib_api_ptr<tonlib_api::ftabi_tvmOutput>>&& promise) {
   TRY_RESULT_PROMISE(promise, account_address, get_account_address(request.address_->account_address_));
@@ -4023,6 +4041,16 @@ td::Status TonlibClient::do_request(const tonlib_api::ftabi_packIntoCell& reques
 }
 template <class P>
 td::Status TonlibClient::do_request(const tonlib_api::ftabi_unpackFromCell& request, P&&) {
+  UNREACHABLE();
+  return TonlibError::Internal();
+}
+template <class P>
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_packPublicKey& request, P&&) {
+  UNREACHABLE();
+  return TonlibError::Internal();
+}
+template <class P>
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_unpackPublicKey& request, P&&) {
   UNREACHABLE();
   return TonlibError::Internal();
 }

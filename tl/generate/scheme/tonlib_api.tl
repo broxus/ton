@@ -186,6 +186,9 @@ ftabi.stateInit data:bytes hash:bytes = ftabi.StateInit;
 
 ftabi.exportedKey word_list:vector<secureString> derivation_path:string = ftabi.ExportedKey;
 
+ftabi.packedPublicKey public_key:string = ftabi.PackedPublicKey;
+ftabi.unpackedPublicKey public_key:string = ftabi.UnpackedPublicKey;
+
 //
 // DNS
 //
@@ -857,6 +860,9 @@ ftabi.decodeInput function:ftabi.Function data:bytes internal:Bool = ftabi.Decod
 ftabi.generateStateInit tvc:bytes public_key:bytes = ftabi.StateInit;
 ftabi.packIntoCell values:vector<ftabi.Value> = tvm.Cell;
 ftabi.unpackFromCell cell:tvm.Cell params:vector<ftabi.Param> = ftabi.DecodedOutput;
+
+ftabi.packPublicKey public_key:string = ftabi.PackedPublicKey;
+ftabi.unpackPublicKey public_key:string = ftabi.UnpackedPublicKey;
 
 dns.resolve account_address:accountAddress name:string category:int32 ttl:int32 = dns.Resolved;
 
