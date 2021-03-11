@@ -270,7 +270,7 @@ td::Result<KeyStorage::PrivateKey> KeyStorage::load_private_key(InputKeyType typ
       break;
     }
     case InputKeyType::Ftabi: {
-      TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedKey>(*kv_, std::move(input_key)))
+      TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedFtabiKey>(*kv_, std::move(input_key)))
       private_key.private_key = decrypted_key.private_key.as_octet_string();
       break;
     }
