@@ -260,8 +260,9 @@ auto parse_function_call(KeyStorage& key_storage, const ftabi::Function& functio
             if (!value.key_) {
               return TonlibError::EmptyField("key");
             }
-            TRY_RESULT(input_key, from_tonlib_api(*value.key_));
-            TRY_RESULT(key, key_storage.load_private_key(std::move(input_key)))
+            TRY_RESULT(parsed_key, from_tonlib_api(*value.key_));
+            auto [key_type, input_key] = std::move(parsed_key);
+            TRY_RESULT(key, key_storage.load_private_key(key_type, std::move(input_key)))
 
             return td::Ref<ftabi::FunctionCall>{ftabi::FunctionCall(
                 std::move(headerValues), std::move(inputValues), false,

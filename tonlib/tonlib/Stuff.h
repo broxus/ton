@@ -97,8 +97,12 @@ auto to_tonlib_api(const ton::ManualDns::EntryData& entry_data)
     -> td::Result<tonlib_api_ptr<tonlib_api::dns_EntryData>>;
 
 auto from_tonlib_api(tonlib_api::key& key) -> td::Result<td::Ed25519::PrivateKey>;
-auto from_tonlib_api(tonlib_api::InputKey& input_key) -> td::Result<KeyStorage::InputKey>;
-auto from_tonlib_api(tonlib_api::inputKeyRegular& input_key) -> td::Result<KeyStorage::InputKey>;
+auto from_tonlib_api(tonlib_api::InputKey& input_key)
+    -> td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>>;
+auto from_tonlib_api(tonlib_api::inputKeyRegular& input_key)
+    -> td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>>;
+auto from_tonlib_api(tonlib_api::inputKeyFtabi& input_key)
+    -> td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>>;
 auto from_tonlib_api(tonlib_api::tvm_StackEntry& entry) -> td::Result<vm::StackEntry>;
 
 auto to_lite_api(const block::StdAddress& addr) -> lite_api_ptr<lite_api::liteServer_accountId>;

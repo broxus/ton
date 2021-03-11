@@ -298,8 +298,10 @@ class TonlibClient : public td::actor::Actor {
   td::Status do_request(tonlib_api::sync& request, td::Promise<object_ptr<tonlib_api::ton_blockIdExt>>&& promise);
 
   td::Status do_request(const tonlib_api::createNewKey& request, td::Promise<object_ptr<tonlib_api::key>>&& promise);
+  td::Status do_request(const tonlib_api::createNewFtabiKey& request,
+                        td::Promise<object_ptr<tonlib_api::key>>&& promise);
   td::Status do_request(const tonlib_api::exportKey& request,
-                        td::Promise<object_ptr<tonlib_api::exportedKey>>&& promise);
+                        td::Promise<object_ptr<tonlib_api::ExportedKey>>&& promise);
   td::Status do_request(const tonlib_api::deleteKey& request, td::Promise<object_ptr<tonlib_api::ok>>&& promise);
   td::Status do_request(const tonlib_api::deleteAllKeys& request, td::Promise<object_ptr<tonlib_api::ok>>&& promise);
   td::Status do_request(const tonlib_api::importKey& request, td::Promise<object_ptr<tonlib_api::key>>&& promise);
@@ -319,14 +321,6 @@ class TonlibClient : public td::actor::Actor {
                         td::Promise<object_ptr<tonlib_api::key>>&& promise);
 
   td::Status do_request(const tonlib_api::changeLocalPassword& request,
-                        td::Promise<object_ptr<tonlib_api::key>>&& promise);
-
-  td::Status do_request(const tonlib_api::ftabi_createNewKey& request,
-                        td::Promise<object_ptr<tonlib_api::key>>&& promise);
-  td::Status do_request(const tonlib_api::ftabi_exportKey& request,
-                        td::Promise<object_ptr<tonlib_api::ftabi_exportedKey>>&& promise);
-  td::Status do_request(const tonlib_api::ftabi_importKey& request, td::Promise<object_ptr<tonlib_api::key>>&& promise);
-  td::Status do_request(const tonlib_api::ftabi_changeLocalPassword& request,
                         td::Promise<object_ptr<tonlib_api::key>>&& promise);
 
   td::Status do_request(const tonlib_api::onLiteServerQueryResult& request,

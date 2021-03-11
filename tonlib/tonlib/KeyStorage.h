@@ -33,6 +33,11 @@ class KeyStorage {
     td::SecureString public_key;
     td::SecureString secret;
   };
+  enum class InputKeyType {
+    Fake,
+    Original,
+    Ftabi,
+  };
   struct InputKey {
     Key key;
     td::SecureString local_password;
@@ -65,11 +70,10 @@ class KeyStorage {
   td::Result<ExportedKey> export_key(InputKey input_key);
   td::Result<ExportedFtabiKey> export_ftabi_key(InputKey input_key);
   td::Result<ExportedPemKey> export_pem_key(InputKey input_key, td::Slice key_password);
-  td::Result<ExportedEncryptedKey> export_encrypted_key(InputKey input_key, td::Slice key_password);
-  td::Result<ExportedUnencryptedKey> export_unencrypted_key(InputKey input_key);
+  td::Result<ExportedEncryptedKey> export_encrypted_key(InputKeyType type, InputKey input_key, td::Slice key_password);
+  td::Result<ExportedUnencryptedKey> export_unencrypted_key(InputKeyType type, InputKey input_key);
 
-  td::Result<Key> change_local_password(InputKey input_key, td::Slice new_local_password);
-  td::Result<Key> change_local_ftabi_password(InputKey input_key, td::Slice new_local_password);
+  td::Result<Key> change_local_password(InputKeyType type, InputKey input_key, td::Slice new_local_password);
 
   td::Status delete_key(const Key& key);
   td::Status delete_all_keys();
@@ -81,7 +85,7 @@ class KeyStorage {
                                        ExportedEncryptedKey exported_key);
   td::Result<Key> import_unencrypted_key(td::Slice local_password, ExportedUnencryptedKey exported_key);
 
-  td::Result<PrivateKey> load_private_key(InputKey input_key);
+  td::Result<PrivateKey> load_private_key(InputKeyType type, InputKey input_key);
 
   static PrivateKey fake_private_key();
   static InputKey fake_input_key();

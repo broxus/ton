@@ -30,6 +30,7 @@ options.info config_info:options.configInfo = options.Info;
 
 key public_key:string secret:secureBytes = Key;
 inputKeyRegular key:key local_password:secureBytes = InputKey;
+inputKeyFtabi key:key local_password:secureBytes = InputKey;
 inputKeyFake = InputKey;
 exportedKey word_list:vector<secureString> = ExportedKey;
 exportedPemKey pem:secureString = ExportedPemKey;
@@ -184,7 +185,7 @@ ftabi.jsonDecodedOutput value:string = ftabi.JsonDecodedOutput;
 //@param hash   int256
 ftabi.stateInit data:bytes hash:bytes = ftabi.StateInit;
 
-ftabi.exportedKey word_list:vector<secureString> derivation_path:string = ftabi.ExportedKey;
+ftabi.exportedKey word_list:vector<secureString> derivation_path:string = ExportedKey;
 
 ftabi.packedPublicKey public_key:string = ftabi.PackedPublicKey;
 ftabi.unpackedPublicKey public_key:string = ftabi.UnpackedPublicKey;
@@ -775,22 +776,18 @@ options.setConfig config:config = options.ConfigInfo;
 options.validateConfig config:config = options.ConfigInfo;
 
 createNewKey local_password:secureBytes mnemonic_password:secureBytes random_extra_seed:secureBytes = Key;
+createNewFtabiKey local_password:secureBytes derivation_path:string = Key;
 deleteKey key:key = Ok;
 deleteAllKeys = Ok;
 exportKey input_key:InputKey = ExportedKey;
 exportPemKey input_key:InputKey key_password:secureBytes = ExportedPemKey;
 exportEncryptedKey input_key:InputKey key_password:secureBytes = ExportedEncryptedKey;
 exportUnencryptedKey input_key:InputKey = ExportedUnencryptedKey;
-importKey local_password:secureBytes mnemonic_password:secureBytes exported_key:exportedKey = Key;
+importKey local_password:secureBytes mnemonic_password:secureBytes exported_key:ExportedKey = Key;
 importPemKey local_password:secureBytes key_password:secureBytes exported_key:exportedPemKey = Key;
 importEncryptedKey local_password:secureBytes key_password:secureBytes exported_encrypted_key:exportedEncryptedKey = Key;
 importUnencryptedKey local_password:secureBytes  exported_unencrypted_key:exportedUnencryptedKey = Key;
 changeLocalPassword input_key:InputKey new_local_password:secureBytes = Key;
-
-ftabi.createNewKey local_password:secureBytes derivation_path:string = Key;
-ftabi.exportKey input_key:InputKey = ftabi.ExportedKey;
-ftabi.importKey local_password:secureBytes exported_key:ftabi.exportedKey = Key;
-ftabi.changeLocalPassword input_key:InputKey new_local_password:secureBytes = Key;
 
 generateKeyPair word_count:int32 password:secureString entropy:secureString = KeyPair;
 

@@ -136,28 +136,58 @@ td::Result<KeyStorage::ExportedPemKey> KeyStorage::export_pem_key(InputKey input
   return ExportedPemKey{std::move(pem)};
 }
 
-td::Result<KeyStorage::ExportedEncryptedKey> KeyStorage::export_encrypted_key(InputKey input_key,
+td::Result<KeyStorage::ExportedEncryptedKey> KeyStorage::export_encrypted_key(InputKeyType type, InputKey input_key,
                                                                               td::Slice key_password) {
-  TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedKey>(*kv_, std::move(input_key)));
-  auto res = decrypted_key.encrypt(key_password, get_dummy_secret());
-  return ExportedEncryptedKey{std::move(res.encrypted_data)};
+  switch (type) {
+    case InputKeyType::Fake:
+    case InputKeyType::Original: {
+      TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedKey>(*kv_, std::move(input_key)));
+      auto res = decrypted_key.encrypt(key_password, get_dummy_secret());
+      return ExportedEncryptedKey{std::move(res.encrypted_data)};
+    }
+    case InputKeyType::Ftabi: {
+      TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedFtabiKey>(*kv_, std::move(input_key)));
+      auto res = decrypted_key.encrypt(key_password, get_dummy_secret());
+      return ExportedEncryptedKey{std::move(res.encrypted_data)};
+    }
+    default:
+      UNREACHABLE();
+  }
 }
 
-td::Result<KeyStorage::ExportedUnencryptedKey> KeyStorage::export_unencrypted_key(InputKey input_key) {
-  TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedKey>(*kv_, std::move(input_key)));
-  return ExportedUnencryptedKey{decrypted_key.private_key.as_octet_string()};
+td::Result<KeyStorage::ExportedUnencryptedKey> KeyStorage::export_unencrypted_key(InputKeyType type,
+                                                                                  InputKey input_key) {
+  switch (type) {
+    case InputKeyType::Fake:
+    case InputKeyType::Original: {
+      TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedKey>(*kv_, std::move(input_key)));
+      return ExportedUnencryptedKey{decrypted_key.private_key.as_octet_string()};
+    }
+    case InputKeyType::Ftabi: {
+      TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedFtabiKey>(*kv_, std::move(input_key)));
+      return ExportedUnencryptedKey{decrypted_key.private_key.as_octet_string()};
+    }
+    default:
+      UNREACHABLE();
+  }
 }
 
-td::Result<KeyStorage::Key> KeyStorage::change_local_password(InputKey input_key, td::Slice new_local_password) {
+td::Result<KeyStorage::Key> KeyStorage::change_local_password(InputKeyType type, InputKey input_key,
+                                                              td::Slice new_local_password) {
   auto old_name = to_file_name(input_key.key);
-  TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedKey>(*kv_, std::move(input_key)));
-  return save_key(*kv_, decrypted_key, new_local_password);
-}
-
-td::Result<KeyStorage::Key> KeyStorage::change_local_ftabi_password(InputKey input_key, td::Slice new_local_password) {
-  auto old_name = to_file_name(input_key.key);
-  TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedFtabiKey>(*kv_, std::move(input_key)));
-  return save_key(*kv_, decrypted_key, new_local_password);
+  switch (type) {
+    case InputKeyType::Fake:
+    case InputKeyType::Original: {
+      TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedKey>(*kv_, std::move(input_key)));
+      return save_key(*kv_, decrypted_key, new_local_password);
+    }
+    case InputKeyType::Ftabi: {
+      TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedFtabiKey>(*kv_, std::move(input_key)));
+      return save_key(*kv_, decrypted_key, new_local_password);
+    }
+    default:
+      UNREACHABLE();
+  }
 }
 
 td::Status KeyStorage::delete_key(const Key &key) {
@@ -226,13 +256,28 @@ td::Result<KeyStorage::Key> KeyStorage::import_unencrypted_key(td::Slice local_p
   return save_key(*kv_, key, local_password);
 }
 
-td::Result<KeyStorage::PrivateKey> KeyStorage::load_private_key(InputKey input_key) {
-  if (is_fake_input_key(input_key)) {
-    return fake_private_key();
-  }
-  TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedKey>(*kv_, std::move(input_key)))
+td::Result<KeyStorage::PrivateKey> KeyStorage::load_private_key(InputKeyType type, InputKey input_key) {
   PrivateKey private_key;
-  private_key.private_key = decrypted_key.private_key.as_octet_string();
+  switch (type) {
+    case InputKeyType::Fake:
+    case InputKeyType::Original: {
+      if (is_fake_input_key(input_key)) {
+        return fake_private_key();
+      }
+
+      TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedKey>(*kv_, std::move(input_key)))
+      private_key.private_key = decrypted_key.private_key.as_octet_string();
+      break;
+    }
+    case InputKeyType::Ftabi: {
+      TRY_RESULT(decrypted_key, export_decrypted_key<DecryptedKey>(*kv_, std::move(input_key)))
+      private_key.private_key = decrypted_key.private_key.as_octet_string();
+      break;
+    }
+    default:
+      UNREACHABLE();
+  }
+
   return std::move(private_key);
 }
 

@@ -490,20 +490,38 @@ auto to_tonlib_api(const ton::ManualDns::EntryData& entry_data)
   return res;
 }
 
-auto from_tonlib_api(tonlib_api::InputKey& input_key) -> td::Result<KeyStorage::InputKey> {
-  return downcast_call2<td::Result<KeyStorage::InputKey>>(
+auto from_tonlib_api(tonlib_api::InputKey& input_key)
+    -> td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>> {
+  return downcast_call2<td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>>>(
       input_key, td::overloaded([&](tonlib_api::inputKeyRegular& input_key) { return from_tonlib_api(input_key); },
-                                [&](tonlib_api::inputKeyFake&) { return KeyStorage::fake_input_key(); }));
+                                [&](tonlib_api::inputKeyFtabi& input_key) { return from_tonlib_api(input_key); },
+                                [&](tonlib_api::inputKeyFake&) {
+                                  return std::make_pair(KeyStorage::InputKeyType::Fake, KeyStorage::fake_input_key());
+                                }));
 }
 
-auto from_tonlib_api(tonlib_api::inputKeyRegular& input_key) -> td::Result<KeyStorage::InputKey> {
+auto from_tonlib_api(tonlib_api::inputKeyRegular& input_key)
+    -> td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>> {
   if (!input_key.key_) {
     return TonlibError::EmptyField("key");
   }
 
   TRY_RESULT(key_bytes, get_public_key(input_key.key_->public_key_));
-  return KeyStorage::InputKey{{td::SecureString(key_bytes.key), std::move(input_key.key_->secret_)},
-                              std::move(input_key.local_password_)};
+  return std::make_pair(KeyStorage::InputKeyType::Original,
+                        KeyStorage::InputKey{{td::SecureString(key_bytes.key), std::move(input_key.key_->secret_)},
+                                             std::move(input_key.local_password_)});
+}
+
+auto from_tonlib_api(tonlib_api::inputKeyFtabi& input_key)
+    -> td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>> {
+  if (!input_key.key_) {
+    return TonlibError::EmptyField("key");
+  }
+
+  TRY_RESULT(key_bytes, get_public_key(input_key.key_->public_key_));
+  return std::make_pair(KeyStorage::InputKeyType::Ftabi,
+                        KeyStorage::InputKey{{td::SecureString(key_bytes.key), std::move(input_key.key_->secret_)},
+                                             std::move(input_key.local_password_)});
 }
 
 auto from_tonlib_api(tonlib_api::tvm_StackEntry& entry) -> td::Result<vm::StackEntry> {
