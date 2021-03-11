@@ -402,7 +402,7 @@ auto recover_key(const std::vector<td::SecureString>& mnemonic, td::Slice deriva
   const auto phrase = join(mnemonic);
 
   td::BufferSlice seed(64);
-  td::pbkdf2_sha512(phrase, "mnemonic", PBKDF2_ROUNDS, seed.as_slice());
+  td::pbkdf2_sha512(as_slice(phrase), "mnemonic", PBKDF2_ROUNDS, seed.as_slice());
 
   td::BufferSlice hmac(64);
   td::hmac_sha512("Bitcoin seed", seed.as_slice(), hmac.as_slice());
@@ -414,7 +414,7 @@ auto recover_key(const std::vector<td::SecureString>& mnemonic, td::Slice deriva
   TRY_STATUS(sk.secret_key.finalize())
 
   TRY_RESULT(derivation_path_parts, derivation_path_from_str(derivation_path))
-  for (auto path : derivation_path) {
+  for (auto path : derivation_path_parts) {
     TRY_STATUS(sk.derive(path))
   }
 
