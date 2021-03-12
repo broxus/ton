@@ -2534,13 +2534,18 @@ td::Status TonlibClient::do_request(const tonlib_api::raw_createQuery& request,
       promise.send_closure(actor_id(this), &TonlibClient::finish_create_query);
 
   make_request(int_api::GetAccountState{account_address, query_context_.block_id.copy(), {}},
-               new_promise.wrap([smc_state = std::move(smc_state), body = std::move(body)](auto&& source) mutable {
+               new_promise.wrap([smc_state = std::move(smc_state), body = std::move(body),
+                                 timeout = request.timeout_](auto&& source) mutable {
                  Query::Raw raw;
+
+                 auto valid_until = source->get_sync_time();
+                 valid_until += timeout == 0 ? 60 : timeout;
+                 raw.valid_until = valid_until;
+
                  if (smc_state) {
                    source->set_new_state(smc_state.unwrap());
                  }
                  raw.new_state = source->get_new_state();
-                 raw.message_body = std::move(body);
                  raw.message =
                      ton::GenericAccount::create_ext_message(source->get_address(), raw.new_state, raw.message_body);
                  raw.source = std::move(source);
@@ -2570,14 +2575,19 @@ td::Status TonlibClient::do_request(const tonlib_api::raw_createQueryTvc& reques
       promise.send_closure(actor_id(this), &TonlibClient::finish_create_query);
 
   make_request(int_api::GetAccountState{account_address, query_context_.block_id.copy(), {}},
-               new_promise.wrap([account_address, init_state = std::move(init_state),
-                                 body = std::move(body)](auto&& source) mutable {
+               new_promise.wrap([account_address, init_state = std::move(init_state), body = std::move(body),
+                                 timeout = request.timeout_](auto&& source) mutable {
                  Query::Raw raw;
+
+                 auto valid_until = source->get_sync_time();
+                 valid_until += timeout == 0 ? 60 : timeout;
+                 raw.valid_until = valid_until;
+
                  raw.new_state = std::move(init_state);
                  raw.message_body = std::move(body);
                  raw.message =
                      ton::GenericAccount::create_ext_message(account_address, raw.new_state, raw.message_body);
-                 raw.source = std::move(source);
+                 raw.source = std::forward<decltype(source)>(source);
                  return td::make_unique<Query>(std::move(raw));
                }));
   return td::Status::OK();

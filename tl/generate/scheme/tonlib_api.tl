@@ -805,8 +805,8 @@ raw.getAccountState account_address:accountAddress = raw.FullAccountState;
 raw.getTransactions private_key:InputKey account_address:accountAddress from_transaction_id:internal.transactionId = raw.Transactions;
 raw.sendMessage body:bytes  = Ok;
 raw.createAndSendMessage destination:accountAddress initial_account_state:bytes data:bytes = Ok;
-raw.createQuery destination:accountAddress init_code:bytes init_data:bytes body:bytes = query.Info;
-raw.createQueryTvc destination:accountAddress init_state:bytes body:bytes = query.Info;
+raw.createQuery destination:accountAddress timeout:int32 init_code:bytes init_data:bytes body:bytes = query.Info;
+raw.createQueryTvc destination:accountAddress timeout:int32 init_state:bytes body:bytes = query.Info;
 
 sync = ton.BlockIdExt;
 
