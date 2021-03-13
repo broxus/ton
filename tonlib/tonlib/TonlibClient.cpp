@@ -1916,7 +1916,7 @@ class GenericCreateSendGrams : public TonlibQueryActor {
         *message.data_,                        //
         td::overloaded(                        //
             [&](tonlib_api::msg_dataRaw& text) {
-              TRY_RESULT(body, vm::std_boc_deserialize(text.body_));
+              TRY_RESULT(body, vm::std_boc_deserialize(text.body_, true));
               TRY_RESULT(init_state, vm::std_boc_deserialize(text.init_state_, true));
               res.body = std::move(body);
               res.init_state = std::move(init_state);
