@@ -1010,7 +1010,6 @@ bool TonlibClient::is_static_request(td::int32 id) {
     case tonlib_api::ftabi_unpackFromCell::ID:
     case tonlib_api::ftabi_packPublicKey::ID:
     case tonlib_api::ftabi_unpackPublicKey::ID:
-    case tonlib_api::ftabi_extractPublicKeyFromTvc::ID:
     case tonlib_api::ftabi_extractPublicKeyFromData::ID:
       return true;
     default:
@@ -3157,8 +3156,7 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
   if (public_key_r.is_error()) {
     return status_to_tonlib_api(public_key_r.move_as_error());
   }
-  const auto& key = public_key_r.ok().key;
-  return tonlib_api::make_object<tonlib_api::ftabi_unpackedPublicKey>();
+  return tonlib_api::make_object<tonlib_api::ftabi_unpackedPublicKey>(public_key_r.move_as_ok().key);
 }
 
 auto convert_public_key(td::Result<td::Ed25519::PublicKey>&& result) -> tonlib_api_ptr<tonlib_api::Object> {
@@ -3171,18 +3169,6 @@ auto convert_public_key(td::Result<td::Ed25519::PublicKey>&& result) -> tonlib_a
     return status_to_tonlib_api(result.move_as_error());
   }
   return tonlib_api::make_object<tonlib_api::ftabi_packedPublicKey>(converted_r.move_as_ok().serialize(true));
-}
-
-tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(
-    const tonlib_api::ftabi_extractPublicKeyFromTvc& request) {
-  if (request.tvc_.empty()) {
-    return status_to_tonlib_api(TonlibError::EmptyField("tvc"));
-  }
-  auto tvc_r = from_bytes(request.tvc_);
-  if (tvc_r.is_error()) {
-    return status_to_tonlib_api(tvc_r.move_as_error());
-  }
-  return convert_public_key(ftabi::extract_public_key_from_tvc(tvc_r.ok()));
 }
 
 tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(
@@ -4107,11 +4093,6 @@ td::Status TonlibClient::do_request(const tonlib_api::ftabi_packPublicKey& reque
 }
 template <class P>
 td::Status TonlibClient::do_request(const tonlib_api::ftabi_unpackPublicKey& request, P&&) {
-  UNREACHABLE();
-  return TonlibError::Internal();
-}
-template <class P>
-td::Status TonlibClient::do_request(const tonlib_api::ftabi_extractPublicKeyFromTvc& request, P&&) {
   UNREACHABLE();
   return TonlibError::Internal();
 }

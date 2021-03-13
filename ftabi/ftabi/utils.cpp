@@ -1323,25 +1323,12 @@ auto generate_state_init(const td::Ref<vm::Cell>& tvc, const td::Ed25519::Public
   return new_state;
 }
 
-auto extract_public_key_from_tvc(const td::Ref<vm::Cell>& tvc) -> td::Result<td::Ed25519::PublicKey> {
-  block::gen::StateInit::Record state_init;
-  if (!tlb::unpack_cell(tvc, state_init)) {
-    return td::Status::Error("Failed to unpack state_init");
-  }
-  return extract_public_key_from_data(state_init.data->prefetch_ref());
-}
-
 auto extract_public_key_from_data(const td::Ref<vm::Cell>& data) -> td::Result<td::Ed25519::PublicKey> {
-  vm::Dictionary map{data, 64};
-  td::BitArray<64> key{};
-  auto item = map.lookup_ref(key);
-  if (item.is_null()) {
-    return td::Status::Error("Failed to extract public key from data");
-  }
-  auto cs = vm::load_cell_slice(item);
+  auto data_cs = vm::load_cell_slice(data);
+  // read pubkey header
   td::SecureString result(32);
-  if (!cs.fetch_bytes(result.as_mutable_slice())) {
-    return td::Status::Error("Failed to extract public key from data item");
+  if (!data_cs.fetch_bytes(result.as_mutable_slice())) {
+    return td::Status::Error("Failed to extract public key from data");
   }
   return td::Ed25519::PublicKey{std::move(result)};
 }

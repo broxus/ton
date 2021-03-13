@@ -184,7 +184,6 @@ class TonlibClient : public td::actor::Actor {
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_packPublicKey& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_unpackPublicKey& request);
 
-  static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_extractPublicKeyFromTvc& request);
   static object_ptr<tonlib_api::Object> do_static_request(const tonlib_api::ftabi_extractPublicKeyFromData& request);
 
   template <class P>
@@ -254,8 +253,6 @@ class TonlibClient : public td::actor::Actor {
   td::Status do_request(const tonlib_api::ftabi_packPublicKey& request, P&&);
   template <class P>
   td::Status do_request(const tonlib_api::ftabi_unpackPublicKey& request, P&&);
-  template <class P>
-  td::Status do_request(const tonlib_api::ftabi_extractPublicKeyFromTvc& request, P&&);
   template <class P>
   td::Status do_request(const tonlib_api::ftabi_extractPublicKeyFromData& request, P&&);
 
