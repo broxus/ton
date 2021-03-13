@@ -736,6 +736,8 @@ struct TvmOutput {
 
 auto generate_state_init(const td::Ref<vm::Cell>& tvc, const td::Ed25519::PublicKey& public_key)
     -> td::Result<td::Ref<vm::Cell>>;
+auto extract_public_key_from_tvc(const td::Ref<vm::Cell>& tvc) -> td::Result<td::Ed25519::PublicKey>;
+auto extract_public_key_from_data(const td::Ref<vm::Cell>& data) -> td::Result<td::Ed25519::PublicKey>;
 
 auto unpack_result_message_body(vm::CellSlice& cs) -> td::Result<td::Ref<vm::CellSlice>>;
 

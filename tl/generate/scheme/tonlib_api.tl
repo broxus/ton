@@ -861,6 +861,9 @@ ftabi.unpackFromCell cell:tvm.Cell params:vector<ftabi.Param> = ftabi.DecodedOut
 ftabi.packPublicKey public_key:string = ftabi.PackedPublicKey;
 ftabi.unpackPublicKey public_key:string = ftabi.UnpackedPublicKey;
 
+ftabi.extractPublicKeyFromTvc tvc:bytes = ftabi.PackedPublicKey;
+ftabi.extractPublicKeyFromData data:bytes = ftabi.PackedPublicKey;
+
 dns.resolve account_address:accountAddress name:string category:int32 ttl:int32 = dns.Resolved;
 
 pchan.signPromise input_key:InputKey promise:pchan.promise = pchan.Promise;
