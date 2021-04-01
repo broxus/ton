@@ -193,6 +193,21 @@ auto parse_values(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_Value>>& va
   return std::move(result);
 }
 
+auto parse_state_init_values(const std::vector<tonlib_api_ptr<tonlib_api::ftabi_stateInitValue>>& values)
+    -> td::Result<std::vector<StateInitValue>> {
+  std::vector<StateInitValue> result{};
+  result.reserve(values.size());
+  for (auto& item : values) {
+    if (item == nullptr || item->value_ == nullptr) {
+      return TonlibError::EmptyField("values[i]");
+    }
+
+    TRY_RESULT(value, parse_value(*item->value_))
+    result.emplace_back(std::make_pair(static_cast<uint32_t>(item->key_), std::move(value)));
+  }
+  return std::move(result);
+}
+
 auto parse_named_value(tonlib_api::ftabi_namedValue& named_value)
     -> td::Result<std::pair<std::string, ftabi::ValueRef>> {
   TRY_RESULT(value, parse_value(*named_value.value_))

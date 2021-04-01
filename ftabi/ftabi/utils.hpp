@@ -736,6 +736,8 @@ struct TvmOutput {
 
 auto generate_state_init(const td::Ref<vm::Cell>& tvc, const td::Ed25519::PublicKey& public_key)
     -> td::Result<td::Ref<vm::Cell>>;
+auto generate_state_init(const td::Ref<vm::Cell>& tvc, const std::vector<std::pair<uint32_t, ValueRef>>& init_data)
+    -> td::Result<td::Ref<vm::Cell>>;
 
 auto extract_public_key_from_data(const td::Ref<vm::Cell>& data) -> td::Result<td::Ed25519::PublicKey>;
 

@@ -1323,6 +1323,40 @@ auto generate_state_init(const td::Ref<vm::Cell>& tvc, const td::Ed25519::Public
   return new_state;
 }
 
+auto generate_state_init(const td::Ref<vm::Cell>& tvc, const std::vector<std::pair<uint32_t, ValueRef>>& init_data)
+    -> td::Result<td::Ref<vm::Cell>> {
+  block::gen::StateInit::Record state_init;
+  if (!tlb::unpack_cell(tvc, state_init)) {
+    return td::Status::Error("Failed to unpack state_init");
+  }
+
+  try {
+    auto data = vm::load_cell_slice_ref(state_init.data->prefetch_ref());
+    vm::Dictionary map{data, 64};
+    td::BitArray<64> key{};
+
+    for (const auto &[index, value] : init_data) {
+      TRY_RESULT(serialized, value->serialize())
+      TRY_RESULT(value_cb, pack_cells_into_chain(std::move(serialized)))
+      key.store_ulong(static_cast<uint64_t>(index));
+      map.set(key, vm::load_cell_slice_ref(value_cb), vm::Dictionary::SetMode::Replace);
+    }
+
+    vm::CellBuilder cb{};
+    auto packed_map = cb.store_ones(1).store_ref(map.get_root_cell()).finalize();
+    state_init.data = cb.store_ones(1).store_ref(packed_map).as_cellslice_ref();
+  } catch (const vm::VmError& e) {
+    return td::Status::Error(PSLICE() << "VM error: " << e.as_status().message());
+  }
+
+  td::Ref<vm::Cell> new_state;
+  if (!tlb::pack_cell(new_state, state_init)) {
+    return td::Status::Error("Failed to pack state_init");
+  }
+
+  return new_state;
+}
+
 auto extract_public_key_from_data(const td::Ref<vm::Cell>& data) -> td::Result<td::Ed25519::PublicKey> {
   auto data_cs = vm::load_cell_slice(data);
   // read pubkey header

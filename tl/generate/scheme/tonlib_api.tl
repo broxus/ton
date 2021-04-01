@@ -163,6 +163,7 @@ ftabi.valuePublicKey param:ftabi.Param value:secureString = ftabi.Value;
 
 ftabi.namedParam name:string param:ftabi.Param = ftabi.NamedParam;
 ftabi.namedValue name:string value:ftabi.Value = ftabi.NamedValue;
+ftabi.stateInitValue key:int32 value:ftabi.Value = ftabi.StateInitValue;
 
 ftabi.functionId id:int32 = ftabi.FunctionId;
 ftabi.functionSignature data:string = ftabi.FunctionSignature;
@@ -855,6 +856,7 @@ ftabi.runLocalCachedSplit address:AccountAddress gen_lt:int64 gen_utime:int32 ba
 ftabi.decodeOutput function:ftabi.Function data:bytes = ftabi.DecodedOutput;
 ftabi.decodeInput function:ftabi.Function data:bytes internal:Bool = ftabi.DecodedInput;
 ftabi.generateStateInit tvc:bytes public_key:bytes = ftabi.StateInit;
+ftabi.generateExtendedStateInit tvc:bytes values:vector<ftabi.StateInitValue> = ftabi.StateInit;
 ftabi.packIntoCell values:vector<ftabi.Value> = tvm.Cell;
 ftabi.unpackFromCell cell:tvm.Cell params:vector<ftabi.Param> = ftabi.DecodedOutput;
 

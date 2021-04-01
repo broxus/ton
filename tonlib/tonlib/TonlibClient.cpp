@@ -1006,6 +1006,7 @@ bool TonlibClient::is_static_request(td::int32 id) {
     case tonlib_api::ftabi_createFunction::ID:
     case tonlib_api::ftabi_getFunction::ID:
     case tonlib_api::ftabi_generateStateInit::ID:
+    case tonlib_api::ftabi_generateExtendedStateInit::ID:
     case tonlib_api::ftabi_packIntoCell::ID:
     case tonlib_api::ftabi_unpackFromCell::ID:
     case tonlib_api::ftabi_packPublicKey::ID:
@@ -3853,6 +3854,27 @@ tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_
   return result.move_as_ok();
 }
 
+auto generate_extended_state_init(const tonlib_api::ftabi_generateExtendedStateInit& request)
+-> td::Result<tonlib_api_ptr<tonlib_api::ftabi_stateInit>> {
+  TRY_RESULT(tvc, vm::std_boc_deserialize(request.tvc_))
+  TRY_RESULT(values, parse_state_init_values(request.values_));
+
+  TRY_RESULT(state_init, ftabi::generate_state_init(tvc, values));
+
+  const auto hash = state_init->get_hash();
+  TRY_RESULT(data, vm::std_boc_serialize(state_init))
+
+  return tonlib_api::make_object<tonlib_api::ftabi_stateInit>(data.as_slice().str(), hash.as_slice().str());
+}
+
+tonlib_api_ptr<tonlib_api::Object> TonlibClient::do_static_request(const tonlib_api::ftabi_generateExtendedStateInit& request) {
+  auto result = generate_extended_state_init(request);
+  if (result.is_error()) {
+    return status_to_tonlib_api(result.move_as_error());
+  }
+  return result.move_as_ok();
+}
+
 auto pack_into_cell(const tonlib_api::ftabi_packIntoCell& request) -> td::Result<tonlib_api_ptr<tonlib_api::tvm_cell>> {
   TRY_RESULT(values, parse_values(request.values_))
   TRY_RESULT(cell, ftabi::pack_into_cell(values))
@@ -4073,6 +4095,11 @@ td::Status TonlibClient::do_request(const tonlib_api::ftabi_decodeInput& request
 }
 template <class P>
 td::Status TonlibClient::do_request(const tonlib_api::ftabi_generateStateInit& request, P&&) {
+  UNREACHABLE();
+  return TonlibError::Internal();
+}
+template <class P>
+td::Status TonlibClient::do_request(const tonlib_api::ftabi_generateExtendedStateInit& request, P&&) {
   UNREACHABLE();
   return TonlibError::Internal();
 }
