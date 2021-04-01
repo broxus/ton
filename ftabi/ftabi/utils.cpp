@@ -1333,13 +1333,14 @@ auto generate_state_init(const td::Ref<vm::Cell>& tvc, const std::vector<std::pa
   try {
     auto data = vm::load_cell_slice_ref(state_init.data->prefetch_ref());
     vm::Dictionary map{data, 64};
-    td::BitArray<64> key{};
 
     for (const auto &[index, value] : init_data) {
       TRY_RESULT(serialized, value->serialize())
       TRY_RESULT(value_cb, pack_cells_into_chain(std::move(serialized)))
+
+      td::BitArray<64> key{};
       key.store_ulong(static_cast<uint64_t>(index));
-      map.set(key, vm::load_cell_slice_ref(value_cb), vm::Dictionary::SetMode::Replace);
+      map.set(key, vm::load_cell_slice_ref(value_cb), vm::Dictionary::SetMode::Set);
     }
 
     vm::CellBuilder cb{};
