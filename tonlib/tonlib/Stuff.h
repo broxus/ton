@@ -103,6 +103,8 @@ auto from_tonlib_api(tonlib_api::inputKeyRegular& input_key)
     -> td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>>;
 auto from_tonlib_api(tonlib_api::inputKeyFtabi& input_key)
     -> td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>>;
+auto from_tonlib_api(tonlib_api::inputKeyLedger& input_key)
+    -> td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>>;
 auto from_tonlib_api(tonlib_api::tvm_StackEntry& entry) -> td::Result<vm::StackEntry>;
 
 auto to_lite_api(const block::StdAddress& addr) -> lite_api_ptr<lite_api::liteServer_accountId>;

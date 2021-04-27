@@ -114,7 +114,8 @@ void WalletInterface::store_gift_message(vm::CellBuilder &cb, const Gift &gift) 
       /*header*/ {}, 
       {inputs}, 
       /*internal*/ true, 
-      td::optional<td::Ed25519::PrivateKey>{});
+      td::optional<td::Ed25519::PrivateKey>{},
+      td::optional<ftabi::FunctionCall::LedgerKey>{});
 
     if (body_r.is_error()) {
       std::cout << body_r.move_as_error().message().c_str() << std::endl;

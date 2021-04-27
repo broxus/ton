@@ -13,6 +13,8 @@
 #include <vm/vm.h>
 #include <tl/generate/auto/tl/tonlib_api.h>
 
+#include "ledgercpp/ledger.hpp"
+
 namespace ftabi {
 namespace tonlib_api = ton::tonlib_api;
 constexpr static uint32_t SIGNATURE_LENGTH = 64;
@@ -1113,15 +1115,33 @@ FunctionCall::FunctionCall(HeaderValues&& header, InputValues&& inputs, bool int
     : header{std::move(header)}, inputs{std::move(inputs)}, internal{internal}, private_key{std::move(private_key)} {
 }
 
+FunctionCall::FunctionCall(HeaderValues&& header, InputValues&& inputs, bool internal,
+                           td::optional<td::Ed25519::PrivateKey>&& private_key, td::optional<LedgerKey>&& ledger_key)
+    : header{std::move(header)}
+    , inputs{std::move(inputs)}
+    , internal{internal}
+    , private_key{std::move(private_key)}
+    , ledger_key{std::move(ledger_key)} {
+}
+
 auto FunctionCall::make_copy() const -> FunctionCall* {
   auto header_copy = header;
   auto inputs_copy = inputs;
   td::optional<td::Ed25519::PrivateKey> private_key_copy{};
+  td::optional<LedgerKey> ledger_key_copy{};
+
   if (private_key) {
     private_key_copy =
         td::optional<td::Ed25519::PrivateKey>(td::Ed25519::PrivateKey(private_key.value().as_octet_string().copy()));
   }
-  return new FunctionCall{std::move(header_copy), std::move(inputs_copy), internal, std::move(private_key_copy)};
+
+  if (ledger_key) {
+    ledger_key_copy =
+        td::optional<LedgerKey>(LedgerKey{ledger_key.value().account,
+                                          td::Ed25519::PublicKey(ledger_key.value().public_key.as_octet_string().copy())});
+  }
+
+  return new FunctionCall{std::move(header_copy), std::move(inputs_copy), internal, std::move(private_key_copy), std::move(ledger_key_copy)};
 }
 
 Function::Function(std::string&& name, HeaderParams&& header, InputParams&& inputs, OutputParams&& outputs,
@@ -1147,22 +1167,38 @@ Function::Function(std::string&& name, HeaderParams&& header, InputParams&& inpu
 }
 
 auto Function::encode_input(FunctionCall& call) const -> td::Result<BuilderData> {
-  return encode_input(call.header, call.inputs, call.internal, call.private_key);
+  return encode_input(call.header, call.inputs, call.internal, call.private_key, call.ledger_key);
 }
 
 auto Function::encode_input(const td::Ref<FunctionCall>& call) const -> td::Result<BuilderData> {
-  return encode_input(call->header, call->inputs, call->internal, call->private_key);
+  return encode_input(call->header, call->inputs, call->internal, call->private_key, call->ledger_key);
 }
 
 auto Function::encode_input(const HeaderValues& header, const InputValues& inputs, bool internal,
-                            const td::optional<td::Ed25519::PrivateKey>& private_key) const -> td::Result<BuilderData> {
-  TRY_RESULT(unsigned_call, create_unsigned_call(header, inputs, internal, private_key))
+                            const td::optional<td::Ed25519::PrivateKey>& private_key,
+                            const td::optional<FunctionCall::LedgerKey>& ledger_key) const -> td::Result<BuilderData> {
+  TRY_RESULT(unsigned_call, create_unsigned_call(header, inputs, internal, private_key, ledger_key))
   auto message = std::move(unsigned_call.first);
   const auto& hash = unsigned_call.second;
 
   if (!internal) {
     if (private_key) {
       TRY_RESULT(signature, private_key.value().sign(hash.as_slice()))
+      TRY_RESULT_ASSIGN(message,
+                        fill_signature(td::optional<td::SecureString>{std::move(signature)}, std::move(message)))
+    } else if (ledger_key) {
+      ledger::Ledger ledger_dev;
+      auto res = ledger_dev.open();
+      if (res != ledger::Error::SUCCESS) {
+        return td::Status::Error(ledger::error_message(res));
+      }
+      auto [err, sign] = ledger_dev.sign(ledger_key.value().account,
+                                         std::vector<uint8_t>(hash.as_slice().data(), hash.as_slice().data() + hash.as_slice().size()));
+      if (err != ledger::Error::SUCCESS) {
+        return td::Status::Error(ledger::error_message(res));
+      }
+
+      td::SecureString signature(td::Slice(sign.data(), sign.size()));
       TRY_RESULT_ASSIGN(message,
                         fill_signature(td::optional<td::SecureString>{std::move(signature)}, std::move(message)))
     } else {
@@ -1200,7 +1236,8 @@ auto Function::decode_output(SliceData&& data) const -> td::Result<std::vector<V
 }
 
 auto Function::encode_header(const HeaderValues& header, bool internal,
-                             const td::optional<td::Ed25519::PrivateKey>& private_key) const
+                             const td::optional<td::Ed25519::PrivateKey>& private_key,
+                             const td::optional<FunctionCall::LedgerKey>& ledger_key) const
     -> td::Result<std::vector<BuilderData>> {
   std::vector<BuilderData> result{};
   if (!internal) {
@@ -1214,6 +1251,8 @@ auto Function::encode_header(const HeaderValues& header, bool internal,
         if (name == "pubkey" && param->is<ParamPublicKey>() && private_key) {
           TRY_RESULT(public_key, private_key.value().get_public_key())
           default_value = ValueRef{ValuePublicKey{param, public_key.as_octet_string()}};
+        } else if (name == "pubkey" && param->is<ParamPublicKey>() && ledger_key) {
+          default_value = ValueRef{ValuePublicKey{param, ledger_key.value().public_key.as_octet_string()}};
         } else {
           TRY_RESULT_ASSIGN(default_value, param->default_value());
         }
@@ -1241,19 +1280,20 @@ auto Function::encode_header(const HeaderValues& header, bool internal,
 }
 
 auto Function::create_unsigned_call(const HeaderValues& header, const InputValues& inputs, bool internal,
-                                    const td::optional<td::Ed25519::PrivateKey>& private_key) const
+                                    const td::optional<td::Ed25519::PrivateKey>& private_key,
+                                    const td::optional<FunctionCall::LedgerKey>& ledger_key) const
     -> td::Result<std::pair<BuilderData, vm::CellHash>> {
   if (!check_params(inputs, inputs_)) {
     return td::Status::Error("invalid inputs");
   }
 
-  TRY_RESULT(cells, encode_header(header, internal, private_key))
+  TRY_RESULT(cells, encode_header(header, internal, private_key, ledger_key))
 
   uint32_t remove_bits = 1;
 
   if (!internal) {
     vm::CellBuilder cb{};
-    if (private_key) {
+    if (private_key || ledger_key) {
       uint8_t signature_buffer[SIGNATURE_LENGTH] = {};
       CHECK(cb.store_ones_bool(1) && cb.store_bytes_bool(signature_buffer, SIGNATURE_LENGTH))
       remove_bits += SIGNATURE_LENGTH * 8;

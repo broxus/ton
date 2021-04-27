@@ -37,6 +37,7 @@ class KeyStorage {
     Fake,
     Original,
     Ftabi,
+    Ledger,
   };
   struct InputKey {
     Key key;
