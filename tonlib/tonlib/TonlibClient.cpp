@@ -61,6 +61,8 @@
 
 #include "common/util.h"
 
+#include "ledgercpp/ledger.hpp"
+
 namespace tonlib {
 namespace int_api {
 struct GetAccountState {
@@ -3601,6 +3603,50 @@ td::Status TonlibClient::do_request(const tonlib_api::changeLocalPassword& reque
   TRY_RESULT(key,
              key_storage_.change_local_password(type, std::move(input_key), std::move(request.new_local_password_)));
   promise.set_value(tonlib_api::make_object<tonlib_api::key>(key.public_key.as_slice().str(), std::move(key.secret)));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::getLedgerKeys& request,
+                                    td::Promise<object_ptr<tonlib_api::keys>>&& promise) {
+  ledger::Ledger ledger_dev;
+  auto res = ledger_dev.open();
+  if (res != ledger::Error::SUCCESS) {
+    return TonlibError::Internal(ledger::error_message(res));
+  }
+  auto keys = tonlib_api::make_object<tonlib_api::keys>();
+  for (auto i = request.begin_; i < request.range_; i++) {
+    auto [err, pubkey] = ledger_dev.get_public_key(i);
+    if (err != ledger::Error::SUCCESS) {
+      return TonlibError::Internal(ledger::error_message(err));
+    }
+    TRY_RESULT(key_bytes, public_key_from_bytes(td::Slice(pubkey.data(), pubkey.size())));
+    auto key = tonlib_api::make_object<tonlib_api::key>(key_bytes.serialize(true), td::SecureString{td::to_string(i)});
+    keys->keys_.push_back(std::move(key));
+  }
+  promise.set_value(std::move(keys));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::checkLedgerKey& request,
+                                    td::Promise<object_ptr<tonlib_api::ok>>&& promise) {
+  if (!request.key_) {
+    return TonlibError::EmptyField("public_key");
+  }
+  ledger::Ledger ledger_dev;
+  auto res = ledger_dev.open();
+  if (res != ledger::Error::SUCCESS) {
+    return TonlibError::Internal(ledger::error_message(res));
+  }
+  auto [err, pubkey] = ledger_dev.get_public_key(td::to_integer<int>(request.key_->secret_));
+  if (err != ledger::Error::SUCCESS) {
+    return TonlibError::Internal(ledger::error_message(err));
+  }
+  TRY_RESULT(requested_key_bytes, get_public_key(request.key_->public_key_));
+  TRY_RESULT(ledger_key_bytes, public_key_from_bytes(td::Slice(pubkey.data(), pubkey.size())));
+  if (requested_key_bytes.key != ledger_key_bytes.key) {
+    return TonlibError::InvalidPublicKey();
+  }
+  promise.set_value(tonlib_api::make_object<tonlib_api::ok>());
   return td::Status::OK();
 }
 

@@ -31,11 +31,14 @@ options.info config_info:options.configInfo = options.Info;
 key public_key:string secret:secureBytes = Key;
 inputKeyRegular key:key local_password:secureBytes = InputKey;
 inputKeyFtabi key:key local_password:secureBytes = InputKey;
+inputKeyLedger key:key local_password:secureBytes = InputKey;
 inputKeyFake = InputKey;
 exportedKey word_list:vector<secureString> = ExportedKey;
 exportedPemKey pem:secureString = ExportedPemKey;
 exportedEncryptedKey data:secureBytes = ExportedEncryptedKey;
 exportedUnencryptedKey data:secureBytes = ExportedUnencryptedKey;
+
+keys keys:vector<key> = Keys;
 
 keyPair public_key:bytes private_key:secureBytes mnemonic:vector<secureString> = KeyPair;
 
@@ -789,6 +792,9 @@ importPemKey local_password:secureBytes key_password:secureBytes exported_key:ex
 importEncryptedKey local_password:secureBytes key_password:secureBytes exported_encrypted_key:exportedEncryptedKey = Key;
 importUnencryptedKey local_password:secureBytes  exported_unencrypted_key:exportedUnencryptedKey = Key;
 changeLocalPassword input_key:InputKey new_local_password:secureBytes = Key;
+
+getLedgerKeys begin:int32 range:int32 = Keys;
+checkLedgerKey key:key = Ok;
 
 generateKeyPair word_count:int32 password:secureString entropy:secureString = KeyPair;
 

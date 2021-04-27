@@ -277,11 +277,20 @@ auto parse_function_call(KeyStorage& key_storage, const ftabi::Function& functio
             }
             TRY_RESULT(parsed_key, from_tonlib_api(*value.key_));
             auto [key_type, input_key] = std::move(parsed_key);
-            TRY_RESULT(key, key_storage.load_private_key(key_type, std::move(input_key)))
+
+            td::optional<td::Ed25519::PrivateKey> private_key{};
+            td::optional<ftabi::FunctionCall::LedgerKey> ledger_key{};
+            if (key_type != KeyStorage::InputKeyType::Ledger) {
+              TRY_RESULT(key, key_storage.load_private_key(key_type, std::move(input_key)))
+              private_key = td::optional<td::Ed25519::PrivateKey>(td::Ed25519::PrivateKey(std::move(key.private_key)));
+            } else {
+              ledger_key = td::optional<ftabi::FunctionCall::LedgerKey>(ftabi::FunctionCall::LedgerKey{td::to_integer<int>(input_key.key.secret),
+                      td::Ed25519::PublicKey(std::move(input_key.key.public_key))});
+            }
 
             return td::Ref<ftabi::FunctionCall>{ftabi::FunctionCall(
                 std::move(headerValues), std::move(inputValues), false,
-                td::optional<td::Ed25519::PrivateKey>{td::Ed25519::PrivateKey(std::move(key.private_key))})};
+                std::move(private_key), std::move(ledger_key))};
           },
           [](const tonlib_api::ftabi_functionCallInternal& value) -> ReturnType {
             TRY_RESULT(inputValues, parse_values(value.input_values_))

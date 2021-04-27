@@ -330,6 +330,11 @@ class TonlibClient : public td::actor::Actor {
   td::Status do_request(const tonlib_api::changeLocalPassword& request,
                         td::Promise<object_ptr<tonlib_api::key>>&& promise);
 
+  td::Status do_request(const tonlib_api::getLedgerKeys& request,
+                        td::Promise<object_ptr<tonlib_api::keys>>&& promise);
+  td::Status do_request(const tonlib_api::checkLedgerKey& request,
+                        td::Promise<object_ptr<tonlib_api::ok>>&& promise);
+
   td::Status do_request(const tonlib_api::onLiteServerQueryResult& request,
                         td::Promise<object_ptr<tonlib_api::ok>>&& promise);
   td::Status do_request(const tonlib_api::onLiteServerQueryError& request,
