@@ -119,6 +119,9 @@ message("Add crc32c")
 add_subdirectory(third-party/crc32c EXCLUDE_FROM_ALL)
 set(CRC32C_FOUND 1)
 
+message("Add ledgercpp")
+add_subdirectory(third-party/ledgercpp EXCLUDE_FROM_ALL)
+
 if (TON_USE_ROCKSDB)
   if (ANDROID)
     set(PORTABLE ON CACHE BOOL "portable")

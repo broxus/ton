@@ -274,6 +274,10 @@ td::Result<KeyStorage::PrivateKey> KeyStorage::load_private_key(InputKeyType typ
       private_key.private_key = decrypted_key.private_key.as_octet_string();
       break;
     }
+    case InputKeyType::Ledger: {
+      private_key.private_key = input_key.key.secret.copy();
+      break;
+    }
     default:
       UNREACHABLE();
   }

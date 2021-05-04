@@ -61,6 +61,8 @@
 
 #include "common/util.h"
 
+#include "ledgercpp/ledger.hpp"
+
 namespace tonlib {
 namespace int_api {
 struct GetAccountState {
@@ -90,6 +92,21 @@ struct RemoteRunSmcMethodReturnType {
 struct GetPrivateKey {
   std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey> input_key;
   using ReturnType = KeyStorage::PrivateKey;
+};
+struct GetLedgerKeys {
+  int begin;
+  int range;
+  using ReturnType = TonlibClient::future<tonlib_api::keys>;
+};
+struct CheckLedgerKey {
+  td::string public_key;
+  td::SecureString secret;
+  using ReturnType = TonlibClient::future<tonlib_api::ok>;
+};
+struct CreateMessageBody {
+  td::Ref<ftabi::Function> function;
+  td::Ref<ftabi::FunctionCall> function_call;
+  using ReturnType = TonlibClient::future<tonlib_api::ftabi_messageBody>;
 };
 struct GetDnsResolver {
   using ReturnType = block::StdAddress;
@@ -1834,6 +1851,188 @@ td::Status TonlibClient::do_request(const tonlib_api::findTransaction& request,
   return td::Status::OK();
 }
 
+class GetLedgerKeys : public TonlibQueryActor {
+ public:
+  GetLedgerKeys(td::actor::ActorShared<TonlibClient> client, int begin, int range,
+                td::Promise<TonlibClient::object_ptr<tonlib_api::keys>>&& promise)
+      : TonlibQueryActor(std::move(client)), begin_(begin), range_(range), promise_(std::move(promise)) {
+  }
+
+ private:
+  int begin_, range_ = 0;
+
+  td::Promise<TonlibClient::object_ptr<tonlib_api::keys>> promise_;
+  std::optional<TonlibClient::future<tonlib_api::keys>> future_;
+
+  void check(td::Status status) {
+    if (status.is_error()) {
+      promise_.set_error(std::move(status));
+      return stop();
+    }
+  }
+
+  void start_up() override {
+    check(do_start_up());
+  }
+
+  void alarm() override {
+    if (future_ && future_->wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+      auto r_future = future_->get();
+      if (r_future.is_error()) {
+        promise_.set_error(r_future.move_as_error());
+        return stop();
+      }
+      promise_.set_value(r_future.move_as_ok());
+      return stop();
+    } else {
+      alarm_timestamp() = td::Timestamp::in(0.1);
+    }
+  }
+
+  void hangup() override {
+    check(TonlibError::Cancelled());
+  }
+
+  td::Status do_start_up() {
+    send_query(int_api::GetLedgerKeys{begin_, range_},
+               promise_send_closure(td::actor::actor_id(this),&GetLedgerKeys::on_get_keys));
+    alarm_timestamp() = td::Timestamp::in(0.1);
+    return td::Status::OK();
+  }
+
+  void on_get_keys(td::Result<TonlibClient::future<tonlib_api::keys>> r_ledgerKeys) {
+    check(do_on_get_keys(std::move(r_ledgerKeys)));
+  }
+
+  td::Status do_on_get_keys(td::Result<TonlibClient::future<tonlib_api::keys>> r_ledgerKeys) {
+    TRY_RESULT(future, std::move(r_ledgerKeys));
+    future_ = std::move(future);
+    return td::Status::OK();
+  }
+};
+
+class CheckLedgerKey : public TonlibQueryActor {
+ public:
+  CheckLedgerKey(td::actor::ActorShared<TonlibClient> client, td::string&& public_key, td::SecureString&& secret,
+                td::Promise<TonlibClient::object_ptr<tonlib_api::ok>>&& promise)
+      : TonlibQueryActor(std::move(client)), public_key_(std::move(public_key)), secret_(std::move(secret)), promise_(std::move(promise)) {
+  }
+
+ private:
+  td::string public_key_;
+  td::SecureString secret_;
+
+  td::Promise<TonlibClient::object_ptr<tonlib_api::ok>> promise_;
+  std::optional<TonlibClient::future<tonlib_api::ok>> future_;
+
+  void check(td::Status status) {
+    if (status.is_error()) {
+      promise_.set_error(std::move(status));
+      return stop();
+    }
+  }
+
+  void start_up() override {
+    check(do_start_up());
+  }
+
+  void alarm() override {
+    if (future_ && future_->wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+      auto r_future = future_->get();
+      if (r_future.is_error()) {
+        promise_.set_error(r_future.move_as_error());
+        return stop();
+      }
+      promise_.set_value(r_future.move_as_ok());
+      return stop();
+    } else {
+      alarm_timestamp() = td::Timestamp::in(0.1);
+    }
+  }
+
+  void hangup() override {
+    check(TonlibError::Cancelled());
+  }
+
+  td::Status do_start_up() {
+    send_query(int_api::CheckLedgerKey{std::move(public_key_), std::move(secret_)},
+               promise_send_closure(td::actor::actor_id(this), &CheckLedgerKey::on_check_key));
+    alarm_timestamp() = td::Timestamp::in(0.1);
+    return td::Status::OK();
+  }
+
+  void on_check_key(td::Result<TonlibClient::future<tonlib_api::ok>> r_status) {
+    check(do_on_check_key(std::move(r_status)));
+  }
+
+  td::Status do_on_check_key(td::Result<TonlibClient::future<tonlib_api::ok>> r_status) {
+    TRY_RESULT(future, std::move(r_status));
+    future_ = std::move(future);
+    return td::Status::OK();
+  }
+};
+
+class CreateMessageBody : public TonlibQueryActor {
+ public:
+  CreateMessageBody(td::actor::ActorShared<TonlibClient> client, td::Ref<ftabi::Function> function,
+                    td::Ref<ftabi::FunctionCall> function_call, td::Promise<TonlibClient::object_ptr<tonlib_api::ftabi_messageBody>>&& promise)
+      : TonlibQueryActor(std::move(client)), function_(std::move(function)), function_call_(std::move(function_call)), promise_(std::move(promise)) {
+  }
+
+ private:
+  td::Ref<ftabi::Function> function_;
+  td::Ref<ftabi::FunctionCall> function_call_;
+
+  td::Promise<TonlibClient::object_ptr<tonlib_api::ftabi_messageBody>> promise_;
+  std::optional<TonlibClient::future<tonlib_api::ftabi_messageBody>> future_;
+
+  void check(td::Status status) {
+    if (status.is_error()) {
+      promise_.set_error(std::move(status));
+      return stop();
+    }
+  }
+
+  void start_up() override {
+    check(do_start_up());
+  }
+
+  void alarm() override {
+    if (future_ && future_->wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+      auto r_future = future_->get();
+      if (r_future.is_error()) {
+        promise_.set_error(r_future.move_as_error());
+        return stop();
+      }
+      promise_.set_value(r_future.move_as_ok());
+      return stop();
+    } else {
+      alarm_timestamp() = td::Timestamp::in(0.1);
+    }
+  }
+
+  void hangup() override {
+    check(TonlibError::Cancelled());
+  }
+
+  td::Status do_start_up() {
+    send_query(int_api::CreateMessageBody{std::move(function_), std::move(function_call_)},
+               promise_send_closure(td::actor::actor_id(this), &CreateMessageBody::on_get_message));
+    alarm_timestamp() = td::Timestamp::in(0.1);
+    return td::Status::OK();
+  }
+
+  void on_get_message(td::Result<TonlibClient::future<tonlib_api::ftabi_messageBody>> r_message) {
+    check(do_on_get_message(std::move(r_message)));
+  }
+
+  td::Status do_on_get_message(td::Result<TonlibClient::future<tonlib_api::ftabi_messageBody>> r_message) {
+    TRY_RESULT(future, std::move(r_message));
+    future_ = std::move(future);
+    return td::Status::OK();
+  }
+};
+
 class GenericCreateSendGrams : public TonlibQueryActor {
  public:
   GenericCreateSendGrams(td::actor::ActorShared<TonlibClient> client, tonlib_api::createQuery query,
@@ -3075,6 +3274,12 @@ void create_message_body(KeyStorage& key_storage, const tonlib_api::ftabi_create
   promise.set_result(tonlib_api::make_object<tonlib_api::ftabi_messageBody>(str));
 }
 
+void TonlibClient::finish_create_message_body(td::Result<object_ptr<tonlib_api::ftabi_messageBody>> r_ftabi_messageBody,
+                                              td::Promise<object_ptr<tonlib_api::ftabi_messageBody>>&& promise) {
+  TRY_RESULT_PROMISE(promise, ftabi_messageBody, std::move(r_ftabi_messageBody));
+  promise.set_result(std::move(ftabi_messageBody));
+}
+
 td::Status TonlibClient::do_request(const tonlib_api::ftabi_createMessageBody& request,
                                     td::Promise<object_ptr<tonlib_api::ftabi_messageBody>>&& promise) {
   if (request.function_ == nullptr) {
@@ -3084,7 +3289,25 @@ td::Status TonlibClient::do_request(const tonlib_api::ftabi_createMessageBody& r
     return TonlibError::EmptyField("call");
   }
 
-  create_message_body(key_storage_, request, std::forward<std::decay_t<decltype(promise)>>(promise));
+  auto r_function = parse_function(*request.function_);
+  if (r_function.is_error()) {
+    promise.set_error(r_function.move_as_error());
+    return td::Status::OK();
+  }
+  auto function = r_function.move_as_ok();
+
+  auto r_function_call = parse_function_call(key_storage_, *function, request.call_);
+  if (r_function_call.is_error()) {
+    promise.set_error(r_function_call.move_as_error());
+    return td::Status::OK();
+  }
+  auto function_call = r_function_call.move_as_ok();
+
+  auto id = actor_id_++;
+  actors_[id] = td::actor::create_actor<CreateMessageBody>(
+      "CreateMessageBody", actor_shared(this, id), function, function_call,
+      promise.send_closure(actor_id(this), &TonlibClient::finish_create_message_body));
+
   return td::Status::OK();
 }
 
@@ -3604,6 +3827,41 @@ td::Status TonlibClient::do_request(const tonlib_api::changeLocalPassword& reque
   return td::Status::OK();
 }
 
+void TonlibClient::finish_get_ledger_keys(td::Result<object_ptr<tonlib_api::keys>> r_ledgerKeys,
+                                          td::Promise<object_ptr<tonlib_api::keys>>&& promise) {
+  TRY_RESULT_PROMISE(promise, ledgerKeys, std::move(r_ledgerKeys));
+  promise.set_result(std::move(ledgerKeys));
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::getLedgerKeys& request,
+                                    td::Promise<object_ptr<tonlib_api::keys>>&& promise) {
+  auto id = actor_id_++;
+  actors_[id] = td::actor::create_actor<GetLedgerKeys>(
+      "GetLedgerKeys", actor_shared(this, id), request.begin_, request.range_,
+      promise.send_closure(actor_id(this), &TonlibClient::finish_get_ledger_keys));
+  return td::Status::OK();
+}
+
+void TonlibClient::finish_check_ledger_key(td::Result<object_ptr<tonlib_api::ok>> r_status,
+                                          td::Promise<object_ptr<tonlib_api::ok>>&& promise) {
+  TRY_RESULT_PROMISE(promise, status, std::move(r_status));
+  promise.set_result(std::move(status));
+}
+
+td::Status TonlibClient::do_request(const tonlib_api::checkLedgerKey& request,
+                                    td::Promise<object_ptr<tonlib_api::ok>>&& promise) {
+  if (!request.key_) {
+    return TonlibError::EmptyField("public_key");
+  }
+
+  auto id = actor_id_++;
+  actors_[id] = td::actor::create_actor<CheckLedgerKey>(
+      "CheckLedgerKey", actor_shared(this, id),
+      std::move(request.key_->public_key_), std::move(request.key_->secret_),
+      promise.send_closure(actor_id(this), &TonlibClient::finish_check_ledger_key));
+  return td::Status::OK();
+}
+
 td::Status TonlibClient::do_request(const tonlib_api::onLiteServerQueryResult& request,
                                     td::Promise<object_ptr<tonlib_api::ok>>&& promise) {
   if (ext_client_outbound_.empty()) {
@@ -3918,6 +4176,109 @@ td::Status TonlibClient::do_request(int_api::GetPrivateKey request, td::Promise<
   auto [key_type, input_key] = std::move(request.input_key);
   TRY_RESULT(pk, key_storage_.load_private_key(key_type, std::move(input_key)));
   promise.set_value(std::move(pk));
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(int_api::GetLedgerKeys request,
+                                    td::Promise<future<tonlib_api::keys>>&& promise) {
+  std::promise<td::Result<object_ptr<tonlib_api::keys>>> thread_promise;
+  future<tonlib_api::keys> thread_future = thread_promise.get_future();
+
+  std::thread thread([begin = request.begin, range = request.range, promise = std::move(thread_promise)]() mutable {
+    ledger::Ledger ledger_dev;
+    auto res = ledger_dev.open();
+    if (res != ledger::Error::SUCCESS) {
+      promise.set_value(td::Status::Error(ledger::error_message(res)));
+      return;
+    }
+    auto keys = tonlib_api::make_object<tonlib_api::keys>();
+    for (auto i = begin; i < range; i++) {
+      auto [err, pubkey] = ledger_dev.get_public_key(i);
+      if (err != ledger::Error::SUCCESS) {
+        promise.set_value(td::Status::Error(ledger::error_message(err)));
+        return;
+      }
+      auto key_bytes = public_key_from_bytes(td::Slice(pubkey.data(), pubkey.size()));
+      if (key_bytes.is_error()) {
+        promise.set_value(key_bytes.move_as_error());
+        return;
+      }
+      auto key = tonlib_api::make_object<tonlib_api::key>(key_bytes.move_as_ok().serialize(true),
+                                                          td::SecureString{td::to_string(i)});
+      keys->keys_.push_back(std::move(key));
+    }
+    promise.set_value(std::move(keys));
+  });
+  thread.detach();
+
+  promise.set_value(std::move(thread_future));
+
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(int_api::CheckLedgerKey request,
+                                    td::Promise<future<tonlib_api::ok>>&& promise) {
+  std::promise<td::Result<object_ptr<tonlib_api::ok>>> thread_promise;
+  future<tonlib_api::ok> thread_future = thread_promise.get_future();
+
+  std::thread thread([public_key = std::move(request.public_key), secret = std::move(request.secret), promise = std::move(thread_promise)]() mutable {
+    ledger::Ledger ledger_dev;
+    auto res = ledger_dev.open();
+    if (res != ledger::Error::SUCCESS) {
+      promise.set_value(td::Status::Error(ledger::error_message(res)));
+      return;
+    }
+    auto [err, pubkey] = ledger_dev.get_public_key(td::to_integer<int>(secret));
+    if (err != ledger::Error::SUCCESS) {
+      promise.set_value(td::Status::Error(ledger::error_message(res)));
+      return;
+    }
+    auto requested_key_bytes = get_public_key(public_key);
+    if (requested_key_bytes.is_error()) {
+      promise.set_value(requested_key_bytes.move_as_error());
+      return;
+    }
+    auto ledger_key_bytes = public_key_from_bytes(td::Slice(pubkey.data(), pubkey.size()));
+    if (ledger_key_bytes.is_error()) {
+      promise.set_value(ledger_key_bytes.move_as_error());
+      return;
+    }
+    if (requested_key_bytes.move_as_ok().key != ledger_key_bytes.move_as_ok().key) {
+      promise.set_value(TonlibError::InvalidPublicKey());
+    }
+    promise.set_value(tonlib_api::make_object<tonlib_api::ok>());
+  });
+  thread.detach();
+
+  promise.set_value(std::move(thread_future));
+
+  return td::Status::OK();
+}
+
+td::Status TonlibClient::do_request(int_api::CreateMessageBody request,
+                                    td::Promise<future<tonlib_api::ftabi_messageBody>>&& promise) {
+  std::promise<td::Result<object_ptr<tonlib_api::ftabi_messageBody>>> thread_promise;
+  future<tonlib_api::ftabi_messageBody> thread_future = thread_promise.get_future();
+
+  std::thread thread([function = request.function, function_call = request.function_call, promise = std::move(thread_promise)]() mutable {
+    auto r_body = function->encode_input(function_call);
+    if (r_body.is_error()) {
+      promise.set_value(r_body.move_as_error());
+      return;
+    }
+    auto r_serialized = vm::std_boc_serialize(r_body.move_as_ok());
+    if (r_serialized.is_error()) {
+      promise.set_value(r_serialized.move_as_error());
+      return;
+    }
+    auto serialized = r_serialized.move_as_ok();
+    std::string str{serialized.data(), serialized.size()};
+    promise.set_value(tonlib_api::make_object<tonlib_api::ftabi_messageBody>(str));
+  });
+  thread.detach();
+
+  promise.set_value(std::move(thread_future));
+
   return td::Status::OK();
 }
 

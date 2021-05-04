@@ -495,6 +495,7 @@ auto from_tonlib_api(tonlib_api::InputKey& input_key)
   return downcast_call2<td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>>>(
       input_key, td::overloaded([&](tonlib_api::inputKeyRegular& input_key) { return from_tonlib_api(input_key); },
                                 [&](tonlib_api::inputKeyFtabi& input_key) { return from_tonlib_api(input_key); },
+                                [&](tonlib_api::inputKeyLedger& input_key) { return from_tonlib_api(input_key); },
                                 [&](tonlib_api::inputKeyFake&) {
                                   return std::make_pair(KeyStorage::InputKeyType::Fake, KeyStorage::fake_input_key());
                                 }));
@@ -522,6 +523,13 @@ auto from_tonlib_api(tonlib_api::inputKeyFtabi& input_key)
   return std::make_pair(KeyStorage::InputKeyType::Ftabi,
                         KeyStorage::InputKey{{td::SecureString(key_bytes.key), std::move(input_key.key_->secret_)},
                                              std::move(input_key.local_password_)});
+}
+
+auto from_tonlib_api(tonlib_api::inputKeyLedger& input_key)
+    -> td::Result<std::pair<KeyStorage::InputKeyType, KeyStorage::InputKey>> {
+  TRY_RESULT(key_bytes, get_public_key(input_key.key_->public_key_));
+  return std::make_pair(KeyStorage::InputKeyType::Ledger,
+                        KeyStorage::InputKey{{td::SecureString(key_bytes.key), std::move(input_key.key_->secret_)}, {}});
 }
 
 auto from_tonlib_api(tonlib_api::tvm_StackEntry& entry) -> td::Result<vm::StackEntry> {

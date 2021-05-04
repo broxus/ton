@@ -652,10 +652,17 @@ auto decode_params(SliceData&& data, const std::vector<ParamRef>& params, bool a
     -> td::Result<std::vector<ValueRef>>;
 
 struct FunctionCall : public td::CntObject {
+  struct LedgerKey {
+    int account;
+    td::Ed25519::PublicKey public_key;
+  };
+
   explicit FunctionCall(InputValues&& inputs);
   explicit FunctionCall(HeaderValues&& header, InputValues&& inputs);
   explicit FunctionCall(HeaderValues&& header, InputValues&& inputs, bool internal,
                         td::optional<td::Ed25519::PrivateKey>&& private_key);
+  explicit FunctionCall(HeaderValues&& header, InputValues&& inputs, bool internal,
+                        td::optional<td::Ed25519::PrivateKey>&& private_key, td::optional<LedgerKey>&& public_key);
 
   auto make_copy() const -> FunctionCall* final;
 
@@ -663,6 +670,7 @@ struct FunctionCall : public td::CntObject {
   InputValues inputs{};
   bool internal{};
   td::optional<td::Ed25519::PrivateKey> private_key{};
+  td::optional<LedgerKey> ledger_key{};
   bool body_as_ref{};
 };
 
@@ -677,18 +685,21 @@ class Function : public td::CntObject {
   auto encode_input(FunctionCall& call) const -> td::Result<BuilderData>;
   auto encode_input(const td::Ref<FunctionCall>& call) const -> td::Result<BuilderData>;
   auto encode_input(const HeaderValues& header, const InputValues& inputs, bool internal,
-                    const td::optional<td::Ed25519::PrivateKey>& private_key) const -> td::Result<BuilderData>;
+                    const td::optional<td::Ed25519::PrivateKey>& private_key,
+                    const td::optional<FunctionCall::LedgerKey>& ledger_key) const -> td::Result<BuilderData>;
 
   auto decode_input(SliceData&& data, bool internal) const
       -> td::Result<std::pair<std::vector<ValueRef>, std::vector<ValueRef>>>;
   auto decode_output(SliceData&& data) const -> td::Result<std::vector<ValueRef>>;
 
   auto encode_header(const HeaderValues& header, bool internal,
-                     const td::optional<td::Ed25519::PrivateKey>& private_key) const
+                     const td::optional<td::Ed25519::PrivateKey>& private_key,
+                     const td::optional<FunctionCall::LedgerKey>& ledger_key) const
       -> td::Result<std::vector<BuilderData>>;
 
   auto create_unsigned_call(const HeaderValues& header, const InputValues& inputs, bool internal,
-                            const td::optional<td::Ed25519::PrivateKey>& private_key) const
+                            const td::optional<td::Ed25519::PrivateKey>& private_key,
+                            const td::optional<FunctionCall::LedgerKey>& ledger_key) const
       -> td::Result<std::pair<BuilderData, vm::CellHash>>;
 
   auto make_copy() const -> Function* final;
