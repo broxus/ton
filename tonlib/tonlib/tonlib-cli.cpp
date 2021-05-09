@@ -1746,19 +1746,23 @@ class TonlibCli : public td::actor::Actor {
 
   void export_key(std::string cmd, std::string key, size_t key_i, td::Slice password) {
     if (cmd == "exportkey") {
-      send_query(make_object<tonlib_api::exportKey>(make_object<tonlib_api::inputKeyRegular>(
-                     make_object<tonlib_api::key>(keys_[key_i].public_key, keys_[key_i].secret.copy()),
-                     td::SecureString(password))),
-                 [this, key = std::move(key), key_i](auto r_res) {
-                   if (r_res.is_error()) {
-                     td::TerminalIO::out() << "Can't export key id: [" << key << "] " << r_res.error() << "\n";
-                     return;
-                   }
-                   dump_key(key_i);
-                   for (auto& word : r_res.ok()->word_list_) {
-                     td::TerminalIO::out() << "    " << word.as_slice() << "\n";
-                   }
-                 });
+      send_query(
+          make_object<tonlib_api::exportKey>(make_object<tonlib_api::inputKeyRegular>(
+              make_object<tonlib_api::key>(keys_[key_i].public_key, keys_[key_i].secret.copy()),
+              td::SecureString(password))),
+          [this, key = std::move(key), key_i](td::Result<tonlib_api::object_ptr<tonlib_api::ExportedKey>> r_res) {
+            if (r_res.is_error()) {
+              td::TerminalIO::out() << "Can't export key id: [" << key << "] " << r_res.error() << "\n";
+              return;
+            }
+            dump_key(key_i);
+
+            downcast_call(*r_res.ok(), td::overloaded([](const auto& key) {
+              for (auto& word : key.word_list_) {
+                td::TerminalIO::out() << "    " << word.as_slice() << "\n";
+              }
+            }));
+          });
     } else {
       send_query(make_object<tonlib_api::exportPemKey>(
                      make_object<tonlib_api::inputKeyRegular>(
